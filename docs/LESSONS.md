@@ -1,4 +1,4 @@
-# Four things this project taught me
+# Six things this project taught me
 
 Each of these looked fine until something was measured or looked at. The numbers are from
 my own recordings: one person, one morning.
@@ -104,3 +104,43 @@ counted more false ones, so it is in the code, switched off, with its numbers.
 **What I keep from it:** measure the thing you care about, and let that measurement veto
 ideas that only sound right. One caution about these figures: the rule was chosen on the
 same three recordings it is reported on, so the 100% is the best case, not a promise.
+
+## 5. An optimisation that did not pay
+
+Finding the eyes with Apple Vision was most of the cost of a frame. The eyes do
+not move far in 33 ms, so the plan was simple: search every other frame, and on the frame
+in between read the same squares again. Half the searches, so close to 40% less work.
+
+The app writes its own cost to a file once a minute, so the before and after are its own
+numbers:
+
+| | Finding the eyes, per frame | Whole frame |
+|---|---|---|
+| Searching every frame | about 12 ms | about 14.5 ms |
+| Searching every other frame | about 9 ms | about 12.3 ms |
+
+15% less, not 40%. A search that runs half as often takes half as long again (about 18 ms
+instead of 12). I do not know why yet. The app still uses about 37% of one core while it
+watches, which is too much for something that runs all day.
+
+**What I keep from it:** the first README said the optimisation was "in the code, effect
+not measured yet". Had the log not existed, that sentence would have stayed, and I would
+have gone on believing a number I had only calculated.
+
+## 6. A baseline that would have hidden the problem
+
+A fixed limit ("under 10 blinks a minute is too little") suits few people, so the next
+feature was a personal one: learn the usual rate, warn at 70% of it. The first design was
+a rolling average of recent weeks.
+
+The objection came before any code was written: if someone blinks a little less every month, that
+average goes down with them, the limit goes down with it, and the app never says a word.
+It would adapt to precisely the decline it exists to catch.
+
+So the reference is measured once and kept. A decline is shown against it ("23% less than
+your reference") instead of being absorbed by it, measuring again is a button with a
+warning when the new value is lower, and the limit cannot go under a floor chosen by hand.
+A test feeds it four weeks of steady decline and checks that nothing has moved.
+
+**What I keep from it:** a measure that adapts to its subject stops measuring it. Ask of
+any "personalised" threshold what happens when the person slowly gets worse.

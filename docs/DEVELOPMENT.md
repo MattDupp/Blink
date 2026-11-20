@@ -18,7 +18,7 @@ Run `make` to list them.
 | `make train` | Train, cross-validate by session, save `models/eyenet.pt`, convert to Core ML |
 | `make evaluate` | Blink-level accuracy on the annotated captures |
 | `make monitor` | Build the menu-bar app, install it in `~/Applications`, start it |
-| `make snapshots` | Render every screen to `docs/img` with made-up data |
+| `make snapshots` | Render every screen, in every state worth looking at, to `docs/img` with made-up data |
 | `make icon` | Draw the app icon |
 | `make clean` | Remove build products. Never touches `data/` or `models/` |
 
@@ -42,16 +42,21 @@ Sources/BlinkCore/
     Model/       EyeClassifier: the Core ML model
     Detection/   EyeFinder and EyeReader (the stages for one frame), FrameSchedule,
                  BlinkDetector, BlinkStats
-    Monitoring/  MonitorStatus: what the monitor is doing, decided in one place
-    History/     minute records, the CSV stores, the reminder policy
+    Monitoring/  MonitorStatus (what the monitor is doing, decided in one place),
+                 PauseState, PresenceTracker (time at the screen), BlinkBreak
+    History/     minute records, the CSV stores, the reminder policy, Baseline (your
+                 reference and the limit), Insights (rates by hour)
     Recording/   SessionWriter and CaptureWriter: the on-disk formats
     Support/     logging, PNG and CSV files, stage timings, launch options
-Sources/BlinkUI/             the camera preview and its notes, shown by both apps
+Sources/BlinkUI/             the camera preview and its notes, shown by both apps;
+                             RateReadout, the one way the rate is written
 Sources/BlinkRecorder/       the recording app
 Sources/BlinkMonitor/
-    App/         entry point, MonitorModel (the facts), the pipeline, one small
-                 controller per subject, the screenshot renderer
-    MenuBar/     status item, panel, history and welcome windows
+    App/         entry point, MonitorModel (the facts), Preferences (every stored
+                 choice), the pipeline, one small controller per subject, the
+                 screenshot renderer
+    MenuBar/     status item, panel, and the history, settings, blink-break and
+                 welcome windows
     Diagnostics/ the diagnostics window
 Tests/BlinkCoreTests/        Swift Testing suites
 training/
@@ -85,7 +90,9 @@ The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `histo
 ## Tests
 
 - **Swift** (`Tests/BlinkCoreTests`): geometry and cropping on frames painted in memory,
-  the counting rules on hand-written streams of answers, history, reminders, file formats.
+  the counting rules on hand-written streams of answers, history, reminders, file formats,
+  pauses, time at the screen, the blink break, and the baseline, including a month of
+  decline that must move neither the reference nor the limit.
   `ModelTests` compares the app's answers with Python's on real pictures and is skipped
   when there is no trained model on the machine (as in CI).
 - **Python** (`training/tests`): the labelling rule, the loader, the manifest tool, and
@@ -103,7 +110,8 @@ The project builds with the Swift Package Manager alone. Two consequences:
   macOS ties the camera permission to that signature, so it asks again after each rebuild
   whose code changed.
 - **Some macros are unavailable** with the Command Line Tools. SwiftUI's `@State` is one,
-  so view state lives in `ObservableObject` classes. Swift Testing's macros are present
+  so view state lives in `ObservableObject` classes (`PanelState`, `SettingsState`,
+  `HistoryState`), which also lets the screenshots start a window in any state. Swift Testing's macros are present
   but need a compiler flag, which `make test` adds when Xcode is absent.
 
 ## Conventions
@@ -112,4 +120,5 @@ The project builds with the Swift Package Manager alone. Two consequences:
 - A change to the pipeline is judged on `make evaluate` and on the stage timings, not on impressions.
 - The counting rules live in `BlinkDetector.swift` and `training/detector.py`; change them together. Tests compare the numbers, and the file formats, across the two languages.
 - What a window says is derived from facts (`MonitorStatus`), never stored and kept up to date by hand.
+- A new screen or state gets a line in `Snapshots.swift`, and is looked at in light and dark before it ships.
 - Nothing personal in the repository: check `git status` before committing new files under `docs/img`.

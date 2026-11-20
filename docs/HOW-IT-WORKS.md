@@ -107,17 +107,36 @@ and fails if the two copies differ.
 The rate shown is blinks per minute **of time your eyes were watched**: time away from the
 screen does not lower it. One record per minute of the clock is appended to a CSV file.
 
-A reminder needs evidence and restraint: a rate under your threshold over the last three
+A reminder needs evidence and restraint: a rate under your limit over the last three
 minutes, with at least two of them watched, and never more than one reminder in five
 minutes.
 
-## 7. Keeping it cheap
+**The limit.** It starts at 10 blinks a minute. Once three hours have been watched over at
+least two days, the app takes the median of those minutes as your reference and sets the
+limit at 70% of it, never under the floor you chose. The reference is then kept: nothing
+recomputes it. If you blink less as the weeks go by, the gap to the reference is reported
+("23% less than your reference") and the limit stays where it was. A baseline that followed
+you would lower the bar as you declined, and hide the very thing it is for. Measuring again
+is a button in Settings, with a warning when the new value is lower.
+
+## 7. Breaks and pauses
+
+Three small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
+
+| Type | What it decides |
+|---|---|
+| `BlinkBreak` | The exercise counts every completed closure up to 3 s. Its blinks are slow on purpose and often last longer than the 0.6 s the counter accepts, so it has its own rule; the monitor's counting is not changed by it. |
+| `PresenceTracker` | Time at the screen since the last break, where a break is 20 s with no face in view. The camera cannot see where you look, so the count also restarts once a nudge has been shown. |
+| `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
+
+## 8. Keeping it cheap
 
 The app runs all day, so its cost matters as much as its accuracy.
 
 - Eye pictures reach Core ML as pixel buffers in the model's own format. The first version
   passed images and paid 9 ms per picture for it ([Lessons](LESSONS.md), number 3).
 - The eyes are searched for every other frame; the frame in between reads the same squares.
+  This saved 15% of a frame's cost, not the 40% expected: each search got slower. The README has the numbers.
 - After 3 s without a face, one frame in six is analysed. (Both rules are one tested type, `FrameSchedule`.)
 - With no window open, the interface is updated on change and once a second.
 - The camera picture is only prepared while the diagnostics window shows it.
