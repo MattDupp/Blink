@@ -20,8 +20,9 @@ public enum MonitorStatus: Equatable {
     case starting
     case cameraRefused
     case failed(String)
-    /// The camera is off: you chose Pause, or the screen sleeps.
-    case paused
+    /// The camera is off: you chose Pause (`until`: when it resumes by itself, nil when it
+    /// waits for you), or the screen sleeps.
+    case paused(until: Date?)
     /// Nobody in front of the camera.
     case noFace
     /// `rate`: blinks a minute over the last minute watched (nil for the first 20 s).
@@ -29,14 +30,18 @@ public enum MonitorStatus: Equatable {
     /// Blinking too little: `recent` is the rate over the last three minutes.
     case low(rate: Double?, recent: Double)
 
-    public init(lifecycle: Lifecycle, paused: Bool, faceFound: Bool, rate: Double?, recentLowRate: Double?) {
+    /// `pause` is taken as it is: resolve it against the clock first (`PauseState.resolved`).
+    public init(lifecycle: Lifecycle, pause: PauseState = .running, asleep: Bool = false,
+                faceFound: Bool, rate: Double?, recentLowRate: Double?) {
         switch lifecycle {
         case .starting: self = .starting
         case .cameraRefused: self = .cameraRefused
         case .failed(let reason): self = .failed(reason)
         case .running:
-            if paused {
-                self = .paused
+            if case .paused(let until) = pause {
+                self = .paused(until: until)
+            } else if asleep {
+                self = .paused(until: nil)
             } else if !faceFound {
                 self = .noFace
             } else if let recentLowRate {
@@ -53,6 +58,12 @@ public enum MonitorStatus: Equatable {
         case .noFace, .watching, .low: return true
         case .starting, .cameraRefused, .failed, .paused: return false
         }
+    }
+
+    /// Blinking too little right now.
+    public var isLow: Bool {
+        if case .low = self { return true }
+        return false
     }
 
     /// The rate to display, when there is one.

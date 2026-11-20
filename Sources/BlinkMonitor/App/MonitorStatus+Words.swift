@@ -1,5 +1,6 @@
 import SwiftUI
 import BlinkCore
+import BlinkUI
 
 /// How each situation is worded and drawn. `MonitorStatus` (in BlinkCore) decides WHAT the
 /// situation is; this is the only place that decides how the app says it.
@@ -15,9 +16,9 @@ extension MonitorStatus {
         }
     }
 
-    /// The rate as shown everywhere: "13", or "--" when there is none to show.
+    /// The rate as written in the menu bar: "13", or "--" when there is none to show.
     var rateText: String {
-        rate.map { String(format: "%.0f", $0) } ?? "--"
+        RateReadout.text(rate)
     }
 
     /// The text next to the menu-bar symbol.
@@ -34,7 +35,7 @@ extension MonitorStatus {
         case .starting: return "Blink Monitor is starting"
         case .cameraRefused: return "Blink Monitor: camera access refused"
         case .failed(let reason): return "Blink Monitor: \(reason)"
-        case .paused: return "Blink Monitor is paused"
+        case .paused(let until): return "Blink Monitor is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
         case .noFace: return "Blink Monitor: no face in view"
         case .watching: return "Blinks per minute, over the last minute"
         case .low(_, let recent):
@@ -73,14 +74,14 @@ extension MonitorStatus {
             return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera, then open it again."
         case .failed(let reason):
             return reason
-        case .paused:
-            return "The camera is off. Nothing is being counted."
+        case .paused(let until):
+            return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume") + ". Nothing is being counted."
         case .noFace:
             return "Nobody in front of the camera: this time is not counted."
         case .watching(let rate):
             return rate == nil ? "A rate appears after 20 seconds of watching." : "Over the last minute your eyes were watched."
         case .low(_, let recent):
-            return String(format: "About %.0f a minute over the last 3 minutes. Close your eyes gently a few times.", recent)
+            return String(format: "About %.0f a minute over the last 3 minutes. A blink break helps: ten slow, full blinks.", recent)
         }
     }
 }

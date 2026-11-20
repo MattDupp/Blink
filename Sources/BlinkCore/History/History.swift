@@ -126,6 +126,18 @@ public struct HistoryStore {
         }
     }
 
+    /// Removes every recorded minute. Returns false (and logs why) on failure.
+    @discardableResult
+    public func erase() -> Bool {
+        do {
+            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+            return true
+        } catch {
+            Log.storage.error("History not erased: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
     /// The minutes recorded since `date`, oldest first. Lines that cannot be read are skipped.
     public func load(since date: Date) -> [MinuteRecord] {
         guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }

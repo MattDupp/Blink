@@ -35,6 +35,19 @@ struct WelcomeView: View {
                       text: "People blink far less at a screen. When your rate stays low for a few minutes you get one notification, never more than one every five minutes.")
             }
 
+            // An app with no window and no Dock icon has to say where it went.
+            HStack(spacing: 14) {
+                MenuBarSketch()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Afterwards, look up").fontWeight(.semibold)
+                    Text("Blink Monitor has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+
             HStack {
                 Text("Next, macOS will ask for the camera, then for notifications.")
                     .font(.callout)
@@ -47,6 +60,31 @@ struct WelcomeView: View {
         }
         .padding(28)
         .frame(width: 520)
+    }
+}
+
+/// A drawing of the menu bar's right end, with the app's item marked.
+private struct MenuBarSketch: View {
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "wifi")
+            Image(systemName: "battery.75percent")
+            HStack(spacing: 3) {
+                Image(systemName: "eye")
+                Text("13").monospacedDigit()
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.accentColor.opacity(0.25), in: RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.accentColor, lineWidth: 1.5))
+            Text("16:42").monospacedDigit()
+        }
+        .font(.system(size: 12, weight: .medium))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+        .fixedSize()
+        .accessibilityHidden(true)
     }
 }
 

@@ -14,6 +14,10 @@ struct LiveState: Equatable {
     var faceFound = false
     /// The model's answer for this frame (the eyes combined), nil when no eye was read.
     var probability: Double?
+    /// Each eye's own answer, for the eyes that were read.
+    var eyeAnswers: [EyeRegion.Side: Double] = [:]
+    /// Only the eye nearest to the camera is read: the head is turned far to one side.
+    var headTurned = false
     var eyesClosed = false
     var counters = BlinkStats.Snapshot()
 
@@ -153,6 +157,8 @@ final class MonitorPipeline: @unchecked Sendable {
         update.live.faceFound = reading.faceFound
         update.live.eyeRects = reading.eyeRects
         update.live.probability = reading.closed
+        update.live.headTurned = reading.headTurned
+        for eye in reading.eyes { update.live.eyeAnswers[eye.side] = eye.closed }
 
         let watched = stats.frame(time: time, eyesRead: reading.closed != nil)
         var newBlinks = 0
@@ -197,6 +203,7 @@ final class MonitorPipeline: @unchecked Sendable {
         if update.event != nil || update.completedMinute != nil || update.error != nil { return true }
         if update.minuteTimings != nil { return true }
         if update.live.faceFound != lastSent.live.faceFound { return true }
+        if update.live.eyesClosed != lastSent.live.eyesClosed { return true }     // the blink break shows it
         return update.live.counters.ratePerMinute?.rounded() != lastSent.live.counters.ratePerMinute?.rounded()
     }
 }

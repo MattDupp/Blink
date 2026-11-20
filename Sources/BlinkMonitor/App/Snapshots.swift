@@ -27,23 +27,13 @@ enum Snapshots {
         // A fixed moment (a Friday afternoon), so the pictures do not change from day to day.
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
-        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 16, minute: 42)) ?? Date()
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 16, minute: 42, second: 38)) ?? Date()
 
         var written = 0
+        var expected = 0
         for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-            let normal = SampleData.model(now: now, low: false)
-            let low = SampleData.model(now: now, low: true)
-
-            let screens: [(String, AnyView)] = [
-                ("panel", AnyView(MenuPanelView(model: normal, history: normal.history, reminders: normal.reminders,
-                                               loginItem: normal.loginItem, now: now, actions: PanelActions()))),
-                ("panel-low", AnyView(MenuPanelView(model: low, history: low.history, reminders: low.reminders,
-                                                   loginItem: low.loginItem, now: now, actions: PanelActions()))),
-                ("history", AnyView(HistoryView(history: normal.history, reminders: normal.reminders, now: now))),
-                ("welcome", AnyView(WelcomeView(start: {}))),
-                ("diagnostics", AnyView(DiagnosticsView(model: normal, captures: normal.captures))),
-            ]
-            for (name, view) in screens {
+            for (name, view) in screens(now: now) {
+                expected += 1
                 let file = folder.appendingPathComponent("\(name)-\(suffix).png")
                 if write(view, appearance: appearance, to: file) {
                     written += 1
@@ -53,7 +43,65 @@ enum Snapshots {
                 }
             }
         }
-        return written == 10
+        return written == expected
+    }
+
+    /// Every screen, in every state worth looking at.
+    private static func screens(now: Date) -> [(String, AnyView)] {
+        func panel(_ scene: SampleData.Scene, configure: (PanelState) -> Void = { _ in }) -> AnyView {
+            let model = SampleData.model(now: now, scene: scene)
+            let state = PanelState()
+            configure(state)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: state, now: now, actions: PanelActions()))
+        }
+        func settings(_ tab: SettingsState.Tab, scene: SampleData.Scene = .watching,
+                      configure: (SettingsState, MonitorModel) -> Void = { _, _ in }) -> AnyView {
+            let model = SampleData.model(now: now, scene: scene)
+            let state = SettingsState()
+            state.tab = tab
+            configure(state, model)
+            return AnyView(SettingsView(model: model, preferences: model.preferences, history: model.history,
+                                        reminders: model.reminders, loginItem: model.loginItem, state: state,
+                                        now: now, actions: SettingsActions()))
+        }
+        func history(_ scene: SampleData.Scene, daysBack: Int = 0) -> AnyView {
+            let model = SampleData.model(now: now, scene: scene)
+            let state = HistoryState()
+            if daysBack > 0 {
+                state.selectedDay = Calendar.current.date(byAdding: .day, value: -daysBack, to: Calendar.current.startOfDay(for: now))
+            }
+            return AnyView(HistoryView(history: model.history, preferences: model.preferences, state: state, now: now))
+        }
+        func blinkBreak(_ scene: SampleData.Scene) -> AnyView {
+            let model = SampleData.model(now: now, scene: scene)
+            return AnyView(BlinkBreakView(model: model, blinkBreak: model.blinkBreak, now: now))
+        }
+        let watching = SampleData.model(now: now, scene: .watching)
+
+        return [
+            ("panel", panel(.watching)),
+            ("panel-low", panel(.low)),
+            ("panel-paused", panel(.paused)),
+            ("panel-pause-choices", panel(.watching) { $0.choosingPause = true }),
+            ("panel-learning", panel(.learning) { $0.hoveredMinute = 14 }),
+            ("history", history(.watching)),
+            ("history-day", history(.low, daysBack: 1)),
+            ("settings-general", settings(.general)),
+            ("settings-reminders", settings(.reminders)),
+            ("settings-reminders-learning", settings(.reminders, scene: .learning)),
+            ("settings-reminders-measured", settings(.reminders, scene: .low) { state, model in
+                // "Measure Again" has just been pressed, and the result is lower.
+                state.measurement = Baseline.proposal(current: model.preferences.reference, records: model.history.minutes,
+                                                      now: now).map { .proposed($0) }
+            }),
+            ("settings-breaks", settings(.breaks, scene: .learning)),
+            ("settings-data", settings(.data)),
+            ("blink-break", blinkBreak(.blinkBreak(count: 6))),
+            ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
+            ("welcome", AnyView(WelcomeView(start: {}))),
+            ("diagnostics", AnyView(DiagnosticsView(model: watching, captures: watching.captures))),
+        ]
     }
 
     /// Lays a view out off screen, at twice the resolution, and saves it.
@@ -70,6 +118,8 @@ enum Snapshots {
         hosting.frame = CGRect(origin: .zero, size: size)
 
         // The view has to live in a window to be drawn with its controls.
+        // (A window that is never shown is never "in front", so macOS draws its switches
+        // grey even when they are on: in the pictures, read a switch by its knob's side.)
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless],
                               backing: .buffered, defer: false)
         window.appearance = appearance
@@ -94,33 +144,78 @@ enum Snapshots {
 @MainActor
 enum SampleData {
 
-    /// The app after a week, watching. `low`: the last hours were a stretch of deep
-    /// concentration, and the rate is under the threshold.
-    static func model(now: Date, low: Bool) -> MonitorModel {
+    /// The situations the screenshots show.
+    enum Scene {
+        /// After a week of use, at a healthy rate, with a reference measured.
+        case watching
+        /// The last hours were a stretch of deep concentration: the rate is under the
+        /// limit, and under a reference measured in better weeks.
+        case low
+        /// Paused for a while.
+        case paused
+        /// The first afternoon: no reference yet, and the look-away nudges switched on.
+        case learning
+        /// In the middle of a blink break, `count` blinks in.
+        case blinkBreak(count: Int)
+    }
+
+    /// The app in one of those situations.
+    static func model(now: Date, scene: Scene) -> MonitorModel {
+        var isLow = false
+        if case .low = scene { isLow = true }
+
         var live = LiveState()
         live.faceFound = true
         live.eyeRects = [CGRect(x: 760, y: 430, width: 130, height: 130), CGRect(x: 1030, y: 425, width: 130, height: 130)]
         live.probability = 0.02
-        live.counters.ratePerMinute = low ? 6 : 13
-        live.counters.blinksLastMinute = low ? 6 : 13
+        live.eyeAnswers = [.imageLeft: 0.03, .imageRight: 0.01]
+        live.counters.ratePerMinute = isLow ? 6 : 13
+        live.counters.blinksLastMinute = isLow ? 6 : 13
         live.counters.totalBlinks = 148
         live.counters.longClosures = 3
         live.counters.observedSeconds = 11 * 60 + 42
         live.counters.lastBlinkSeconds = 0.167
 
         var timings = StageTimings.Summary()
-        timings.findEyes = 6.4
+        timings.findEyes = 8.9
         timings.crop = 1.3
         timings.model = 0.7
-        timings.total = 8.6
-        timings.worstTotal = 21.5
+        timings.total = 11.6
+        timings.worstTotal = 24.5
         timings.framesPerSecond = 30
         timings.analysedShare = 1
 
-        let initial = MonitorModel.InitialState(live: live, curve: curve(), timings: timings,
+        var initial = MonitorModel.InitialState(live: live, curve: curve(), timings: timings,
                                                 cameraNote: "The camera picture is left out of screenshots.")
+        var minutes = self.minutes(now: now, low: isLow)
         // A store of their own: the screenshots must not depend on the user's settings.
-        return MonitorModel(settings: .temporary(), history: HistoryController(minutes: minutes(now: now, low: low)),
+        let preferences = Preferences.temporary()
+        let usual = Baseline.medianRate(of: minutes) ?? 13
+        let aWhileAgo = now.addingTimeInterval(-17 * 86_400)
+
+        switch scene {
+        case .watching:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+        case .low:
+            preferences.reference = Reference(rate: (usual * 1.3 * 10).rounded() / 10, measuredOn: aWhileAgo, minutes: 214)
+            preferences.floor = 8
+        case .paused:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+            initial.pause = .paused(until: now.addingTimeInterval(33 * 60))
+            initial.live = live.withCameraOff
+        case .learning:
+            minutes.removeAll { $0.start < now.addingTimeInterval(-100 * 60) }      // installed this afternoon
+            preferences.breakNudgesOn = true
+            initial.screenMinutes = 34
+        case .blinkBreak(let count):
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+            var exercise = BlinkBreak()
+            for _ in 0..<count { exercise.record(.blink(Blink(start: 0, end: 0.3))) }
+            initial.blinkBreak = exercise
+        }
+        // The minute in progress: 38 seconds in.
+        let current = MinuteRecord(start: MinuteRecord.minuteStart(of: now), observedSeconds: 36, blinks: isLow ? 4 : 8)
+        return MonitorModel(preferences: preferences, history: HistoryController(minutes: minutes, current: current),
                             initial: initial)
     }
 

@@ -81,14 +81,7 @@ private struct Counters: View {
     var body: some View {
         let counters = model.live.counters
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(counters.ratePerMinute.map { String(format: "%.0f", $0) } ?? "--")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                Text("blinks\na minute")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
+            RateReadout(rate: counters.ratePerMinute)
 
             Group {
                 SectionTitle("Since the counters were reset")
@@ -104,7 +97,9 @@ private struct Counters: View {
                 SectionTitle("This frame")
                     .padding(.top, 4)
                 Row(label: "Eyes", value: eyesNow)
-                Row(label: "Model's answer: closed",
+                Row(label: "Eyes read", value: eyesRead)
+                Row(label: "Each eye: closed", value: eachEye)
+                Row(label: "Both combined: closed",
                     value: model.live.probability.map { String(format: "%.0f%%", $0 * 100) } ?? "--")
             }
 
@@ -137,6 +132,25 @@ private struct Counters: View {
         if !model.live.faceFound { return "no face" }
         if model.live.probability == nil { return "not readable" }
         return model.live.eyesClosed ? "closed" : "open"
+    }
+
+    /// How many eyes the model is asked about, and why not both. One square on the picture
+    /// is not a fault: with the head turned, the far eye hides behind the nose.
+    private var eyesRead: String {
+        guard model.live.faceFound else { return "--" }
+        switch model.live.eyeAnswers.count {
+        case 2: return "2 of 2"
+        case 1: return model.live.headTurned ? "1 of 2: head turned" : "1 of 2: one at the picture's edge"
+        default: return "0 of 2: at the picture's edge"
+        }
+    }
+
+    /// The left and the right of the PICTURE, as the squares are drawn.
+    private var eachEye: String {
+        func answer(_ side: EyeRegion.Side) -> String {
+            model.live.eyeAnswers[side].map { String(format: "%.0f%%", $0 * 100) } ?? "--"
+        }
+        return "left \(answer(.imageLeft))   right \(answer(.imageRight))"
     }
 
     private func clock(_ seconds: Double) -> String {

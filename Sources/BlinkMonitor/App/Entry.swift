@@ -70,24 +70,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        let model = MonitorModel()
+        let preferences = Preferences()
+        let model = MonitorModel(preferences: preferences)
         self.model = model
 
+        let historyState = HistoryState()
         let history = WindowController(title: "Blink Monitor - History") {
-            HistoryView(history: model.history, reminders: model.reminders)
+            HistoryView(history: model.history, preferences: preferences, state: historyState)
         }
+        history.onVisibilityChange = { open in if open { historyState.selectedDay = nil } }   // opens on today
         let diagnostics = WindowController(title: "Blink Monitor - Diagnostics", resizable: true) {
             DiagnosticsView(model: model, captures: model.captures)
         }
         // The camera picture and the curve are only prepared while this window shows them.
         diagnostics.onVisibilityChange = { open in model.setDiagnosticsOpen(open) }
-        windows = [history, diagnostics]
 
-        var actions = PanelActions()
-        actions.openHistory = { history.show() }
-        actions.openDiagnostics = { diagnostics.show() }
-        actions.quit = { NSApp.terminate(nil) }
-        statusItem = StatusItemController(model: model, actions: actions)
+        // The blink break: its window opening starts the exercise, its closing ends it,
+        // and the exercise ending closes the window.
+        let blinkBreak = WindowController(title: "Blink Break") {
+            BlinkBreakView(model: model, blinkBreak: model.blinkBreak)
+        }
+        blinkBreak.onVisibilityChange = { open in
+            if open { model.blinkBreak.start() } else { model.blinkBreak.stop() }
+        }
+        model.blinkBreak.onFinished = { blinkBreak.close() }
+        model.reminders.onBlinkBreak = { blinkBreak.show() }      // the reminder banner's button
+
+        let settingsState = SettingsState()
+        let settings = WindowController(title: "Blink Monitor - Settings") {
+            SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
+                         loginItem: model.loginItem, state: settingsState,
+                         actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
+                                                  openDiagnostics: { diagnostics.show() }))
+        }
+        settings.onVisibilityChange = { open in if !open { settingsState.reset() } }
+        windows = [history, diagnostics, blinkBreak, settings]
+
+        statusItem = StatusItemController(model: model, actions: PanelActions(
+            startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
+            openDiagnostics: { diagnostics.show() }, quit: { NSApp.terminate(nil) }))
 
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
@@ -103,8 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // The first time, say what the app does BEFORE macOS asks for the camera.
-        let settings = Settings()
-        if settings.welcomed || Options.noCamera {
+        if preferences.welcomed || Options.noCamera {
             Task { await model.start() }
         } else {
             let welcome = WindowController(title: "Welcome to Blink Monitor") { [weak self] in
@@ -115,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // and a window closed by the red one left the app waiting for the whole run.)
             welcome.onVisibilityChange = { open in
                 guard !open else { return }
-                settings.welcomed = true
+                preferences.welcomed = true
                 Task { await model.start() }
             }
             windows.append(welcome)

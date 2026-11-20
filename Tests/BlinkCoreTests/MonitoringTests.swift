@@ -8,7 +8,8 @@ struct MonitoringTests {
 
     private func status(_ lifecycle: Lifecycle = .running, paused: Bool = false, face: Bool = true,
                         rate: Double? = 13, low: Double? = nil) -> MonitorStatus {
-        MonitorStatus(lifecycle: lifecycle, paused: paused, faceFound: face, rate: rate, recentLowRate: low)
+        MonitorStatus(lifecycle: lifecycle, pause: paused ? .paused(until: nil) : .running, faceFound: face,
+                      rate: rate, recentLowRate: low)
     }
 
     @Test("Before the camera runs, the lifecycle decides - whatever else is known")
@@ -20,7 +21,7 @@ struct MonitoringTests {
 
     @Test("Paused wins over everything the camera said last")
     func paused() {
-        #expect(status(paused: true, face: true, low: 4) == .paused)
+        #expect(status(paused: true, face: true, low: 4) == .paused(until: nil))
     }
 
     @Test("Nobody in view is not 'low': time away is not blinking too little")

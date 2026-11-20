@@ -99,6 +99,9 @@ public struct FrameReading {
     /// The squares that were cut out, in frame pixels (for drawing over the camera picture).
     public var eyeRects: [CGRect] = []
     public var eyes: [EyeReading] = []
+    /// The head is turned so far that only the eye nearest to the camera is read
+    /// (`LocatedEyes.usableEyes`).
+    public var headTurned = false
     /// The two eyes' answers combined into one (`EyeFusion`); nil when no eye was readable.
     public var closed: Double?
 
@@ -144,6 +147,7 @@ public final class EyeReader {
         case .found(let found):
             reading.faceFound = true
             reading.eyeRects = found.located.usableEyes.map(\.cropRect)
+            reading.headTurned = found.located.usableEyes.count < found.located.eyes.count
             reading.eyes = try FrameCost.measure(into: &cost.model) {
                 try found.crops.map { crop in
                     EyeReading(side: crop.region.side, picture: crop.picture,

@@ -15,11 +15,13 @@ final class HistoryController: ObservableObject {
 
     let store: HistoryStore
 
-    /// `minutes`: what is already known (the screenshots start from made-up minutes;
-    /// the real app starts empty and calls `load`).
-    init(store: HistoryStore = HistoryStore(file: HistoryStore.defaultFile), minutes: [MinuteRecord] = []) {
+    /// `minutes`, `current`: what is already known (the screenshots start from made-up
+    /// minutes; the real app starts empty and calls `load`).
+    init(store: HistoryStore = HistoryStore(file: HistoryStore.defaultFile), minutes: [MinuteRecord] = [],
+         current: MinuteRecord? = nil) {
         self.store = store
         self.minutes = minutes
+        currentMinute = current
     }
 
     func load(now: Date = Date()) {
@@ -35,6 +37,11 @@ final class HistoryController: ObservableObject {
         if let first = minutes.first, first.start < oldest {
             minutes.removeAll { $0.start < oldest }
         }
+    }
+
+    /// Forgets every recorded minute, on disk too. The minute being filled goes on.
+    func erase() {
+        if store.erase() { minutes = [] }
     }
 
     /// The minute being filled changes with every frame; the windows are told about once

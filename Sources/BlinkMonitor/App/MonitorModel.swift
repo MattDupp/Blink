@@ -46,18 +46,21 @@ final class MonitorModel: ObservableObject {
     /// their screens from one of these (see Snapshots.swift).
     struct InitialState {
         var lifecycle: Lifecycle = .running
+        var pause: PauseState = .running
         var live = LiveState()
         var curve = Curve()
         var timings: StageTimings.Summary?
         /// Shown in place of the camera picture.
         var cameraNote: String?
+        var screenMinutes = 0
+        var blinkBreak: BlinkBreak?
     }
 
     // MARK: Facts
 
     @Published private(set) var lifecycle: Lifecycle = .starting
-    /// You chose Pause: the camera is off until you choose Resume.
-    @Published private(set) var paused = false
+    /// You chose Pause: the camera is off until the pause ends, or until you choose Resume.
+    @Published private(set) var pause: PauseState = .running
     /// The screen sleeps or the session is locked: the camera is off until it wakes.
     @Published private(set) var asleep = false
     @Published private(set) var live = LiveState()
@@ -71,8 +74,10 @@ final class MonitorModel: ObservableObject {
 
     // MARK: Parts
 
+    let preferences: Preferences
     let history: HistoryController
     let reminders: ReminderController
+    let blinkBreak: BlinkBreakController
     let loginItem = LoginItem()
     let captures = CaptureController()
 
@@ -82,16 +87,22 @@ final class MonitorModel: ObservableObject {
     private let blinkSound = NSSound(named: "Pop")
     private var diagnosticsOpen = false
     private let cameraNoteOverride: String?
+    private var resumeTimer: Timer?
 
-    init(settings: Settings = Settings(), history: HistoryController? = nil, initial: InitialState? = nil) {
+    init(preferences: Preferences, history: HistoryController? = nil, initial: InitialState? = nil) {
+        self.preferences = preferences
         self.history = history ?? HistoryController()
-        reminders = ReminderController(settings: settings)
+        reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
+        blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
         cameraNoteOverride = initial?.cameraNote
         if let initial {
             lifecycle = initial.lifecycle
+            pause = initial.pause
             live = initial.live
             curve = initial.curve
             timings = initial.timings
+        } else {
+            pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
     }
 
@@ -99,15 +110,15 @@ final class MonitorModel: ObservableObject {
 
     /// The situation, decided from the facts at the moment it is asked.
     func status(now: Date = Date()) -> MonitorStatus {
-        MonitorStatus(lifecycle: lifecycle, paused: paused || asleep, faceFound: live.faceFound,
-                      rate: live.counters.ratePerMinute,
+        MonitorStatus(lifecycle: lifecycle, pause: pause.resolved(at: now), asleep: asleep,
+                      faceFound: live.faceFound, rate: live.counters.ratePerMinute,
                       recentLowRate: reminders.lowRate(in: history.minutes, now: now))
     }
 
     /// What the camera view shows while it has no picture.
     var cameraNote: String {
         if let cameraNoteOverride { return cameraNoteOverride }
-        if lifecycle == .running && (paused || asleep) { return "Paused: the camera is off." }
+        if lifecycle == .running && (isPaused || asleep) { return "Paused: the camera is off." }
         return CameraNote.text(for: lifecycle, appName: "Blink Monitor")
     }
 
@@ -146,6 +157,7 @@ final class MonitorModel: ObservableObject {
             try await camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
             lifecycle = .running
             reminders.prepare()
+            if isPaused { setPause(pause) }     // still paused from before the relaunch: camera off again
         } catch CameraCapture.CameraError.refused {
             lifecycle = .cameraRefused
         } catch {
@@ -158,22 +170,46 @@ final class MonitorModel: ObservableObject {
         lifecycle = .failed(reason)
     }
 
-    /// Pause turns the camera off for real: its green light goes out.
-    func setPaused(_ value: Bool) {
-        paused = value
+    var isPaused: Bool { pause != .running }
+
+    /// Pause turns the camera off for real: its green light goes out. A timed pause ends
+    /// by itself; the first version's pause had no end, and a pause you forget is a
+    /// monitor that is silently off.
+    func pause(for duration: PauseDuration, now: Date = Date()) {
+        setPause(PauseState(duration, from: now))
+    }
+
+    func resume() {
+        setPause(.running)
+    }
+
+    private func setPause(_ state: PauseState) {
+        pause = state
+        preferences.pause = state
+        resumeTimer?.invalidate()
+        resumeTimer = state.end.map { end in
+            Timer.scheduledTimer(withTimeInterval: max(0, end.timeIntervalSinceNow), repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.resume() }
+            }
+        }
         applyCameraState()
     }
 
     /// The Mac's screen went to sleep, or woke up. Nobody is in front of a sleeping
     /// screen: the camera is switched off until it wakes.
-    func setAsleep(_ value: Bool) {
+    func setAsleep(_ value: Bool, now: Date = Date()) {
         asleep = value
-        applyCameraState()
+        // A timer does not run while the Mac sleeps: a pause that ended meanwhile ends now.
+        if !value && isPaused && !pause.isPaused(at: now) {
+            resume()
+        } else {
+            applyCameraState()
+        }
     }
 
     private func applyCameraState() {
         guard lifecycle == .running else { return }
-        let run = !paused && !asleep
+        let run = !isPaused && !asleep
         let camera = self.camera
         DispatchQueue.global(qos: .userInitiated).async {
             if run { camera.resume() } else { camera.stop() }
@@ -198,7 +234,7 @@ final class MonitorModel: ObservableObject {
     // MARK: - Frames
 
     private func apply(_ update: MonitorUpdate) {
-        guard !paused, !asleep else { return }   // a last frame can arrive after Pause
+        guard !isPaused, !asleep else { return }   // a last frame can arrive after Pause
         if live != update.live { live = update.live }
         if let image = update.preview { preview = image }
 
@@ -213,6 +249,9 @@ final class MonitorModel: ObservableObject {
             }
         }
 
+        if let event = update.event { blinkBreak.record(event) }
+        reminders.frame(time: update.time, faceFound: update.live.faceFound)
+
         if let timings = update.timings { self.timings = timings }
         if let minuteTimings = update.minuteTimings { performanceLog.append(minuteTimings) }
         if let error = update.error { problem = error }
@@ -220,8 +259,24 @@ final class MonitorModel: ObservableObject {
         history.update(current: update.currentMinute)
         if let finished = update.completedMinute {
             history.minuteEnded(finished)
+            adoptReference()
             reminders.minuteEnded(minutes: history.minutes)
         }
+    }
+
+    // MARK: - Your reference
+
+    /// Measures your usual rate the first time enough has been recorded - and never again
+    /// by itself (see `Baseline`: a reference that followed you would hide a decline).
+    private func adoptReference(now: Date = Date()) {
+        let reference = Baseline.adopt(existing: preferences.reference, records: history.minutes, now: now)
+        if reference != preferences.reference { preferences.reference = reference }
+    }
+
+    /// Erases the recorded minutes, and the reference that was measured from them.
+    func eraseHistory() {
+        history.erase()
+        preferences.reference = nil
     }
 
     // MARK: - Diagnostics window
