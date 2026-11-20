@@ -8,10 +8,15 @@ import BlinkCore
 ///       --capture-dir=<folder>             where the diagnostics window saves its captures
 ///       --diagnostics                      open the diagnostics window at launch
 ///       --no-camera                        leave the camera off (to look at the windows)
+///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
 @main
 enum Entry {
     @MainActor
     static func main() {
+        if let folder = Options.snapshotFolder {
+            exit(Snapshots.render(to: folder) ? 0 : 1)
+        }
+
         // A MENU-BAR APP is an ordinary app with three differences:
         //   1. it has no Dock icon and no main window ("accessory" - and LSUIElement in
         //      its Info.plist, so the Dock icon does not even flash at launch);
@@ -50,6 +55,10 @@ enum Options {
         if let path = value(of: "capture-dir") { return URL(fileURLWithPath: path, isDirectory: true) }
         return HistoryStore.applicationFolder.appendingPathComponent("captures", isDirectory: true)
     }
+
+    static var snapshotFolder: URL? {
+        value(of: "snapshots").map { URL(fileURLWithPath: $0, isDirectory: true) }
+    }
 }
 
 @MainActor
@@ -57,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var model: MonitorModel?
     private var statusItem: StatusItemController?
-    private var diagnostics: DiagnosticsWindowController?
+    private var windows: [WindowController] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // One copy only: two would mean two menu-bar items and the camera read twice.
@@ -71,10 +80,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let model = MonitorModel()
-        let diagnostics = DiagnosticsWindowController(model: model)
         self.model = model
-        self.diagnostics = diagnostics
-        statusItem = StatusItemController(model: model) { diagnostics.show() }
+
+        let history = WindowController(title: "Blink Monitor - History") {
+            HistoryView(history: model.history, reminders: model.reminders)
+        }
+        let diagnostics = WindowController(title: "Blink Monitor - Diagnostics", resizable: true) {
+            DiagnosticsView(model: model, captures: model.captures)
+        }
+        // The camera picture and the curve are only prepared while this window shows them.
+        diagnostics.onVisibilityChange = { open in model.setDiagnosticsOpen(open) }
+        windows = [history, diagnostics]
+
+        var actions = PanelActions()
+        actions.openHistory = { history.show() }
+        actions.openDiagnostics = { diagnostics.show() }
+        actions.quit = { NSApp.terminate(nil) }
+        statusItem = StatusItemController(model: model, actions: actions)
 
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
@@ -89,7 +111,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        Task { await model.start() }
+        // The first time, say what the app does BEFORE macOS asks for the camera.
+        if UserDefaults.standard.bool(forKey: "welcomed") || Options.noCamera {
+            Task { await model.start() }
+        } else {
+            var welcome: WindowController?
+            welcome = WindowController(title: "Welcome to Blink Monitor") {
+                WelcomeView {
+                    UserDefaults.standard.set(true, forKey: "welcomed")
+                    welcome?.close()
+                    Task { await model.start() }
+                }
+            }
+            if let welcome {
+                windows.append(welcome)
+                welcome.show()
+            }
+        }
         if Options.openDiagnostics { diagnostics.show() }
     }
 

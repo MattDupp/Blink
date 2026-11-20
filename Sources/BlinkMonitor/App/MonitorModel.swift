@@ -59,6 +59,9 @@ final class MonitorModel: ObservableObject {
 
     @Published private(set) var statusSummary = StatusSummary(symbol: "eye", text: "", tooltip: "Blink Monitor is starting")
 
+    /// True when the state is made up for screenshots (`loadSample`).
+    private(set) var isSample = false
+
     /// A short sound at every counted blink (while the diagnostics window is open).
     @Published var soundOn = true
 
@@ -233,6 +236,44 @@ final class MonitorModel: ObservableObject {
             history.minuteEnded(finished)
             reminders.evaluate(minutes: history.minutes, mayRemind: true)
         }
+        refreshStatus()
+    }
+
+    // MARK: - Sample state (screenshots)
+
+    /// A made-up but plausible moment of use, for `--snapshots`: the app after a week,
+    /// watching, 13 blinks a minute. The camera is never opened.
+    func loadSample(now: Date = Date(), low: Bool = false) {
+        isSample = true
+        stage = .running
+        faceFound = true
+        frameSize = CGSize(width: 1920, height: 1080)
+        eyeRects = [CGRect(x: 760, y: 430, width: 130, height: 130), CGRect(x: 1030, y: 425, width: 130, height: 130)]
+        probability = 0.02
+        ratePerMinute = low ? 6 : 13
+        blinksLastMinute = low ? 6 : 13
+        totalBlinks = 148
+        longClosures = 3
+        observedSeconds = 11 * 60 + 42
+        lastBlinkSeconds = 0.167
+        var timings = StageTimings.Summary()
+        timings.findEyes = 6.4; timings.crop = 1.3; timings.model = 0.7
+        timings.total = 8.6; timings.worstTotal = 21.5; timings.framesPerSecond = 30; timings.analysedShare = 1
+        self.timings = timings
+
+        // Ten seconds of curve with three blinks in it.
+        self.now = 100
+        let blinkStarts = [91.4, 94.9, 98.1]
+        trace = (0..<300).map { frame in
+            let time = 90 + Double(frame) / 30
+            let inBlink = blinkStarts.contains { time >= $0 && time < $0 + 0.13 }
+            let edge = blinkStarts.contains { (time >= $0 - 0.034 && time < $0) || (time >= $0 + 0.13 && time < $0 + 0.165) }
+            return TraceSample(time: time, probability: inBlink ? 0.98 : (edge ? 0.45 : 0.02))
+        }
+        recentBlinks = blinkStarts.map { Blink(start: $0, end: $0 + 0.16) }
+
+        history.loadSample(now: now, low: low)
+        reminders.loadSample(lowRate: low ? 6.2 : nil)
         refreshStatus()
     }
 

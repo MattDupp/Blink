@@ -36,7 +36,7 @@ format:  ## Reformat the Python code
 
 # --- The four steps, in order -----------------------------------------------------------
 
-recorder:  ## 1. Record labelled pictures of your eyes (opens the recorder)
+recorder: App/AppIcon.icns  ## 1. Record labelled pictures of your eyes (opens the recorder)
 	scripts/bundle.sh BlinkRecorder
 	mkdir -p "$(DATA)/raw"
 	open -n build/BlinkRecorder.app --args "--out=$(DATA)/raw"
@@ -57,7 +57,7 @@ monitor: monitor-app  ## 4. Install the menu-bar app in ~/Applications and start
 	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live"
 	@echo "Blink Monitor is running: look for the eye in the menu bar."
 
-monitor-app: $(MODEL)
+monitor-app: $(MODEL) App/AppIcon.icns
 	scripts/bundle.sh BlinkMonitor $(MODEL)
 
 $(MODEL):
@@ -69,7 +69,10 @@ $(MODEL):
 snapshots: monitor-app  ## Render every screen to docs/img with made-up data
 	build/BlinkMonitor.app/Contents/MacOS/BlinkMonitor "--snapshots=$(CURDIR)/docs/img"
 
-icon:  ## Draw the app icon (App/AppIcon.icns)
+icon: App/AppIcon.icns  ## Draw the app icon (App/AppIcon.icns)
+
+# The icon is drawn by code, so it is built like everything else instead of being stored.
+App/AppIcon.icns: scripts/make-icon.swift
 	swift scripts/make-icon.swift App/AppIcon.iconset
 	iconutil -c icns App/AppIcon.iconset -o App/AppIcon.icns
 

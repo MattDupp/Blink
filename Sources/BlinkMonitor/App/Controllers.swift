@@ -63,6 +63,47 @@ final class HistoryController: ObservableObject {
         DaySummary(records: records(on: day), threshold: threshold)
     }
 
+    /// One day cut into its 24 hours (index 0 = midnight to 1 am).
+    func hours(of day: Date, threshold: Double, calendar: Calendar = .current) -> [DaySummary] {
+        var byHour = [[MinuteRecord]](repeating: [], count: 24)
+        for record in records(on: day, calendar: calendar) {
+            byHour[calendar.component(.hour, from: record.start)].append(record)
+        }
+        return byHour.map { DaySummary(records: $0, threshold: threshold) }
+    }
+
+    /// Made-up minutes for the last week, the same at every run: what the windows look
+    /// like after a week of use, for the screenshots (`--snapshots`). Never written to disk.
+    func loadSample(now: Date, low: Bool = false, calendar: Calendar = .current) {
+        var seed: UInt64 = 20_261_120
+        func random() -> Double {                 // a small fixed generator: same data every time
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            return Double(seed >> 33) / Double(1 << 31)
+        }
+        var sample: [MinuteRecord] = []
+        let today = calendar.startOfDay(for: now)
+        for back in (0..<7).reversed() {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today),
+                  !calendar.isDateInWeekend(day) else { continue }        // a working week
+            let dayLevel = [15.5, 13.0, 14.5, 11.5, 14.0, 16.0, 13.5][back % 7]
+            for hour in [9, 10, 11, 13, 14, 15, 16, 17] {
+                for minute in 0..<60 {
+                    guard let start = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day),
+                          start < now, random() > 0.12 else { continue }      // away now and then
+                    // Deep concentration after lunch: fewer blinks. (`low`: it lasts until now.)
+                    let deep = hour == 14 || hour == 15 || (low && hour >= 16)
+                    let focus = deep ? 0.58 : (hour == 10 ? 0.85 : 1.0)
+                    let rate = max(2, dayLevel * focus + (random() - 0.5) * 9)
+                    let watched = 48 + random() * 12
+                    sample.append(MinuteRecord(start: start, observedSeconds: watched,
+                                               blinks: Int((rate * watched / 60).rounded())))
+                }
+            }
+        }
+        minutes = sample
+        currentMinute = nil
+    }
+
     /// The last `count` days, oldest first, today last.
     func lastDays(_ count: Int, threshold: Double, now: Date = Date(), calendar: Calendar = .current) -> [(day: Date, summary: DaySummary)] {
         (0..<count).reversed().compactMap { back in
@@ -104,6 +145,12 @@ final class ReminderController: ObservableObject {
         let defaults = UserDefaults.standard
         threshold = defaults.object(forKey: "threshold") as? Int ?? 10
         remindersOn = defaults.object(forKey: "remindersOn") as? Bool ?? true
+    }
+
+    /// A fixed state for the screenshots (`--snapshots`); nothing is saved.
+    func loadSample(lowRate: Double?, snoozedUntil: Date? = nil) {
+        self.lowRate = lowRate
+        self.snoozedUntil = snoozedUntil
     }
 
     /// Asks macOS for the right to show notifications, if reminders are wanted.

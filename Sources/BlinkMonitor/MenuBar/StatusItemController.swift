@@ -15,14 +15,17 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private var subscription: AnyCancellable?
 
-    init(model: MonitorModel, openDiagnostics: @escaping () -> Void) {
+    init(model: MonitorModel, actions: PanelActions) {
         super.init()
 
+        // Each action first closes the panel, then does its work.
+        var closing = PanelActions()
+        closing.openHistory = { [weak self] in self?.popover.performClose(nil); actions.openHistory() }
+        closing.openDiagnostics = { [weak self] in self?.popover.performClose(nil); actions.openDiagnostics() }
+        closing.quit = actions.quit
+
         let panel = MenuPanelView(model: model, history: model.history, reminders: model.reminders,
-                                  loginItem: model.loginItem, openDiagnostics: { [weak self] in
-            self?.popover.performClose(nil)
-            openDiagnostics()
-        })
+                                  loginItem: model.loginItem, actions: closing)
         let host = NSHostingController(rootView: panel)
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
         popover.contentViewController = host
@@ -34,6 +37,7 @@ final class StatusItemController: NSObject {
             button.imagePosition = .imageLeading
             // Digits of equal width: the item does not twitch when 9 becomes 10.
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+            button.setAccessibilityLabel("Blink Monitor")
         }
         show(model.statusSummary)
 
@@ -69,36 +73,45 @@ final class StatusItemController: NSObject {
     }
 }
 
-/// The diagnostics window: the camera, the counters, the curve and the pipeline's timings,
-/// in an ordinary window opened from the panel. Closing it leaves the app running in the
-/// menu bar.
+/// An ordinary window around a SwiftUI view, created the first time it is shown and kept.
+/// Closing it leaves the app running in the menu bar.
 @MainActor
-final class DiagnosticsWindowController: NSObject, NSWindowDelegate {
+final class WindowController: NSObject, NSWindowDelegate {
 
-    private let model: MonitorModel
+    private let title: String
+    private let resizable: Bool
+    private let makeView: () -> AnyView
     private var window: NSWindow?
 
-    init(model: MonitorModel) {
-        self.model = model
+    /// Called when the window appears and when it closes.
+    var onVisibilityChange: ((Bool) -> Void)?
+
+    init<Content: View>(title: String, resizable: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.resizable = resizable
+        makeView = { AnyView(content()) }
     }
 
     func show() {
         if window == nil {
-            let view = DiagnosticsView(model: model, captures: model.captures)
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Blink Monitor - Diagnostics"
-            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            let window = NSWindow(contentViewController: NSHostingController(rootView: makeView()))
+            window.title = title
+            window.styleMask = resizable ? [.titled, .closable, .miniaturizable, .resizable] : [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
             self.window = window
         }
-        model.setDiagnosticsOpen(true)
+        onVisibilityChange?(true)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func close() {
+        window?.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
-        model.setDiagnosticsOpen(false)
+        onVisibilityChange?(false)
     }
 }
