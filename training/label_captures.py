@@ -29,6 +29,7 @@ THE RULES, per eye and per frame:
 The pictures are COPIED to data/blinks/<capture>/open|closed with a manifest.csv, in the
 recorder's format, so they are trained on, checked and cleaned like any session.
 """
+
 import csv
 import shutil
 from pathlib import Path
@@ -39,14 +40,31 @@ HERE = Path(__file__).resolve().parent
 LIVE = HERE.parent / "data" / "live"
 BLINKS = HERE.parent / "data" / "blinks"
 
-SURE = 0.9            # the model's answer counts as certain from here
-FLAT_OUTLINE = 0.25   # outline height, 0 = this capture's most closed, 1 = its usual open
-QUIET = 0.05          # "near zero"
-CALM_FRAMES = 6       # 0.2 s on each side
+SURE = 0.9  # the model's answer counts as certain from here
+FLAT_OUTLINE = 0.25  # outline height, 0 = this capture's most closed, 1 = its usual open
+QUIET = 0.05  # "near zero"
+CALM_FRAMES = 6  # 0.2 s on each side
 KEEP_OPEN_EVERY = 6
 
-HEADER = ["session", "condition", "phase", "label", "variant", "frame", "time", "side", "file",
-          "crop_x", "crop_y", "crop_side", "eye_distance", "roll", "yaw", "frame_w", "frame_h"]
+HEADER = [
+    "session",
+    "condition",
+    "phase",
+    "label",
+    "variant",
+    "frame",
+    "time",
+    "side",
+    "file",
+    "crop_x",
+    "crop_y",
+    "crop_side",
+    "eye_distance",
+    "roll",
+    "yaw",
+    "frame_w",
+    "frame_h",
+]
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -54,9 +72,9 @@ def percentile(values: list[float], fraction: float) -> float:
     return ordered[min(len(ordered) - 1, int(fraction * len(ordered)))]
 
 
-def label_capture(capture: Path) -> tuple[int, int, list[tuple[Path, str]]]:
-    """Labels one capture. Returns (closed, open, the pictures labelled closed BY THE
-    OTHER EYE - the ones worth a look)."""
+def label_capture(capture: Path, destination: Path = BLINKS) -> tuple[int, int, list[tuple[Path, str]]]:
+    """Labels one capture into `destination`. Returns (closed, open, the pictures labelled
+    closed BY THE OTHER EYE - the ones worth a look)."""
     with (capture / "trace.csv").open(newline="", encoding="utf-8") as handle:
         frames = [row for row in csv.DictReader(handle) if row["p_left"] and row["p_right"]]
 
@@ -70,7 +88,7 @@ def label_capture(capture: Path) -> tuple[int, int, list[tuple[Path, str]]]:
         low, usual = percentile(raw, 0.02), percentile(raw, 0.5)
         outline[s] = [(value - low) / max(usual - low, 1e-6) for value in raw]
 
-    session = BLINKS / capture.name
+    session = destination / capture.name
     shutil.rmtree(session, ignore_errors=True)
     for label in ("open", "closed"):
         (session / label).mkdir(parents=True)
@@ -79,8 +97,10 @@ def label_capture(capture: Path) -> tuple[int, int, list[tuple[Path, str]]]:
     counts = {"closed": 0, "open": 0}
     for i, frame in enumerate(frames):
         around = range(max(0, i - CALM_FRAMES), min(len(frames), i + CALM_FRAMES + 1))
-        calm = all(p["L"][j] < QUIET and p["R"][j] < QUIET and
-                   outline["L"][j] > 0.5 and outline["R"][j] > 0.5 for j in around)
+        calm = all(
+            p["L"][j] < QUIET and p["R"][j] < QUIET and outline["L"][j] > 0.5 and outline["R"][j] > 0.5
+            for j in around
+        )
         for side, other in (("L", "R"), ("R", "L")):
             if p[side][i] >= SURE:
                 label, variant = "closed", "blink"
@@ -98,10 +118,30 @@ def label_capture(capture: Path) -> tuple[int, int, list[tuple[Path, str]]]:
             shutil.copyfile(source, session / label / name)
             counts[label] += 1
             if variant == "blink-other-eye":
-                by_other_eye.append((session / label / name,
-                                     f"{side} p {p[side][i]:.2f} other {p[other][i]:.2f}"))
-            rows.append([capture.name, "live capture", 0, label, variant, frame["frame"], frame["time"],
-                         side, f"{label}/{name}", "", "", "", "", "", "", "", ""])
+                by_other_eye.append(
+                    (session / label / name, f"{side} p {p[side][i]:.2f} other {p[other][i]:.2f}")
+                )
+            rows.append(
+                [
+                    capture.name,
+                    "live capture",
+                    0,
+                    label,
+                    variant,
+                    frame["frame"],
+                    frame["time"],
+                    side,
+                    f"{label}/{name}",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
 
     with (session / "manifest.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle, lineterminator="\n")
@@ -133,7 +173,10 @@ def main() -> None:
     for capture in captures:
         closed, opened, by_other_eye = label_capture(capture)
         to_review += by_other_eye
-        print(f"{capture.name}: {closed} closed ({len(by_other_eye)} on the word of the other eye), {opened} open")
+        print(
+            f"{capture.name}: {closed} closed "
+            f"({len(by_other_eye)} on the word of the other eye), {opened} open"
+        )
 
     sheet = HERE / "out" / "review_blink_labels.png"
     review_sheet(to_review, sheet)

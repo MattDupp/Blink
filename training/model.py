@@ -14,6 +14,7 @@ make it the right tool for pictures:
 The first layer learns simple things (edges, dark blobs); each next layer combines the
 previous layer's detections into larger shapes (a lash line, an iris, a closed lid).
 """
+
 import torch
 from torch import nn
 
@@ -65,10 +66,10 @@ class EyeNet(nn.Module):
         super().__init__()
         self.preprocess = Preprocess()
         self.features = nn.Sequential(
-            block(1, 16),    # 64x64 -> 32x32, 16 maps of simple patterns
-            block(16, 32),   # 32x32 -> 16x16
-            block(32, 64),   # 16x16 ->  8x8
-            block(64, 64),   #  8x8  ->  4x4, 64 maps of eye-sized shapes
+            block(1, 16),  # 64x64 -> 32x32, 16 maps of simple patterns
+            block(16, 32),  # 32x32 -> 16x16
+            block(32, 64),  # 16x16 ->  8x8
+            block(64, 64),  #  8x8  ->  4x4, 64 maps of eye-sized shapes
         )
         self.head = nn.Sequential(
             # Average each map over its 4x4 positions: "how much of this shape is in the

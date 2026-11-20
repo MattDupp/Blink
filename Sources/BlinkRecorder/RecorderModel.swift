@@ -78,8 +78,12 @@ final class RecorderModel: ObservableObject {
             return
         }
 
+        // Frames come from the camera's thread; the window belongs to the main thread.
+        // `DispatchQueue.main.async` hands each result over, in order.
         pipeline.onUpdate = { [weak self] update in
-            Task { @MainActor in self?.apply(update) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { self?.apply(update) }
+            }
         }
 
         // startRunning blocks while the camera wakes up: do it off the main thread.

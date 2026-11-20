@@ -1,5 +1,6 @@
 import SwiftUI
 import BlinkCore
+import BlinkUI
 
 /// The recorder's window: the instruction on top, the camera with the two squares on the
 /// left, the two 64x64 pictures the model will learn from on the right, the controls below.
@@ -80,34 +81,8 @@ private struct CameraPreview: View {
     @ObservedObject var model: RecorderModel
 
     var body: some View {
-        ZStack {
-            Color.black
-            if let image = model.preview {
-                Image(decorative: image, scale: 1)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .overlay {
-                        // The squares are in camera pixels; the picture is drawn smaller.
-                        // One factor converts one to the other.
-                        GeometryReader { geometry in
-                            let factor = geometry.size.width / max(model.frameSize.width, 1)
-                            ForEach(Array(model.eyeRects.enumerated()), id: \.offset) { _, rect in
-                                Rectangle()
-                                    .stroke(Color.green, lineWidth: 2)
-                                    .frame(width: rect.width * factor, height: rect.height * factor)
-                                    .position(x: rect.midX * factor, y: rect.midY * factor)
-                            }
-                        }
-                    }
-            } else {
-                Text(placeholder)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding()
-            }
-        }
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        CameraPreviewView(image: model.preview, frameSize: model.frameSize, eyeRects: model.eyeRects,
+                          placeholder: placeholder)
     }
 
     private var placeholder: String {

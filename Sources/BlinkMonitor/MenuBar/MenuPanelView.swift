@@ -1,18 +1,22 @@
 import SwiftUI
 import AppKit
+import BlinkCore
 
 /// The panel under the menu-bar item: the rate now, today so far, the last hour minute
 /// by minute, and the few settings.
 struct MenuPanelView: View {
     @ObservedObject var model: MonitorModel
-    let openLiveView: () -> Void
+    @ObservedObject var history: HistoryController
+    @ObservedObject var reminders: ReminderController
+    @ObservedObject var loginItem: LoginItem
+    let openDiagnostics: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             Divider()
             todaySection
-            HourChart(minutes: model.minutes, threshold: Double(model.threshold))
+            HourChart(minutes: history.minutes, threshold: Double(reminders.threshold))
                 .frame(height: 64)
             Divider()
             settings
@@ -20,7 +24,7 @@ struct MenuPanelView: View {
             HStack {
                 Button(model.paused ? "Resume" : "Pause") { model.setPaused(!model.paused) }
                     .disabled(model.stage != .running)
-                Button("Live view...") { openLiveView() }
+                Button("Diagnostics...") { openDiagnostics() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }
@@ -36,7 +40,7 @@ struct MenuPanelView: View {
             Text(model.paused ? "--" : (model.ratePerMinute.map { String(format: "%.0f", $0) } ?? "--"))
                 .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(model.lowRate == nil ? Color.primary : Color.orange)
+                .foregroundStyle(reminders.lowRate == nil ? Color.primary : Color.orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text("blinks per minute")
                     .font(.headline)
@@ -56,7 +60,7 @@ struct MenuPanelView: View {
         case .running:
             if model.paused { return "Paused: the camera is off." }
             if !model.faceFound { return "No face in view." }
-            if let lowRate = model.lowRate {
+            if let lowRate = reminders.lowRate {
                 return String(format: "Low: %.0f a minute over the last 3 minutes.", lowRate)
             }
             return model.ratePerMinute == nil ? "Watching - a rate after 20 s." : "Over the last minute watched."
@@ -66,17 +70,17 @@ struct MenuPanelView: View {
     // MARK: Today
 
     private var todaySection: some View {
-        let today = model.today
+        let today = history.summary(of: Date(), threshold: Double(reminders.threshold))
         return VStack(alignment: .leading, spacing: 6) {
             Text("Today")
                 .font(.headline)
             PanelRow(label: "Time watched", value: duration(today.observedSeconds))
             PanelRow(label: "Blinks", value: "\(today.blinks)")
             PanelRow(label: "Average", value: today.ratePerMinute.map { String(format: "%.1f a minute", $0) } ?? "--")
-            PanelRow(label: "Minutes under \(model.threshold) a minute",
+            PanelRow(label: "Minutes under \(reminders.threshold) a minute",
                      value: today.ratedMinutes == 0 ? "--"
                         : "\(today.lowMinutes) of \(today.ratedMinutes) (\(100 * today.lowMinutes / today.ratedMinutes)%)")
-            Text("Last hour, one bar per minute (orange = under \(model.threshold))")
+            Text("Last hour, one bar per minute (orange = under \(reminders.threshold))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
@@ -93,17 +97,17 @@ struct MenuPanelView: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle("Remind me when I blink too little",
-                   isOn: Binding(get: { model.remindersOn }, set: { model.setReminders($0) }))
-            Stepper("Too little = under \(model.threshold) a minute", value: $model.threshold, in: 4...20)
-            if model.remindersOn && model.notificationsRefused {
+                   isOn: Binding(get: { reminders.remindersOn }, set: { reminders.setReminders($0) }))
+            Stepper("Too little = under \(reminders.threshold) a minute", value: $reminders.threshold, in: 4...20)
+            if reminders.remindersOn && reminders.notificationsRefused {
                 Text("Notifications are off for Blink Monitor (System Settings > Notifications): a sound will play instead.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Toggle("Start at login",
-                   isOn: Binding(get: { model.startsAtLogin }, set: { model.setStartsAtLogin($0) }))
-            if let loginProblem = model.loginProblem {
+                   isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))
+            if let loginProblem = loginItem.problem {
                 Text(loginProblem)
                     .font(.caption)
                     .foregroundStyle(.red)

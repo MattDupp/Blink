@@ -1,11 +1,5 @@
 import Foundation
-
-/// The two answers the model will learn to give. These words become the folder names
-/// on disk and, later, the model's two outputs.
-enum EyeLabel: String {
-    case open
-    case closed
-}
+import BlinkCore
 
 /// One step of a recording session: the voice says `instruction`, then every eye picture
 /// taken during the next few seconds is saved with `label`.

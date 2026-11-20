@@ -12,6 +12,7 @@ rules, compare with the ticks.
 THE TEST IS HONEST: for each capture, the model that replays it was trained WITHOUT that
 capture's pictures. It has seen other blinks of yours, never these.
 """
+
 import os
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
@@ -24,35 +25,11 @@ import torch
 from PIL import Image
 
 from data import load
+from detector import count_blinks
 from train import predict, train
 
 HERE = Path(__file__).resolve().parent
 LIVE = HERE.parent / "data" / "live"
-
-
-def count_blinks(times: list[float], closed: list[float | None]) -> list[int]:
-    """The counting rules of BlinkDetector.swift, line for line (same numbers).
-    Returns the positions of the frames at which a blink is counted."""
-    closed_above, open_below, minimum_frames, maximum_seconds, maximum_gap = 0.6, 0.4, 2, 0.6, 0.5
-    state, since, frames, last_seen, counted = "unknown", None, 0, None, []
-    for i, (time, p) in enumerate(zip(times, closed)):
-        if last_seen is not None and time - last_seen > maximum_gap:
-            state = "unknown"
-        if p is None:
-            continue
-        last_seen = time
-        if state == "unknown":
-            state, since, frames = ("closed", None, 1) if p > closed_above else ("open", None, 0)
-        elif state == "open":
-            if p > closed_above:
-                state, since, frames = "closed", time, 1
-        elif p >= open_below:
-            frames += 1
-        else:
-            state = "open"
-            if since is not None and time - since <= maximum_seconds and frames >= minimum_frames:
-                counted.append(i)
-    return counted
 
 
 def read_capture(capture: Path) -> tuple[list[dict], torch.Tensor, torch.Tensor]:
@@ -61,8 +38,14 @@ def read_capture(capture: Path) -> tuple[list[dict], torch.Tensor, torch.Tensor]
         rows = [r for r in csv.DictReader(handle) if r["p_left"] and r["p_right"]]
 
     def pictures(side: str) -> torch.Tensor:
-        stack = np.stack([np.asarray(Image.open(capture / "frames" / f"f{int(r['frame']):06d}_{side}.png").convert("RGB"))
-                          for r in rows])
+        stack = np.stack(
+            [
+                np.asarray(
+                    Image.open(capture / "frames" / f"f{int(r['frame']):06d}_{side}.png").convert("RGB")
+                )
+                for r in rows
+            ]
+        )
         return torch.from_numpy(stack).permute(0, 3, 1, 2).contiguous()
 
     return rows, pictures("L"), pictures("R")
@@ -93,8 +76,10 @@ def main() -> None:
         recorded = count_blinks(times, [float(r["p_mean"]) for r in rows])
         live = [i for i, r in enumerate(rows) if r["event"] == "blink"]
         if recorded != live:
-            raise SystemExit(f"{capture.name}: the Python rules do not reproduce the app's count "
-                             f"({len(recorded)} against {len(live)})")
+            raise SystemExit(
+                f"{capture.name}: the Python rules do not reproduce the app's count "
+                f"({len(recorded)} against {len(live)})"
+            )
 
         # 2. A model trained without this capture.
         rest = data.indices(set(data.sessions) - {capture.name}).to(device)
@@ -105,8 +90,10 @@ def main() -> None:
         if any(r["tick"] == "1" for r in rows):
             before, ticks = per_tick(rows, live)
             after, _ = per_tick(rows, replayed)
-            print(f"{capture.name}   {before:2d} of {ticks} ticks           {after:2d} of {ticks} ticks "
-                  f"({len(replayed)} blinks in all)")
+            print(
+                f"{capture.name}   {before:2d} of {ticks} ticks           {after:2d} of {ticks} ticks "
+                f"({len(replayed)} blinks in all)"
+            )
         else:
             print(f"{capture.name}   {len(live):2d} blinks                {len(replayed):2d} blinks")
 

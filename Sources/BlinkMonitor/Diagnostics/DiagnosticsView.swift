@@ -1,10 +1,12 @@
 import SwiftUI
 import BlinkCore
+import BlinkUI
 
 /// The live test window: the camera with the eye squares, the counters, and the model's
 /// answer drawn as a curve over the last 10 seconds.
-struct MonitorView: View {
+struct DiagnosticsView: View {
     @ObservedObject var model: MonitorModel
+    @ObservedObject var captures: CaptureController
 
     var body: some View {
         VStack(spacing: 14) {
@@ -19,12 +21,12 @@ struct MonitorView: View {
                 Toggle("Sound at each blink", isOn: $model.soundOn)
                 Spacer()
                 Button("Record cued blinks (30 s)") { model.startCapture(cued: true) }
-                    .disabled(model.stage != .running || model.captureInstruction != nil)
+                    .disabled(model.stage != .running || model.paused || captures.isCapturing)
                 Button("Record freely (60 s)") { model.startCapture(cued: false) }
-                    .disabled(model.stage != .running || model.captureInstruction != nil)
-                Button("Reset counters") { model.reset() }
+                    .disabled(model.stage != .running || model.paused || captures.isCapturing)
+                Button("Reset counters") { model.resetCounters() }
             }
-            CaptureBanner(model: model)
+            CaptureBanner(captures: captures)
         }
         .padding(16)
         .frame(minWidth: 980, minHeight: 700)
@@ -35,24 +37,24 @@ struct MonitorView: View {
 
 /// While a capture runs: what to do, and how far along it is. Afterwards: where it went.
 private struct CaptureBanner: View {
-    @ObservedObject var model: MonitorModel
+    @ObservedObject var captures: CaptureController
 
     var body: some View {
-        if let instruction = model.captureInstruction {
+        if let instruction = captures.instruction {
             VStack(alignment: .leading, spacing: 6) {
                 Text(instruction)
                     .font(.system(size: 18, weight: .semibold))
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.12))
-                        Capsule().fill(Color.red).frame(width: geometry.size.width * model.captureProgress)
+                        Capsule().fill(Color.red).frame(width: geometry.size.width * captures.progress)
                     }
                 }
                 .frame(height: 6)
             }
             .padding(12)
             .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-        } else if let result = model.captureResult {
+        } else if let result = captures.result {
             Text(result)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -67,33 +69,9 @@ private struct CameraPreview: View {
     @ObservedObject var model: MonitorModel
 
     var body: some View {
-        ZStack {
-            Color.black
-            if let image = model.preview {
-                Image(decorative: image, scale: 1)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .overlay {
-                        GeometryReader { geometry in
-                            let factor = geometry.size.width / max(model.frameSize.width, 1)
-                            ForEach(Array(model.eyeRects.enumerated()), id: \.offset) { _, rect in
-                                Rectangle()
-                                    // Green = read as open, orange = read as closed.
-                                    .stroke(model.eyesClosed ? Color.orange : Color.green, lineWidth: 2)
-                                    .frame(width: rect.width * factor, height: rect.height * factor)
-                                    .position(x: rect.midX * factor, y: rect.midY * factor)
-                            }
-                        }
-                    }
-            } else {
-                Text(placeholder)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding()
-            }
-        }
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        // Green = read as open, orange = read as closed.
+        CameraPreviewView(image: model.preview, frameSize: model.frameSize, eyeRects: model.eyeRects,
+                          tint: model.eyesClosed ? .orange : .green, placeholder: placeholder)
     }
 
     private var placeholder: String {
@@ -141,6 +119,17 @@ private struct Counters: View {
 
             Row(label: "Eyes now", value: eyesNow)
             Row(label: "Model: closed", value: model.probability.map { String(format: "%.0f%%", $0 * 100) } ?? "--")
+
+            Divider()
+
+            // The pipeline's own cost, averaged over the last two seconds.
+            if let timings = model.timings {
+                Row(label: "Per frame", value: String(format: "%.1f ms (worst %.1f)", timings.total, timings.worstTotal))
+                Row(label: "Find eyes / crop / model",
+                    value: String(format: "%.1f / %.1f / %.1f ms", timings.findEyes, timings.crop, timings.model))
+                Row(label: "Frames a second", value: String(format: "%.0f, %.0f%% analysed",
+                                                           timings.framesPerSecond, timings.analysedShare * 100))
+            }
 
             if let problem = model.problem {
                 Text(problem)

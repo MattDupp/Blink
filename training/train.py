@@ -13,6 +13,7 @@ It does three things, in this order:
      They are gathered on one sheet for you to look at.
   3. THE FINAL MODEL - trained on every session, saved to models/eyenet.pt.
 """
+
 import os
 
 # A few operations are not available on the Mac's GPU yet; let PyTorch run those on the
@@ -43,6 +44,7 @@ MAX_ROTATION_DEGREES = 35
 # Augmentation
 # --------------------------------------------------------------------------------------
 
+
 def augment(x: torch.Tensor) -> torch.Tensor:
     """Returns a randomly altered copy of a batch of pictures (N, 3, 64, 64), values 0..1.
 
@@ -72,12 +74,15 @@ def augment(x: torch.Tensor) -> torch.Tensor:
     #    leans about 30 degrees - an angle the model had been shown too rarely.
     angle = uniform(-math.radians(MAX_ROTATION_DEGREES), math.radians(MAX_ROTATION_DEGREES), n)
     zoom = uniform(0.85, 1.15, n)
-    shift = uniform(-0.2, 0.2, n, 2)          # the picture spans -1..1, so 0.2 = 10%
+    shift = uniform(-0.2, 0.2, n, 2)  # the picture spans -1..1, so 0.2 = 10%
     cos, sin = torch.cos(angle) / zoom, torch.sin(angle) / zoom
-    matrix = torch.stack([
-        torch.stack([cos, -sin, shift[:, 0]], dim=1),
-        torch.stack([sin, cos, shift[:, 1]], dim=1),
-    ], dim=1)
+    matrix = torch.stack(
+        [
+            torch.stack([cos, -sin, shift[:, 0]], dim=1),
+            torch.stack([sin, cos, shift[:, 1]], dim=1),
+        ],
+        dim=1,
+    )
     grid = F.affine_grid(matrix, list(x.shape), align_corners=False)
     # "border": where the transformed picture has no pixel, repeat its edge instead of
     # painting black corners the model could learn to recognise.
@@ -104,6 +109,7 @@ def augment(x: torch.Tensor) -> torch.Tensor:
 # Training and prediction
 # --------------------------------------------------------------------------------------
 
+
 def as_input(images: torch.Tensor) -> torch.Tensor:
     """Stored pictures are whole numbers 0..255; the model takes fractions 0..1."""
     return images.float() / 255.0
@@ -112,13 +118,18 @@ def as_input(images: torch.Tensor) -> torch.Tensor:
 @torch.no_grad()
 def predict(model: EyeNet, images: torch.Tensor) -> torch.Tensor:
     """The model's probability that each picture is a closed eye (no augmentation)."""
-    model.eval()      # evaluation mode: dropout off, batch-norm uses its learned averages
-    scores = [model(as_input(images[i:i + 512])) for i in range(0, len(images), 512)]
+    model.eval()  # evaluation mode: dropout off, batch-norm uses its learned averages
+    scores = [model(as_input(images[i : i + 512])) for i in range(0, len(images), 512)]
     return torch.sigmoid(torch.cat(scores)).cpu()
 
 
-def train(images: torch.Tensor, labels: torch.Tensor, epochs: int, seed: int,
-          watch: tuple[torch.Tensor, torch.Tensor] | None = None) -> EyeNet:
+def train(
+    images: torch.Tensor,
+    labels: torch.Tensor,
+    epochs: int,
+    seed: int,
+    watch: tuple[torch.Tensor, torch.Tensor] | None = None,
+) -> EyeNet:
     """Trains a new model on these pictures (already on the training device).
 
     THE LOOP. Take a small batch of pictures. Ask the model for its answers. Measure how
@@ -127,7 +138,7 @@ def train(images: torch.Tensor, labels: torch.Tensor, epochs: int, seed: int,
     backpropagation). Move every weight a small step that way. Repeat. One pass over all
     the pictures is an EPOCH.
     """
-    torch.manual_seed(seed)   # same seed = same random numbers = the same run again
+    torch.manual_seed(seed)  # same seed = same random numbers = the same run again
     device = images.device
     model = EyeNet().to(device)
 
@@ -139,39 +150,43 @@ def train(images: torch.Tensor, labels: torch.Tensor, epochs: int, seed: int,
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     # The step size ("learning rate") rises during the first epochs, then falls to zero:
     # careful at the start, bold in the middle, fine adjustments at the end.
-    schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-3,
-                                                   total_steps=epochs * steps_per_epoch)
+    schedule = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, max_lr=2e-3, total_steps=epochs * steps_per_epoch
+    )
     # The loss for a yes / no answer. It is small when the model is confident and right,
     # and grows without limit when it is confident and wrong.
     loss_function = torch.nn.BCEWithLogitsLoss()
 
     for epoch in range(1, epochs + 1):
-        model.train()     # training mode: dropout on, batch-norm uses the batch itself
-        order = torch.randperm(len(images), device=device)   # a new shuffle every epoch
+        model.train()  # training mode: dropout on, batch-norm uses the batch itself
+        order = torch.randperm(len(images), device=device)  # a new shuffle every epoch
         total = 0.0
         for start in range(0, len(images), batch_size):
-            batch = order[start:start + batch_size]
+            batch = order[start : start + batch_size]
             scores = model(augment(as_input(images[batch])))
             loss = loss_function(scores, labels[batch])
 
-            optimizer.zero_grad()   # forget the previous batch's gradients
-            loss.backward()         # backpropagation: the gradient of the loss for every weight
-            optimizer.step()        # move the weights
+            optimizer.zero_grad()  # forget the previous batch's gradients
+            loss.backward()  # backpropagation: the gradient of the loss for every weight
+            optimizer.step()  # move the weights
             schedule.step()
             total += loss.item() * len(batch)
 
         if watch is not None and (epoch == 1 or epoch % 5 == 0 or epoch == epochs):
             held_images, held_labels = watch
             wrong = ((predict(model, held_images) > 0.5).float() != held_labels.cpu()).sum().item()
-            print(f"    epoch {epoch:2d}: training loss {total / len(images):.3f}   "
-                  f"unseen session: {wrong} wrong of {len(held_images)} "
-                  f"({100 * (1 - wrong / len(held_images)):.1f}% right)")
+            print(
+                f"    epoch {epoch:2d}: training loss {total / len(images):.3f}   "
+                f"unseen session: {wrong} wrong of {len(held_images)} "
+                f"({100 * (1 - wrong / len(held_images)):.1f}% right)"
+            )
     return model
 
 
 # --------------------------------------------------------------------------------------
 # The three steps
 # --------------------------------------------------------------------------------------
+
 
 def cross_validate(data: EyeData, device: torch.device, epochs: int, seed: int) -> torch.Tensor:
     """Returns, for every picture, the probability "closed" given by a model that never
@@ -182,11 +197,18 @@ def cross_validate(data: EyeData, device: torch.device, epochs: int, seed: int) 
     for fold, held_out in enumerate(data.sessions):
         test = data.indices({held_out})
         rest = data.indices(set(data.sessions) - {held_out})
-        print(f"\n  Round {fold + 1} of {len(data.sessions)}: learn from {len(rest)} pictures, "
-              f"test on session {held_out} ({len(test)} pictures)")
+        print(
+            f"\n  Round {fold + 1} of {len(data.sessions)}: learn from {len(rest)} pictures, "
+            f"test on session {held_out} ({len(test)} pictures)"
+        )
         started = time.time()
-        model = train(images[rest.to(device)], labels[rest.to(device)], epochs, seed + fold,
-                      watch=(images[test.to(device)], labels[test.to(device)]))
+        model = train(
+            images[rest.to(device)],
+            labels[rest.to(device)],
+            epochs,
+            seed + fold,
+            watch=(images[test.to(device)], labels[test.to(device)]),
+        )
         probabilities[test] = predict(model, images[test.to(device)])
         print(f"    done in {time.time() - started:.0f} s")
     return probabilities
@@ -202,12 +224,17 @@ def report(data: EyeData, probabilities: torch.Tensor) -> list[int]:
     print("RESULT ON PICTURES THE MODEL HAD NEVER SEEN (its session was held out)")
     print("=" * 78)
     majority = max(is_closed.sum().item(), (~is_closed).sum().item()) / len(data)
-    print(f"  Right answers: {100 * (1 - wrong.float().mean().item()):.2f}%   "
-          f"(always answering the more common label would score {100 * majority:.1f}%)")
+    print(
+        f"  Right answers: {100 * (1 - wrong.float().mean().item()):.2f}%   "
+        f"(always answering the more common label would score {100 * majority:.1f}%)"
+    )
     # The two kinds of error do not cost the same in a blink counter.
     phantom = (said_closed & ~is_closed).sum().item()
     missed = (~said_closed & is_closed).sum().item()
-    print(f"  Open eyes called closed:  {phantom:4d} of {(~is_closed).sum().item()}   -> would count blinks that did not happen")
+    print(
+        f"  Open eyes called closed:  {phantom:4d} of {(~is_closed).sum().item()}"
+        "   -> would count blinks that did not happen"
+    )
     print(f"  Closed eyes called open:  {missed:4d} of {is_closed.sum().item()}   -> would miss blinks")
 
     print("\n  By session:")
@@ -215,7 +242,10 @@ def report(data: EyeData, probabilities: torch.Tensor) -> list[int]:
         index = data.indices({session})
         errors = wrong[index].sum().item()
         note = data.rows[index[0]]["condition"] or "-"
-        print(f"    {session}   {errors:3d} wrong of {len(index):4d}   ({100 * (1 - errors / len(index)):.1f}% right)   conditions: {note}")
+        print(
+            f"    {session}   {errors:3d} wrong of {len(index):4d}   "
+            f"({100 * (1 - errors / len(index)):.1f}% right)   conditions: {note}"
+        )
 
     print("\n  By pose (where does it fail?):")
     poses: dict[tuple[str, str], list[int]] = {}
@@ -237,15 +267,19 @@ def save_review(data: EyeData, probabilities: torch.Tensor, worst: list[int]) ->
     with (OUT / "cv_predictions.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["session", "file", "label", "variant", "side", "p_closed"])
-        for row, p in zip(data.rows, probabilities.tolist()):
-            writer.writerow([row["session"], row["file"], row["label"], row["variant"], row["side"], f"{p:.4f}"])
+        for row, p in zip(data.rows, probabilities.tolist(), strict=True):
+            writer.writerow(
+                [row["session"], row["file"], row["label"], row["variant"], row["side"], f"{p:.4f}"]
+            )
 
     root = HERE.parent
     with (OUT / "suspicious.txt").open("w", encoding="utf-8") as handle:
         for i in worst:
             row = data.rows[i]
-            handle.write(f"{Path(row['path']).relative_to(root)}\tlabel={row['label']}\t"
-                         f"model_p_closed={probabilities[i]:.2f}\tpose={row['variant']}\n")
+            handle.write(
+                f"{Path(row['path']).relative_to(root)}\tlabel={row['label']}\t"
+                f"model_p_closed={probabilities[i]:.2f}\tpose={row['variant']}\n"
+            )
 
     shown = worst[:96]
     if not shown:
@@ -259,9 +293,11 @@ def save_review(data: EyeData, probabilities: torch.Tensor, worst: list[int]) ->
         x, y = (position % columns) * tile, (position // columns) * (tile + caption)
         picture = Image.open(row["path"]).convert("RGB").resize((tile, tile), Image.NEAREST)
         sheet.paste(picture, (x, y))
-        draw.text((x + 3, y + tile + 2),
-                  f"#{position + 1} label {row['label']}\nmodel: {100 * probabilities[i]:.0f}% closed",
-                  fill="black")
+        draw.text(
+            (x + 3, y + tile + 2),
+            f"#{position + 1} label {row['label']}\nmodel: {100 * probabilities[i]:.0f}% closed",
+            fill="black",
+        )
     sheet.save(OUT / "review_suspicious.png")
 
 
@@ -300,16 +336,21 @@ def main() -> None:
     model = train(data.images.to(device), data.labels.to(device), arguments.epochs, arguments.seed + 1000)
     MODEL_FILE.parent.mkdir(exist_ok=True)
     wrong = (probabilities > 0.5) != (data.labels > 0.5)
-    torch.save({
-        "weights": model.cpu().state_dict(),
-        "input": "RGB picture of one eye, 64x64, values 0..1, shape (N, 3, 64, 64)",
-        "output": "one score per picture; sigmoid(score) = probability that the eye is closed",
-        "sessions": data.sessions,
-        "pictures": len(data),
-        "epochs": arguments.epochs,
-        "cross_validated_accuracy": 1 - wrong.float().mean().item(),
-    }, MODEL_FILE)
-    print(f"  Saved {MODEL_FILE} ({MODEL_FILE.stat().st_size / 1024:.0f} KB) in {time.time() - started:.0f} s")
+    torch.save(
+        {
+            "weights": model.cpu().state_dict(),
+            "input": "RGB picture of one eye, 64x64, values 0..1, shape (N, 3, 64, 64)",
+            "output": "one score per picture; sigmoid(score) = probability that the eye is closed",
+            "sessions": data.sessions,
+            "pictures": len(data),
+            "epochs": arguments.epochs,
+            "cross_validated_accuracy": 1 - wrong.float().mean().item(),
+        },
+        MODEL_FILE,
+    )
+    print(
+        f"  Saved {MODEL_FILE} ({MODEL_FILE.stat().st_size / 1024:.0f} KB) in {time.time() - started:.0f} s"
+    )
 
 
 if __name__ == "__main__":

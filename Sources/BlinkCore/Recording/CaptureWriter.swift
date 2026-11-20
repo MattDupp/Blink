@@ -1,40 +1,25 @@
 import Foundation
 import CoreGraphics
-import CoreVideo
-import ImageIO
-import UniformTypeIdentifiers
-import BlinkCore
-
-/// One eye of one captured frame.
-struct CapturedEye {
-    let side: EyeRegion.Side
-    /// The 64x64 picture the model was given.
-    let picture: CVPixelBuffer
-    /// The model's answer for this picture.
-    let closed: Double
-    /// Vision's outline height / width (EyeRegion.openness).
-    let openness: Double
-}
 
 /// Records what the live pipeline saw, frame by frame, so it can be studied afterwards:
 ///
-///     data/live/<capture>/frames/f000123_L.png      EVERY frame's eye pictures
-///     data/live/<capture>/trace.csv                 one line per frame
+///     <root>/<capture>/frames/f000123_L.png      EVERY frame's eye pictures
+///     <root>/<capture>/trace.csv                 one line per frame
 ///
 /// WHY. The training pictures are eyes held open or held closed. A real blink is neither:
 /// the lid is caught half-way, blurred by its own speed, for 3 to 5 frames in all. To know
 /// what the model answers on those frames - and to teach it the right answer - we need to
 /// see them. Unlike the recorder, this keeps all 30 frames a second: here the frames in
 /// between are exactly what we are after.
-final class CaptureWriter {
+public final class CaptureWriter {
 
-    let folder: URL
+    public let folder: URL
     private let trace: FileHandle
-    private(set) var frames = 0
+    public private(set) var frames = 0
 
-    static let header = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick"
+    public static let header = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick"
 
-    init(root: URL, name: String) throws {
+    public init(root: URL, name: String) throws {
         folder = root.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("frames", isDirectory: true),
                                                 withIntermediateDirectories: true)
@@ -45,16 +30,14 @@ final class CaptureWriter {
     }
 
     /// `tick`: a cue sound was played just before this frame ("blink now").
-    func write(frame: Int, time: Double, eyes: [CapturedEye], mean: Double?,
-               state: BlinkDetector.State, event: BlinkDetector.Event?, tick: Bool) {
-        var byside: [EyeRegion.Side: CapturedEye] = [:]
-        for eye in eyes {
-            byside[eye.side] = eye
-            let url = folder.appendingPathComponent(String(format: "frames/f%06d_%@.png", frame, eye.side.rawValue))
-            if let image = EyeCropper.image(from: eye.picture),
-               let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) {
-                CGImageDestinationAddImage(destination, image, nil)
-                CGImageDestinationFinalize(destination)
+    public func write(frame: Int, time: Double, reading: FrameReading,
+                      state: BlinkDetector.State, event: BlinkDetector.Event?, tick: Bool) {
+        var bySide: [EyeRegion.Side: EyeReading] = [:]
+        for eye in reading.eyes {
+            bySide[eye.side] = eye
+            if let image = EyeCropper.image(from: eye.picture) {
+                let name = String(format: "frames/f%06d_%@.png", frame, eye.side.rawValue)
+                PNGFile.write(image, to: folder.appendingPathComponent(name))
             }
         }
 
@@ -73,13 +56,15 @@ final class CaptureWriter {
         }
         let fields = [
             String(frame), String(format: "%.4f", time),
-            number(byside[.imageLeft]?.closed), number(byside[.imageRight]?.closed), number(mean),
-            number(byside[.imageLeft]?.openness), number(byside[.imageRight]?.openness),
+            number(bySide[.imageLeft]?.closed), number(bySide[.imageRight]?.closed), number(reading.closed),
+            number(bySide[.imageLeft]?.openness), number(bySide[.imageRight]?.openness),
             stateName, eventName, tick ? "1" : "",
         ]
-        if let line = (fields.joined(separator: ",") + "\n").data(using: .utf8) {
-            try? trace.write(contentsOf: line)
+        do {
+            try trace.write(contentsOf: Data((fields.joined(separator: ",") + "\n").utf8))
+            frames += 1
+        } catch {
+            Log.storage.error("Capture line not written: \(error.localizedDescription, privacy: .public)")
         }
-        frames += 1
     }
 }

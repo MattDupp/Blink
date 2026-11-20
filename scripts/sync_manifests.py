@@ -19,6 +19,7 @@ USAGE
 
 Only the Python standard library is used: nothing to install.
 """
+
 import argparse
 import csv
 import os
@@ -69,8 +70,13 @@ def sync_session(session: Path, check_only: bool) -> tuple[int, int, int]:
 def main() -> int:
     default_root = Path(__file__).resolve().parent.parent / "data" / "raw"
     parser = argparse.ArgumentParser(description="Make each manifest.csv match its pictures.")
-    parser.add_argument("root", nargs="?", type=Path, default=default_root,
-                        help=f"folder holding the sessions (default: {default_root})")
+    parser.add_argument(
+        "root",
+        nargs="?",
+        type=Path,
+        default=default_root,
+        help=f"folder holding the sessions (default: {default_root})",
+    )
     parser.add_argument("--check", action="store_true", help="report only, change nothing")
     arguments = parser.parse_args()
 

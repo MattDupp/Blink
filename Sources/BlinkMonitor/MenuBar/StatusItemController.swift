@@ -15,12 +15,13 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private var subscription: AnyCancellable?
 
-    init(model: MonitorModel, openLiveView: @escaping () -> Void) {
+    init(model: MonitorModel, openDiagnostics: @escaping () -> Void) {
         super.init()
 
-        let panel = MenuPanelView(model: model, openLiveView: { [weak self] in
+        let panel = MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                  loginItem: model.loginItem, openDiagnostics: { [weak self] in
             self?.popover.performClose(nil)
-            openLiveView()
+            openDiagnostics()
         })
         let host = NSHostingController(rootView: panel)
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
@@ -68,10 +69,11 @@ final class StatusItemController: NSObject {
     }
 }
 
-/// The live view: the camera, the counters and the curve, in an ordinary window opened
-/// from the panel. Closing it leaves the app running in the menu bar.
+/// The diagnostics window: the camera, the counters, the curve and the pipeline's timings,
+/// in an ordinary window opened from the panel. Closing it leaves the app running in the
+/// menu bar.
 @MainActor
-final class LiveWindowController: NSObject, NSWindowDelegate {
+final class DiagnosticsWindowController: NSObject, NSWindowDelegate {
 
     private let model: MonitorModel
     private var window: NSWindow?
@@ -82,20 +84,21 @@ final class LiveWindowController: NSObject, NSWindowDelegate {
 
     func show() {
         if window == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: MonitorView(model: model)))
-            window.title = "Blink Monitor - live view"
+            let view = DiagnosticsView(model: model, captures: model.captures)
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = "Blink Monitor - Diagnostics"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
             self.window = window
         }
-        model.setLiveWindowOpen(true)
+        model.setDiagnosticsOpen(true)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
-        model.setLiveWindowOpen(false)
+        model.setDiagnosticsOpen(false)
     }
 }

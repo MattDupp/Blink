@@ -1,17 +1,14 @@
 import SwiftUI
 import AppKit
+import BlinkCore
 
 /// Where the program starts.
 ///
-///     BlinkRecorder --out=<folder>     the recording window
-///     BlinkRecorder --selftest         checks the pipeline without the camera, then quits
+///     BlinkRecorder --out=<folder>     the recording window, sessions written to <folder>
 ///     BlinkRecorder --no-camera        the window alone, the camera left off
 @main
 enum Entry {
     static func main() {
-        if CommandLine.arguments.contains("--selftest") {
-            exit(SelfTest.run() ? 0 : 1)
-        }
         BlinkRecorderApp.main()
     }
 }
@@ -26,8 +23,8 @@ enum Options {
         for argument in CommandLine.arguments where argument.hasPrefix("--out=") {
             return URL(fileURLWithPath: String(argument.dropFirst("--out=".count)), isDirectory: true)
         }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Developer/BlinkMonitor/data/raw", isDirectory: true)
+        // No folder given: next to the app's other files, never a path of one machine.
+        return HistoryStore.applicationFolder.appendingPathComponent("recordings", isDirectory: true)
     }
 }
 

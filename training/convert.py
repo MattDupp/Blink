@@ -20,12 +20,13 @@ It writes:
     models/eyenet_reference.json   pictures with the answer the model must give - the
                                    Swift code checks itself against it in its self-test
 """
+
 import json
 import shutil
 import warnings
 from pathlib import Path
 
-warnings.filterwarnings("ignore")   # coremltools is noisy about versions it has not tested
+warnings.filterwarnings("ignore")  # coremltools is noisy about versions it has not tested
 
 import coremltools as ct
 import torch
@@ -58,7 +59,7 @@ def main() -> None:
     saved = torch.load(MODELS / "eyenet.pt", weights_only=True)
     network = EyeNet()
     network.load_state_dict(saved["weights"])
-    exported = Exported(network).eval()   # evaluation mode: dropout off, fixed batch-norm
+    exported = Exported(network).eval()  # evaluation mode: dropout off, fixed batch-norm
 
     # 1. "Tracing": run one example through the model and record every operation it
     #    performs. The recording, not the Python code, is what gets translated.
@@ -70,8 +71,9 @@ def main() -> None:
     #    0..1 the network was trained on, and the colour order is stated, not assumed.
     core_ml = ct.convert(
         traced,
-        inputs=[ct.ImageType(name="eye", shape=(1, 3, 64, 64), scale=1 / 255.0,
-                             color_layout=ct.colorlayout.RGB)],
+        inputs=[
+            ct.ImageType(name="eye", shape=(1, 3, 64, 64), scale=1 / 255.0, color_layout=ct.colorlayout.RGB)
+        ],
         outputs=[ct.TensorType(name="closed")],
         convert_to="mlprogram",
         minimum_deployment_target=ct.target.macOS14,
@@ -112,9 +114,13 @@ def main() -> None:
         worst = max(worst, abs(answer - expected[position]))
         disagreements += (answer > 0.5) != (expected[position] > 0.5)
         if position % 8 == 0:
-            reference.append({"file": str(Path(data.rows[i]["path"]).relative_to(HERE.parent)),
-                              "label": data.rows[i]["label"],
-                              "closed": round(expected[position], 6)})
+            reference.append(
+                {
+                    "file": str(Path(data.rows[i]["path"]).relative_to(HERE.parent)),
+                    "label": data.rows[i]["label"],
+                    "closed": round(expected[position], 6),
+                }
+            )
 
     print(f"Compared PyTorch and Core ML on {len(chosen)} real pictures:")
     print(f"  largest difference between the two probabilities: {worst:.6f}")

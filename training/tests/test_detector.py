@@ -1,0 +1,66 @@
+"""The Python copy of the counting rules: same behaviour and same numbers as the Swift original."""
+
+import re
+from pathlib import Path
+
+from detector import Settings, combine, count_blinks
+
+SWIFT_DETECTOR = Path(__file__).resolve().parents[2] / "Sources/BlinkCore/Detection/BlinkDetector.swift"
+OPEN, CLOSED = 0.02, 0.98
+
+
+def blinks(stream: list[float | None]) -> int:
+    """How many blinks a stream of answers at 30 frames a second holds."""
+    return len(count_blinks([i / 30 for i in range(len(stream))], stream))
+
+
+def test_numbers_are_the_swift_numbers():
+    source = SWIFT_DETECTOR.read_text()
+
+    def swift(name: str) -> float:
+        match = re.search(rf"public var {name} = ([0-9.]+)", source)
+        assert match, f"{name} not found in {SWIFT_DETECTOR.name}"
+        return float(match.group(1))
+
+    settings = Settings()
+    assert settings.closed_above == swift("closedAbove")
+    assert settings.open_below == swift("openBelow")
+    assert settings.minimum_closed_frames == swift("minimumClosedFrames")
+    assert settings.maximum_blink_seconds == swift("maximumBlinkSeconds")
+    assert settings.maximum_gap_seconds == swift("maximumGapSeconds")
+
+
+def test_one_blink():
+    assert blinks([OPEN] * 15 + [CLOSED] * 4 + [OPEN] * 5) == 1
+
+
+def test_two_blinks_in_a_row():
+    assert blinks([OPEN] * 10 + [CLOSED] * 3 + [OPEN] * 10 + [CLOSED] * 3 + [OPEN] * 5) == 2
+
+
+def test_a_lone_closed_frame_is_a_model_mistake():
+    assert blinks([OPEN] * 10 + [CLOSED] + [OPEN] * 10) == 0
+
+
+def test_hovering_around_half_is_not_a_blink():
+    assert blinks([OPEN] * 5 + [0.45, 0.55] * 15 + [OPEN] * 5) == 0
+
+
+def test_a_dip_in_the_middle_is_still_one_blink():
+    assert blinks([OPEN] * 10 + [CLOSED, 0.5, 0.5, CLOSED] + [OPEN] * 5) == 1
+
+
+def test_a_long_closure_is_not_a_blink():
+    assert blinks([OPEN] * 10 + [CLOSED] * 45 + [OPEN] * 5) == 0
+
+
+def test_a_gap_while_closed_counts_nothing():
+    assert blinks([OPEN] * 10 + [CLOSED] * 2 + [None] * 30 + [OPEN] * 10) == 0
+
+
+def test_eyes_already_closed_at_the_start_count_nothing():
+    assert blinks([CLOSED] * 5 + [OPEN] * 10) == 0
+
+
+def test_the_two_eyes_are_averaged():
+    assert combine(1.0, 0.5) == 0.75

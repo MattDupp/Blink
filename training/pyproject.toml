@@ -13,5 +13,28 @@ dependencies = [
     "torch",    # PyTorch: the neural-network library (uses the Mac's GPU through "MPS")
     "numpy",    # arrays of numbers
     "pillow",   # reading the PNG pictures
-    "coremltools>=9.0",
+    "coremltools>=9.0",   # converts the trained model to Core ML, the format the Mac app runs
 ]
+
+# Only needed to work on the code: `make test`, `make lint`.
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: errors, I: import order, UP: modern syntax, B: likely bugs, SIM: simplifications.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# convert.py silences coremltools' version warnings BEFORE importing it, on purpose.
+"convert.py" = ["E402"]

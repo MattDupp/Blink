@@ -86,9 +86,10 @@ final class FramePipeline: @unchecked Sendable {
         if let current, let located, !crops.isEmpty, crops.count == located.usableEyes.count,
            frameIndex % SessionScript.saveEveryNthFrame == 0 {
             for crop in crops {
-                let saved = current.writer.save(Sample(image: crop.image, phaseIndex: current.phaseIndex,
-                                                       phase: current.phase, frameIndex: frameIndex, time: time,
-                                                       eye: crop.eye, located: located, frameSize: update.frameSize))
+                let saved = current.writer.save(EyeSample(
+                    image: crop.image, label: current.phase.label, variant: current.phase.variant,
+                    phaseIndex: current.phaseIndex, frameIndex: frameIndex, time: time,
+                    eye: crop.eye, located: located, frameSize: update.frameSize))
                 if saved {
                     if current.phase.label == .open { update.savedOpen += 1 } else { update.savedClosed += 1 }
                 } else {
