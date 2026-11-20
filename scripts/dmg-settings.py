@@ -56,8 +56,8 @@ text_size = 13
 arrange_by = None
 # The centre of each icon, in points from the content's top-left corner.
 icon_locations = {
-    app_name: (150, 185),
-    "Applications": (450, 185),
+    app_name: (150, 180),
+    "Applications": (450, 180),
 }
 # Not used, on purpose: `hide_extensions`. Hiding ".app" is a note Finder keeps ON the app
 # itself, and a signed app must be exactly what was signed: `codesign --verify --strict`

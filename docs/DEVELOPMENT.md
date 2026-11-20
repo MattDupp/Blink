@@ -159,6 +159,9 @@ the other. There is no installer program, and nothing is written anywhere else.
 1. **Build the app** into a folder of its own, signed like every other build. It never packs
    a copy found in `build/` or in `~/Applications`, which may hold a model.
 2. **Draw the background** with `scripts/make-dmg-background.swift`, as the icon is drawn.
+   It is light on purpose: over a picture, Finder writes the icons' names in black, in
+   dark mode too. To look at a design without building an image, add `--mock`: it draws
+   stand-ins for the two icons and their names.
 3. **Prepare `dmgbuild`**, the Python tool that writes the `.DS_Store`. `uv` installs it in
    `build/dmg/tools` from `scripts/dmg-requirements.txt`, which names exact versions and
    the checksums of their files. A file with another checksum is refused.
