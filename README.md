@@ -138,7 +138,7 @@ You need an Apple Silicon Mac with macOS 14 or later, Apple's Command Line Tools
 (`xcode-select --install`; full Xcode is not required) and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <this repository> && cd blink-monitor
+git clone https://github.com/MattDupp/blink-monitor.git && cd blink-monitor
 ```
 
 | Step | Command | What happens |
