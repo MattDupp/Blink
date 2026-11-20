@@ -73,6 +73,13 @@ public struct LocatedEyes {
     }
 }
 
+/// Anything that finds the eyes in a frame: Apple's Vision in the apps (`EyeLocator`),
+/// or a stand-in that knows where they were painted when a test has no face to show.
+public protocol EyeLocating {
+    /// The eyes of the face nearest to the camera, or nil when no face is seen.
+    func locate(in pixelBuffer: CVPixelBuffer) throws -> LocatedEyes?
+}
+
 /// Finds where the eyes are in a frame.
 ///
 /// This is STAGE 1 of the pipeline, and we do not train it: Apple's Vision framework ships
@@ -80,7 +87,7 @@ public struct LocatedEyes {
 /// that runs on this Mac. Our own model is STAGE 2: it only has to answer "is this small
 /// eye picture open or closed?" - a far easier problem than "find a blink in a whole
 /// 1920x1080 frame", and one a small network can learn from a few thousand pictures.
-public final class EyeLocator {
+public final class EyeLocator: EyeLocating {
 
     /// The crop is a square whose side is this fraction of the distance between the eyes.
     ///

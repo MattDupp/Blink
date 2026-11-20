@@ -367,6 +367,8 @@ final class MonitorModel: ObservableObject {
 
     func startCapture(cued: Bool) {
         guard canCapture, let pipeline else { return }
-        captures.start(cued: cued, pipeline: pipeline, root: Options.captureRoot)
+        // Asked at launch to keep whole frames: those captures go to their own folder.
+        captures.start(cued: cued, pipeline: pipeline, root: Options.wholeFrameRoot ?? Options.captureRoot,
+                       wholeFrames: Options.wholeFrameRoot != nil)
     }
 }

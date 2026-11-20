@@ -40,12 +40,17 @@ public final class EyeFinder {
         case found(FoundEyes)
     }
 
-    private let locator = EyeLocator()
+    private let locator: EyeLocating
     private let cropper = EyeCropper()
-    private var schedule = FrameSchedule()
+    private var schedule: FrameSchedule
     private var lastLocated: LocatedEyes?
 
-    public init() {}
+    /// The apps take the defaults. A replay passes its own to try another way of finding
+    /// the eyes, or another rhythm, on frames that were recorded (`CaptureReplay`).
+    public init(locator: EyeLocating = EyeLocator(), schedule: FrameSchedule = FrameSchedule()) {
+        self.locator = locator
+        self.schedule = schedule
+    }
 
     /// `everyFrame`: search on this frame whatever the schedule says.
     /// The time spent is added to `cost`.
@@ -122,14 +127,23 @@ public enum EyeFusion {
     }
 }
 
+/// Anything that says how sure it is that the eye in a 64x64 picture is closed: the
+/// trained model, or a stand-in when a test has no model.
+public protocol EyeJudging {
+    func closedProbability(of eye: CVPixelBuffer) throws -> Double
+}
+
+extension EyeClassifier: EyeJudging {}
+
 /// Finds the eyes (through `EyeFinder`) and asks the model about each.
 public final class EyeReader {
 
-    private let finder = EyeFinder()
-    private let classifier: EyeClassifier
+    private let finder: EyeFinder
+    private let classifier: EyeJudging
 
-    public init(classifier: EyeClassifier) {
+    public init(classifier: EyeJudging, finder: EyeFinder = EyeFinder()) {
         self.classifier = classifier
+        self.finder = finder
     }
 
     /// What this frame says about the eyes, and what reading it cost.

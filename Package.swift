@@ -27,6 +27,10 @@ let package = Package(
         // BlinkMonitor: the menu-bar app. Runs the trained model on the camera and counts blinks.
         .executableTarget(name: "BlinkMonitor", dependencies: ["BlinkCore", "BlinkUI"]),
 
+        // BlinkReplay: a command-line tool. It runs captures that kept their whole frames
+        // through the eye finding again, and counts: how a change to that stage is judged.
+        .executableTarget(name: "BlinkReplay", dependencies: ["BlinkCore"]),
+
         // `make test` runs these (Swift Testing).
         .testTarget(name: "BlinkCoreTests", dependencies: ["BlinkCore"]),
 

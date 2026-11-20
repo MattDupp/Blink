@@ -20,7 +20,8 @@ Run `make` to list them.
 | `make train` | Train, cross-validate by session, save `models/eyenet.pt`, convert to Core ML |
 | `make improve` | Label the captures recorded in Live View, train again, convert |
 | `make evaluate` | Blink-level accuracy on the annotated captures |
-| `make monitor` | Build the menu-bar app, install it in `~/Applications`, start it |
+| `make replay` | Run the captures that kept whole frames through the eye finding again, and count their blinks; `PACE=1` also reports the cost of each stage |
+| `make monitor` | Build the menu-bar app, install it in `~/Applications`, start it; with `WHOLE_FRAMES=1`, its captures also keep the whole camera picture |
 | `make uninstall` | Remove the installed app; history, recordings and model are kept |
 | `make snapshots` | Render every screen of both apps, in every state worth looking at, to `build/screens` with made-up data; the pictures the docs show are copied to `docs/img` |
 | `make icon` | Draw the app icon |
@@ -31,7 +32,7 @@ Other tools, run from `training/` with `uv run python <script>`:
 | Script | What it does |
 |---|---|
 | `label_captures.py` | Turns new live captures (`data/live`) into labelled pictures (`data/blinks`); `--redo` to label one again |
-| `annotate.py` | Lays out candidate blinks for a person to mark; writes `blinks.csv` per capture, keeping the answers already given |
+| `annotate.py` | Lays out candidate blinks for a person to mark; writes `blinks.csv` per capture, keeping the answers already given; `--replay` for the captures in `data/replay` |
 | `evaluate.py --experiments` | Compares training and counting variants |
 | `figures.py` | Redraws the figures of the docs from the recordings |
 
@@ -50,11 +51,14 @@ Sources/BlinkCore/
                  PauseState, PresenceTracker (time at the screen), BlinkBreak
     History/     minute records, the CSV stores, the reminder policy, Baseline (your
                  reference and the limit), Insights (rates by hour)
-    Recording/   SessionWriter and CaptureWriter: the on-disk formats
+    Recording/   SessionWriter and CaptureWriter: the on-disk formats; WholeFrames (a
+                 capture's frames as a movie), CaptureReplay (those frames through the
+                 pipeline again), RecordedCapture (a capture read back)
     Support/     logging, PNG and CSV files, stage timings, launch options
 Sources/BlinkUI/             the camera preview and its notes, shown by both apps;
                              RateReadout, the one way the rate is written
 Sources/BlinkRecorder/       the recording app
+Sources/BlinkReplay/         the command-line tool behind `make replay`
 Sources/BlinkMonitor/
     App/         entry point, MonitorModel (the facts), Preferences (every stored
                  choice), the pipeline, one small controller per subject, the demo
@@ -85,6 +89,7 @@ trained on them.
 |---|---|---|
 | `data/raw/<session>/` | the recorder | `open/`, `closed/`, `manifest.csv` |
 | `data/live/<capture>/` | the Live View window | `frames/`, `trace.csv`, and `blinks.csv` once annotated |
+| `data/replay/<capture>/` | the Live View window, started with `WHOLE_FRAMES=1` | a capture, plus `whole-frames.mov`, `.csv` and `.json`; `replays/` once replayed |
 | `data/blinks/<capture>/` | `label_captures.py` | same shape as a session |
 | `data/removed/` | you | pictures set aside while cleaning labels |
 | `models/` | `make train` | `eyenet.pt`, `EyeNet.mlpackage`, `EyeNet.mlmodelc`, `eyenet_reference.json` |
@@ -92,17 +97,49 @@ trained on them.
 The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `history.csv`
 (one line per minute) and `performance.csv` (the pipeline's cost, one line per minute).
 
+## Judging a change to the eye finding
+
+`make evaluate` judges the model: it runs stored eye pictures through a model and counts.
+It cannot judge the stage before the model. Change how the eyes are found and the squares
+move by a few pixels, the pictures are no longer the stored ones, and nothing recorded
+says what the model would have answered. So a capture can also keep its whole frames, and
+be run again from them:
+
+1. `make monitor WHOLE_FRAMES=1`, then the capture buttons of the Live View window. Each
+   capture goes to `data/replay` with the camera's whole picture of every frame, as a
+   ProRes movie (each frame stored on its own, about 1 GB a minute). This is a film of a
+   face: it stays in `data/`, in folders only their owner can read.
+2. `cd training && uv run python annotate.py --replay`, then mark the candidates in each
+   capture's `blinks.csv`, as for any capture.
+3. `make replay`. For each capture it prints the blinks found, missed and false, three
+   times: as the app counted while recording, replayed with the eyes searched on every
+   frame, and replayed as the app runs. `PACE=1` hands the frames over at the camera's
+   pace and reports what each stage costs.
+
+The second of the three is the control. It does the work the app did while recording, on
+the same frames, so whatever differs from the first is what storing the frames in a movie
+changed; the tool prints that difference frame by frame. On real eye pictures pushed
+through the movie format and back, the model's answer moved by 0.2% on average and the
+same 20 blinks of 20 were counted at the same frames.
+
+Captures in `data/replay` are kept apart from `data/live` on purpose: `make evaluate` and
+`make improve` do not see them, so recording some changes neither the model nor the
+figures of the README.
+
 ## Tests
 
 - **Swift** (`Tests/BlinkCoreTests`): geometry and cropping on frames painted in memory,
   the counting rules on hand-written streams of answers, history, reminders, file formats,
   pauses, time at the screen, the blink break, and the baseline, including a month of
   decline that must move neither the reference nor the limit.
+  Whole frames are written to a movie and read back, and a painted capture is replayed
+  with stand-ins for Vision and for the model: its one blink must be counted once.
   `ModelTests` compares the app's answers with Python's on real pictures and is skipped
   when there is no trained model on the machine (as in CI).
 - **Python** (`training/tests`): the labelling rule, the loader, the manifest tool, and
   the Python copy of the counting rules, including a test that its numbers equal the ones
-  in `BlinkDetector.swift`.
+  in `BlinkDetector.swift`. The scoring of a count against the marks is written in both
+  languages too, and one example is held to one answer in both.
 
 - **The app** (`Tests/BlinkMonitorTests`): the model started from a state and fed updates
   by hand (timed pause, a camera that goes silent, the blink break), the demo's made-up

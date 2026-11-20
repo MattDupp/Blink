@@ -26,6 +26,13 @@ struct LiveView: View {
                     .frame(width: 290)
             }
             CaptureBanner(captures: captures)
+            if let folder = Options.wholeFrameRoot {
+                // Said for as long as the mode is on, not only while a capture runs.
+                Text("Captures also keep the whole camera picture (your face), in \(folder.path). Started with --whole-frames-dir.")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             HStack(spacing: 10) {
                 Toggle("Sound at each blink", isOn: $model.soundOn)
                 Spacer()

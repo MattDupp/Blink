@@ -169,6 +169,7 @@ thing to work on. The app logs its cost once a minute to
 - The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection.
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`. Settings shows the file and can erase it.
 - Pictures are written to disk only by the recorder and by the capture buttons of the Live View window, when you press them, to build your own training data.
+- A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
 - Recordings are written to folders only your account can read.
 - Both apps are signed with macOS's hardened runtime and ask for one thing, the camera, so another program cannot load its code into them to borrow that permission.
@@ -228,9 +229,10 @@ Sources/BlinkCore        camera, eye finding and cropping, model, counting rules
 Sources/BlinkUI          the SwiftUI views both apps share, and the screenshot renderer
 Sources/BlinkRecorder    the app that records labelled eye pictures
 Sources/BlinkMonitor     the menu-bar app, and its demo
-Tests/BlinkCoreTests     84 tests of the rules (Swift Testing)
+Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
+Tests/BlinkCoreTests     97 tests of the rules (Swift Testing)
 Tests/BlinkMonitorTests  12 tests of the app itself: its model, its clock, the demo
-training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 23 tests
+training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 25 tests
 scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
 docs/                   how it works, lessons, development notes
 ```

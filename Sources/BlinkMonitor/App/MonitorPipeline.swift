@@ -162,7 +162,7 @@ final class MonitorPipeline: @unchecked Sendable {
         if asked.liveView && frameIndex % 2 == 0 {
             update.preview = reader.preview(pixelBuffer, maxWidth: 640)
         }
-        count(reading, into: &update, asked: asked)
+        count(reading, into: &update, asked: asked, frame: pixelBuffer)
     }
 
     /// What a frame WOULD have said about the eyes, with no frame behind it: the demo
@@ -192,7 +192,9 @@ final class MonitorPipeline: @unchecked Sendable {
     }
 
     /// The second half of every frame: reading -> blink detector -> statistics -> update.
-    private func count(_ reading: FrameReading, into update: inout MonitorUpdate, asked: Requests) {
+    /// `frame`: the camera's picture, for a capture that keeps whole frames.
+    private func count(_ reading: FrameReading, into update: inout MonitorUpdate, asked: Requests,
+                       frame: CVPixelBuffer? = nil) {
         let time = update.time
         update.live.faceFound = reading.faceFound
         update.live.eyeRects = reading.eyeRects
@@ -216,7 +218,7 @@ final class MonitorPipeline: @unchecked Sendable {
         update.currentMinute = minutes.current
 
         asked.capture?.write(frame: frameIndex, time: time, reading: reading,
-                             state: detector.state, event: update.event, tick: asked.tick)
+                             state: detector.state, event: update.event, tick: asked.tick, pixelBuffer: frame)
 
         if shouldSend(update, live: asked.liveView) {
             lastSent = update

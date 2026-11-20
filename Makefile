@@ -22,7 +22,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor demo build test lint format recorder train improve evaluate monitor monitor-app uninstall snapshots icon clean
+.PHONY: help doctor demo build test lint format recorder train improve evaluate replay monitor monitor-app uninstall snapshots icon clean
 
 help:  ## List the tasks
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -78,21 +78,35 @@ evaluate:  ## Measure blink counting on your captures (models that never saw the
 	@scripts/doctor.sh uv
 	cd training && uv run python evaluate.py
 
+# make monitor WHOLE_FRAMES=1: until the app is next started, the captures of its Live View
+# window also keep the whole camera picture of every frame, in data/replay. That is a film
+# of your face, on your disk only: it is what `make replay` needs, and nothing else does.
+ifdef WHOLE_FRAMES
+WHOLE_FRAMES_ARGS := "--whole-frames-dir=$(DATA)/replay"
+endif
+
 monitor: monitor-app  ## 3. Install the menu-bar app in ~/Applications and start it
 	@# Stop the copy that is running, if any, and wait for it to be gone.
 	@# (The extra second lets macOS notice it has quit: opening the app too early fails with error -600.)
 	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; sleep 1; fi
 	mkdir -p "$(INSTALL_DIR)"
-	mkdir -p -m 700 "$(DATA)" "$(DATA)/live"
+	mkdir -p -m 700 "$(DATA)" "$(DATA)/live" $(if $(WHOLE_FRAMES),"$(DATA)/replay")
 	rm -rf "$(INSTALL_DIR)/BlinkMonitor.app"
 	cp -R build/BlinkMonitor.app "$(INSTALL_DIR)/BlinkMonitor.app"
 	@# Tell macOS which copy is THE app: the installed one, not the one in build/. Two
 	@# copies under one identifier is how Notification Centre ends up with no icon to show.
 	@$(LSREGISTER) -u "$(CURDIR)/build/BlinkMonitor.app" >/dev/null 2>&1; true
 	@$(LSREGISTER) -f "$(INSTALL_DIR)/BlinkMonitor.app" >/dev/null 2>&1; true
-	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live"
+	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live" $(WHOLE_FRAMES_ARGS)
 	@echo "Blink Monitor is running: look for the eye in the menu bar, at the top right of the screen."
 	@echo "macOS asks for the camera the first time, and again after each rebuild."
+	@$(if $(WHOLE_FRAMES),echo "WHOLE FRAMES: the captures of the Live View window also keep the whole camera picture, in $(DATA)/replay.")
+
+# PACE=1: hand the frames over at the camera's pace, and report what each stage costs.
+replay: $(MODEL)  ## Judge the eye finding: run the captures that kept whole frames through it again, and count
+	@scripts/doctor.sh mac swift
+	swift build -c release --product BlinkReplay $(QUIET)
+	.build/release/BlinkReplay "$(DATA)/replay" "--model=$(MODEL)" $(if $(PACE),--pace) $(REPLAY_ARGS)
 
 monitor-app: $(MODEL) App/AppIcon.icns
 	@scripts/doctor.sh mac swift

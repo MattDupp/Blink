@@ -6,6 +6,8 @@ import BlinkCore
 ///     BlinkMonitor                         the menu-bar app
 ///       --model=<EyeNet.mlmodelc>          another model than the one inside the app
 ///       --capture-dir=<folder>             where the Live View window saves its captures
+///       --whole-frames-dir=<folder>        captures also keep the whole camera picture, and go
+///                                          there instead (to replay the eye finding: make replay)
 ///       --open=<window>[,<window>]         open windows at launch: live-view, history, settings,
 ///                                          blink-break (to look at them, or to check they open)
 ///       --no-camera                        leave the camera off (to look at the windows)
@@ -60,6 +62,12 @@ enum Options {
         if let folder = LaunchArguments.folder("capture-dir") { return folder }
         return HistoryStore.applicationFolder.appendingPathComponent("captures", isDirectory: true)
     }
+
+    /// Set when captures must also keep the whole camera picture of every frame: the
+    /// folder they go to. Never the default: such a capture is a film of a face, where an
+    /// ordinary one is two small pictures of eyes. It is for working on the stage that
+    /// finds the eyes (`CaptureReplay`), and is asked for at launch, by whoever does that.
+    static var wholeFrameRoot: URL? { LaunchArguments.folder("whole-frames-dir") }
 
     static var snapshotFolder: URL? { LaunchArguments.folder("snapshots") }
 }

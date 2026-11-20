@@ -10,6 +10,7 @@ from PIL import Image
 import annotate
 import captures
 import data
+import evaluate
 import label_captures
 from captures import Capture
 
@@ -203,6 +204,28 @@ def test_the_manifest_columns_are_the_ones_swift_writes():
 def test_the_trace_columns_are_the_ones_swift_writes():
     declared = swift("Sources/BlinkCore/Recording/CaptureWriter.swift", r'static let header = "([^"]*)"')
     assert declared == captures.TRACE_HEADER
+
+
+def test_the_scoring_window_is_the_swift_one():
+    score = "Sources/BlinkCore/Detection/BlinkScore.swift"
+    before, after = swift(score, r"framesBefore = (\d+)"), swift(score, r"framesAfter = (\d+)")
+    assert (int(before), int(after)) == (evaluate.FRAMES_BEFORE, evaluate.FRAMES_AFTER)
+
+
+def test_a_count_is_scored_as_swift_scores_it(tmp_path):
+    # The same marks, the same counts and the same expected numbers as `BlinkScoreTests.score`
+    # in Tests/BlinkCoreTests/WholeFrameTests.swift: the two languages are held to one answer.
+    # A capture of 700 frames, every one read, numbered from 0: a position is a frame number.
+    loaded = capture(tmp_path, [CALM] * 700)
+    truth = [
+        evaluate.Truth(100, 103, "blink"),
+        evaluate.Truth(200, 202, "none"),
+        evaluate.Truth(300, 302, "partial"),
+        evaluate.Truth(400, 404, "blink"),
+        evaluate.Truth(600, 603, "blink"),
+    ]
+    result = evaluate.score(loaded, truth, [108, 109, 106, 203, 303, 398, 500])
+    assert (result.blinks, result.found, result.missed, result.false) == (3, 2, 1, 4)
 
 
 def test_the_head_turn_limit_is_the_swift_one():

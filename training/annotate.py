@@ -1,7 +1,8 @@
 """Prepares the live captures for a person to say, once, where the real blinks are.
 
     cd training
-    uv run python annotate.py
+    uv run python annotate.py                 the captures in data/live
+    uv run python annotate.py --replay        the ones that kept whole frames, in data/replay
 
 WHY. "The model is right on 99.7% of pictures" does not say whether your blinks are
 counted. To measure that, somebody has to look at the video and mark the blinks: the
@@ -27,12 +28,13 @@ below), an answer follows its candidate even if the candidate's frames shifted a
 An answered line whose candidate is no longer found is kept as it is, and reported.
 """
 
+import argparse
 import csv
 from pathlib import Path
 
 import sheets
 from captures import SIDES, Capture, all_captures
-from paths import OUT
+from paths import LIVE, OUT, REPLAY
 
 SHEETS = OUT / "annotate"
 
@@ -169,9 +171,18 @@ def annotate(capture: Capture, sheet_folder: Path = SHEETS) -> tuple[int, int, i
 
 
 def main() -> None:
-    captures = all_captures()
+    parser = argparse.ArgumentParser(
+        description="Lay out the candidate blinks of the captures, to be marked."
+    )
+    parser.add_argument(
+        "--replay",
+        action="store_true",
+        help="the captures that kept whole frames (data/replay) instead of data/live",
+    )
+    root = REPLAY if parser.parse_args().replay else LIVE
+    captures = all_captures(root)
     if not captures:
-        raise SystemExit("No capture found in data/live")
+        raise SystemExit(f"No capture found in {root}")
     for capture in captures:
         total, unanswered, orphans = annotate(capture)
         print(

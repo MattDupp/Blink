@@ -23,7 +23,8 @@ final class CaptureController: ObservableObject {
     private var task: Task<Void, Never>?
 
     /// `cued`: with ticks to blink on; otherwise you carry on and natural blinks are recorded.
-    func start(cued: Bool, pipeline: MonitorPipeline, root: URL) {
+    /// `wholeFrames`: also keep the whole camera picture of every frame (`CaptureWriter`).
+    func start(cued: Bool, pipeline: MonitorPipeline, root: URL, wholeFrames: Bool = false) {
         guard !isCapturing else { return }
 
         let formatter = DateFormatter()
@@ -33,7 +34,7 @@ final class CaptureController: ObservableObject {
 
         let writer: CaptureWriter
         do {
-            writer = try CaptureWriter(root: root, name: name)
+            writer = try CaptureWriter(root: root, name: name, wholeFrames: wholeFrames)
         } catch {
             result = "The capture folder could not be created: \(error.localizedDescription)"
             return
@@ -44,6 +45,7 @@ final class CaptureController: ObservableObject {
         instruction = cued
             ? "Blink ONCE at each tick - quick, light blinks, like the ones that get missed."
             : "Carry on normally (read, type). Your natural blinks are being recorded."
+        if wholeFrames { instruction? += " The whole camera picture is being kept." }
         let total = cued ? Double(Self.cueCount) * Self.cueSeconds : Self.freeSeconds
 
         task = Task {
@@ -61,9 +63,17 @@ final class CaptureController: ObservableObject {
                 try? await Task.sleep(nanoseconds: UInt64(total * 1_000_000_000))
             }
             pipeline.setCapture(nil)
+            // The movie of whole frames is whole only once it is closed.
+            let closed = await writer.finish()
             instruction = nil
             progress = 0
-            result = "Saved \(writer.frames) frames in \(writer.folder.path)"
+            if !writer.keepsWholeFrames {
+                result = "Saved \(writer.frames) frames in \(writer.folder.path)"
+            } else if closed {
+                result = "Saved \(writer.frames) frames, and the whole picture of \(writer.wholeFrames) of them, in \(writer.folder.path)"
+            } else {
+                result = "Saved \(writer.frames) frames in \(writer.folder.path) - but the whole pictures could not be kept."
+            }
         }
     }
 }
