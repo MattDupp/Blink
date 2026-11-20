@@ -36,7 +36,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             state: panelState,
             actions: PanelActions(startBlinkBreak: closing(actions.startBlinkBreak), openHistory: closing(actions.openHistory),
                                   openSettings: closing(actions.openSettings), openLiveView: closing(actions.openLiveView),
-                                  openCameraSettings: closing(actions.openCameraSettings), quit: actions.quit))
+                                  openCameraSettings: closing(actions.openCameraSettings),
+                                  openGuide: closing(actions.openGuide), quit: actions.quit))
         let host = NSHostingController(rootView: panel)
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
         popover.contentViewController = host

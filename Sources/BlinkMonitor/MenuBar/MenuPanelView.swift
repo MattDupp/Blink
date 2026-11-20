@@ -10,6 +10,8 @@ struct PanelActions {
     var openSettings: () -> Void = {}
     var openLiveView: () -> Void = {}
     var openCameraSettings: () -> Void = {}
+    /// How to train a model on one's own eyes (the demo's banner).
+    var openGuide: () -> Void = {}
     var quit: () -> Void = {}
 }
 
@@ -38,6 +40,8 @@ struct MenuPanelView: View {
     @ObservedObject var state: PanelState
     /// The moment the panel describes: the present, except in the screenshots.
     var moment = Moment()
+    /// The app runs from its disk image and not from Applications.
+    var onDiskImage = Installation.isOnDiskImage
     let actions: PanelActions
 
     var body: some View {
@@ -47,7 +51,8 @@ struct MenuPanelView: View {
     private func panel(now: Date) -> some View {
         let status = model.status(now: now)
         return VStack(alignment: .leading, spacing: 0) {
-            if model.isDemo { DemoBanner() }
+            if onDiskImage { DiskImageBanner() }
+            if model.isDemo { DemoBanner(openGuide: actions.openGuide) }
             VStack(alignment: .leading, spacing: 10) {
                 NowSection(status: status, blinks: model.live.counters.totalBlinks, actions: actions)
                 Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
@@ -74,17 +79,41 @@ enum AppInfo {
 
 // MARK: - Now
 
-/// Said at the top of the panel for as long as the app runs on made-up eyes.
+/// Said at the top of the panel for as long as the app runs on made-up eyes: because it
+/// was asked to, or because this copy has no model (the one the disk image installs).
 private struct DemoBanner: View {
+    let openGuide: () -> Void
+
     var body: some View {
-        Label("Demo: the blinks are made up and the camera is off. To use it on your own eyes, see the README.",
-              systemImage: "sparkles")
+        VStack(alignment: .leading, spacing: 5) {
+            Label("Demo: the blinks are made up and the camera is off. This copy has no model of your eyes yet.",
+                  systemImage: "sparkles")
+                .fixedSize(horizontal: false, vertical: true)
+            // A model cannot come with the app: it is trained on one person's eyes.
+            Button("How to train it on your own eyes", action: openGuide)
+                .buttonStyle(.link)
+                .padding(.leading, 22)
+        }
+        .font(.caption)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.16))
+    }
+}
+
+/// Said for as long as the app runs from its disk image: opened in the image's window
+/// without being dragged to Applications first (see `Installation.isOnDiskImage`).
+private struct DiskImageBanner: View {
+    var body: some View {
+        Label("Running from the disk image. To keep Blink Monitor: quit it, drag it onto Applications, and open it from there.",
+              systemImage: "externaldrive")
             .font(.caption)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.accentColor.opacity(0.16))
+            .background(Color.orange.opacity(0.18))
     }
 }
 

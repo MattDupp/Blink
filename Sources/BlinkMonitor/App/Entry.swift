@@ -9,7 +9,8 @@ import BlinkCore
 ///       --open=<window>[,<window>]         open windows at launch: live-view, history, settings,
 ///                                          blink-break (to look at them, or to check they open)
 ///       --no-camera                        leave the camera off (to look at the windows)
-///       --demo                             made-up eyes: no camera, no model (make demo)
+///       --demo                             made-up eyes: no camera, no model (make demo).
+///                                          Also what a copy with no model inside does.
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
 @main
 enum Entry {
@@ -42,8 +43,15 @@ enum Options {
     /// The demo: the whole app on made-up eyes, for trying it before training a model.
     /// Asked for at launch, or built in: the app that `make demo` builds carries the key,
     /// so that opening it from the Finder is a demo too.
+    ///
+    /// And it is what an app with NO MODEL does. The app that the disk image installs
+    /// (`make dmg`) has none: a model is made from pictures of its owner's eyes and is
+    /// not handed out with the app. That copy has nothing to count real blinks with, so
+    /// it shows what the app does, says that the blinks are made up, and says how to get
+    /// a model. A model that was asked for by name and is not there stays an error.
     static var demo: Bool {
         LaunchArguments.has("demo") || Bundle.main.object(forInfoDictionaryKey: "BlinkMonitorDemo") as? Bool == true
+            || (LaunchArguments.value(of: "model") == nil && !FileManager.default.fileExists(atPath: modelURL.path))
     }
 
     /// The compiled model: given on the command line, else the copy inside the app
@@ -73,17 +81,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings: WindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let demo = Options.demo
-
         // One copy only: two would mean two menu-bar items and the camera read twice.
-        if !Options.noCamera, let identifier = Bundle.main.bundleIdentifier {
-            let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
-                .filter { $0 != NSRunningApplication.current }
-            if !others.isEmpty {
-                NSApp.terminate(nil)
-                return
-            }
+        // Which of the two stays is decided in `Installation.start`.
+        guard !Options.noCamera, let identifier = Bundle.main.bundleIdentifier else { return launch() }
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+            .filter { $0 != NSRunningApplication.current }
+        switch Installation.start(own: Bundle.main.bundleURL, running: others.map(\.bundleURL)) {
+        case .alone:
+            launch()
+        case .yielding:
+            // The first version quit without a word, and opening the app a second time
+            // looked like an app that does not open.
+            Log.app.notice("Another copy is running: it is asked to show its panel, and this one quits")
+            DistributedNotificationCenter.default().postNotificationName(
+                Installation.showPanelRequest(identifier: identifier), object: nil, userInfo: nil, deliverImmediately: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.terminate(nil) }
+        case .replacing:
+            Log.app.notice("An older build of this app is still running: it is asked to quit")
+            others.forEach { $0.terminate() }
+            launch(after: others)
         }
+    }
+
+    /// Starts once the copies that were asked to quit have quit. One that has not after
+    /// five seconds is made to.
+    private func launch(after others: [NSRunningApplication], attemptsLeft: Int = 25) {
+        let remaining = others.filter { !$0.isTerminated }
+        if remaining.isEmpty { return launch() }
+        if attemptsLeft == 0 { remaining.forEach { $0.forceTerminate() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.launch(after: remaining, attemptsLeft: max(attemptsLeft - 1, 0))
+        }
+    }
+
+    private func launch() {
+        let demo = Options.demo
+        if demo && !LaunchArguments.has("demo") { Log.app.notice("No model in this copy: running as the demo") }
+        if Installation.isOnDiskImage { Log.app.notice("Running from a read-only disk: the panel says to drag the app to Applications") }
 
         let model = demo ? SampleData.demoModel() : MonitorModel(preferences: Preferences())
         let preferences = model.preferences
@@ -124,9 +158,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let statusItem = StatusItemController(model: model, actions: PanelActions(
             startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
-            openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings, quit: { NSApp.terminate(nil) }))
+            openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings, openGuide: Self.openGuide,
+            quit: { NSApp.terminate(nil) }))
         self.statusItem = statusItem
         NSApp.mainMenu = MainMenu.make(target: self, settings: #selector(showSettings))
+
+        // Another copy that started and gave way asks this one to show itself.
+        if let identifier = Bundle.main.bundleIdentifier {
+            DistributedNotificationCenter.default().addObserver(
+                forName: Installation.showPanelRequest(identifier: identifier), object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.showYourself() }
+            }
+        }
 
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
@@ -175,6 +218,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         settings?.show()
+    }
+
+    /// The app was opened while it is already running: from Finder, from Spotlight, or by
+    /// a second copy that gave way. An ordinary app answers by bringing its window
+    /// forward. This one has none, so it opens its panel: otherwise nothing at all would
+    /// happen, and the eye may be hidden behind the notch.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showYourself()
+        return false
+    }
+
+    private func showYourself() {
+        // `hasVisibleWindows` counts the menu-bar item's own window: look for a real one.
+        if NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) {
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            statusItem?.showPanel()
+        }
+        Log.app.notice("Opened again while running: shown")
+    }
+
+    /// The page that says how to train a model, in the browser.
+    private static func openGuide() {
+        if let url = Installation.guide { NSWorkspace.shared.open(url) }
     }
 
     /// System Settings, on the page where the camera is allowed app by app.

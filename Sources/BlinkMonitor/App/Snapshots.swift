@@ -23,12 +23,13 @@ enum Snapshots {
 
     /// Every screen, in every state worth looking at.
     private static func screens(now: Date) -> [(String, AnyView)] {
-        func panel(_ scene: SampleData.Scene, configure: (PanelState) -> Void = { _ in }) -> AnyView {
+        func panel(_ scene: SampleData.Scene, onDiskImage: Bool = false, configure: (PanelState) -> Void = { _ in }) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)
             let state = PanelState()
             configure(state)
             return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
-                                         preferences: model.preferences, state: state, moment: Moment(frozen: now), actions: PanelActions()))
+                                         preferences: model.preferences, state: state, moment: Moment(frozen: now),
+                                         onDiskImage: onDiskImage, actions: PanelActions()))
         }
         func settings(_ tab: SettingsState.Tab, scene: SampleData.Scene = .watching,
                       configure: (SettingsState, MonitorModel) -> Void = { _, _ in }) -> AnyView {
@@ -63,6 +64,8 @@ enum Snapshots {
             ("panel-first-minute", panel(.firstMinute)),
             ("panel-no-picture", panel(.noPicture)),
             ("panel-demo", panel(.demo)),
+            // Opened in the installer's window, without dragging it to Applications first.
+            ("panel-demo-disk-image", panel(.demo, onDiskImage: true)),
             ("history", history(.watching)),
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
