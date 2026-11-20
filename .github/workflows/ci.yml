@@ -1,0 +1,31 @@
+# Runs the checks on every push and pull request.
+#
+# The recordings and the trained model are personal and not in the repository, so the
+# tests that need them (the Swift-vs-Python model comparison) skip themselves here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Python environment
+        run: cd training && uv sync
+
+      - name: Lint
+        run: make lint
+
+      - name: Tests
+        run: make test
