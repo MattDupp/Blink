@@ -1,0 +1,17 @@
+# The Python side of the project: training the eye model.
+#
+# This file lists what the training code needs. `uv` reads it, downloads those packages
+# into training/.venv (a private folder: nothing is installed system-wide) and writes
+# uv.lock, the exact versions it chose - so the same command rebuilds the same environment.
+[project]
+name = "blink-training"
+version = "0.1.0"
+description = "Trains the open / closed eye model of BlinkMonitor"
+# Python 3.12: the newest version every tool we need (PyTorch now, Core ML conversion later) supports.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch",    # PyTorch: the neural-network library (uses the Mac's GPU through "MPS")
+    "numpy",    # arrays of numbers
+    "pillow",   # reading the PNG pictures
+    "coremltools>=9.0",
+]

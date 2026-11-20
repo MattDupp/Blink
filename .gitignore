@@ -1,0 +1,28 @@
+# --- Personal data: never commit ---------------------------------------------------
+# Recordings of the owner's eyes, and the model trained on them. Anyone using this
+# project records their own (see README: "Train it on your own eyes").
+/data/
+/models/
+
+# --- Build products ------------------------------------------------------------------
+/.build/
+/build/
+*.app
+*.icns
+/App/AppIcon.iconset/
+
+# --- Python --------------------------------------------------------------------------
+/training/.venv/
+/training/out/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# --- macOS / editors -----------------------------------------------------------------
+.DS_Store
+.swiftpm/
+xcuserdata/
+*.xcodeproj/
+.vscode/
+.idea/
