@@ -118,7 +118,7 @@ The app runs all day, so its cost matters as much as its accuracy.
 - Eye pictures reach Core ML as pixel buffers in the model's own format. The first version
   passed images and paid 9 ms per picture for it ([Lessons](LESSONS.md), number 3).
 - The eyes are searched for every other frame; the frame in between reads the same squares.
-- After 3 s without a face, one frame in six is analysed.
+- After 3 s without a face, one frame in six is analysed. (Both rules are one tested type, `FrameSchedule`.)
 - With no window open, the interface is updated on change and once a second.
 - The camera picture is only prepared while the diagnostics window shows it.
 - The pipeline times its own stages and logs them every minute.

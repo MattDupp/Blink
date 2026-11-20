@@ -87,6 +87,8 @@ effect is not in this table yet. The app logs its own cost once a minute to
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`.
 - Pictures are written to disk only by the recorder and by the capture buttons of the diagnostics window, when you press them, to build your own training data.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
+- Recordings are written to folders only your account can read.
+- Both apps are signed with macOS's hardened runtime and ask for one thing, the camera, so another program cannot load its code into them to borrow that permission.
 
 ## Train it on your own eyes
 
@@ -116,8 +118,8 @@ Sources/BlinkCore       camera, eye finding and cropping, model, counting rules,
 Sources/BlinkUI         the SwiftUI views both apps share
 Sources/BlinkRecorder   the app that records labelled eye pictures
 Sources/BlinkMonitor    the menu-bar app
-Tests/BlinkCoreTests    43 tests (Swift Testing)
-training/               PyTorch training, Core ML conversion, labelling and evaluation tools, 15 tests
+Tests/BlinkCoreTests    60 tests (Swift Testing)
+training/               PyTorch training, Core ML conversion, labelling and evaluation tools, 23 tests
 scripts/                app bundling, icon drawing, manifest repair
 docs/                   how it works, lessons, development notes
 ```

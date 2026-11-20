@@ -26,8 +26,8 @@ Other tools, run from `training/` with `uv run python <script>`:
 
 | Script | What it does |
 |---|---|
-| `label_captures.py` | Turns live captures (`data/live`) into labelled pictures (`data/blinks`) |
-| `annotate.py` | Lays out candidate blinks for a person to mark; writes `blinks.csv` per capture |
+| `label_captures.py` | Turns new live captures (`data/live`) into labelled pictures (`data/blinks`); `--redo` to label one again |
+| `annotate.py` | Lays out candidate blinks for a person to mark; writes `blinks.csv` per capture, keeping the answers already given |
 | `evaluate.py --experiments` | Compares training and counting variants |
 | `figures.py` | Redraws the figures of the docs from the recordings |
 
@@ -40,18 +40,27 @@ Sources/BlinkCore/
     Camera/      CameraCapture: the AVFoundation session, one callback per frame
     Vision/      EyeLocator (landmarks -> eye squares), EyeCropper (square -> 64x64 buffer)
     Model/       EyeClassifier: the Core ML model
-    Detection/   EyeReader (the three stages for one frame), BlinkDetector, BlinkStats
-    History/     minute records, the CSV store, the reminder policy
+    Detection/   EyeFinder and EyeReader (the stages for one frame), FrameSchedule,
+                 BlinkDetector, BlinkStats
+    Monitoring/  MonitorStatus: what the monitor is doing, decided in one place
+    History/     minute records, the CSV stores, the reminder policy
     Recording/   SessionWriter and CaptureWriter: the on-disk formats
-    Support/     logging, PNG files, stage timings
-Sources/BlinkUI/             the camera preview both apps show
+    Support/     logging, PNG and CSV files, stage timings, launch options
+Sources/BlinkUI/             the camera preview and its notes, shown by both apps
 Sources/BlinkRecorder/       the recording app
 Sources/BlinkMonitor/
-    App/         entry point, MonitorModel (live state), the pipeline, the small controllers
+    App/         entry point, MonitorModel (the facts), the pipeline, one small
+                 controller per subject, the screenshot renderer
     MenuBar/     status item, panel, history and welcome windows
     Diagnostics/ the diagnostics window
 Tests/BlinkCoreTests/        Swift Testing suites
-training/                    PyTorch, Core ML conversion, data tools, tests/
+training/
+    paths.py, captures.py, sheets.py    folders, a typed capture, sheets of pictures
+    data.py, model.py, learning.py      loading, the network, augment / train / predict
+    detector.py                         the counting rules, as in BlinkDetector.swift
+    train.py, convert.py, evaluate.py   the commands behind make train / make evaluate
+    label_captures.py, annotate.py, figures.py
+    tests/
 ```
 
 `BlinkCore` holds everything that is not a window, so that the two apps share it and the
@@ -90,8 +99,9 @@ No test needs a camera or a face.
 The project builds with the Swift Package Manager alone. Two consequences:
 
 - **App bundles are assembled by `scripts/bundle.sh`**: the program, an `Info.plist` and
-  the model, signed ad hoc. macOS ties the camera permission to that signature, so it asks
-  again after each rebuild whose code changed.
+  the model, signed ad hoc with the hardened runtime and one entitlement (the camera).
+  macOS ties the camera permission to that signature, so it asks again after each rebuild
+  whose code changed.
 - **Some macros are unavailable** with the Command Line Tools. SwiftUI's `@State` is one,
   so view state lives in `ObservableObject` classes. Swift Testing's macros are present
   but need a compiler flag, which `make test` adds when Xcode is absent.
@@ -100,5 +110,6 @@ The project builds with the Swift Package Manager alone. Two consequences:
 
 - Comments say why, and cite the measurement when there is one.
 - A change to the pipeline is judged on `make evaluate` and on the stage timings, not on impressions.
-- The counting rules live in `BlinkDetector.swift` and `training/detector.py`; change them together.
+- The counting rules live in `BlinkDetector.swift` and `training/detector.py`; change them together. Tests compare the numbers, and the file formats, across the two languages.
+- What a window says is derived from facts (`MonitorStatus`), never stored and kept up to date by hand.
 - Nothing personal in the repository: check `git status` before committing new files under `docs/img`.
