@@ -17,9 +17,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-DATA_ROOT = Path(__file__).resolve().parent.parent / "data" / "raw"
-# Real blink frames taken from the live captures and labelled by label_captures.py.
-BLINKS_ROOT = Path(__file__).resolve().parent.parent / "data" / "blinks"
+from paths import BLINKS, RAW
 
 # Beyond this head turn the far eye hides behind the nose (same rule and same number as
 # LocatedEyes.usableEyes in the Swift code). The first session was recorded before the
@@ -55,7 +53,7 @@ def is_far_eye(row: dict) -> bool:
     )
 
 
-def load(roots: tuple[Path, ...] = (DATA_ROOT, BLINKS_ROOT)) -> EyeData:
+def load(roots: tuple[Path, ...] = (RAW, BLINKS)) -> EyeData:
     """Loads every session of every root: the recorder's sessions (eyes held open or
     closed) and the labelled live captures (real blinks). Each is a "session": a block of
     pictures taken together, held out together when the model is tested."""

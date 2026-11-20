@@ -1,7 +1,8 @@
 """Turns the live captures (data/live) into labelled training pictures (data/blinks).
 
     cd training
-    uv run python label_captures.py
+    uv run python label_captures.py            label the captures that are not labelled yet
+    uv run python label_captures.py --redo     label every capture again
 
 THE PROBLEM IT SOLVES. The recorder's pictures are eyes HELD open or HELD closed. A real
 blink is caught half-way and blurred, and on the darker side of the face the model
@@ -28,17 +29,19 @@ THE RULES, per eye and per frame:
 
 The pictures are COPIED to data/blinks/<capture>/open|closed with a manifest.csv, in the
 recorder's format, so they are trained on, checked and cleaned like any session.
+
+A CAPTURE ALREADY LABELLED IS LEFT ALONE. You may have cleaned its pictures by hand;
+labelling it again would bring every removed picture back. `--redo` says you mean it.
 """
 
+import argparse
 import csv
 import shutil
 from pathlib import Path
 
-from PIL import Image, ImageDraw
-
-HERE = Path(__file__).resolve().parent
-LIVE = HERE.parent / "data" / "live"
-BLINKS = HERE.parent / "data" / "blinks"
+import sheets
+from captures import SIDES, Capture, all_captures
+from paths import BLINKS, OUT
 
 SURE = 0.9  # the model's answer counts as certain from here
 FLAT_OUTLINE = 0.25  # outline height, 0 = this capture's most closed, 1 = its usual open
@@ -46,48 +49,37 @@ QUIET = 0.05  # "near zero"
 CALM_FRAMES = 6  # 0.2 s on each side
 KEEP_OPEN_EVERY = 6
 
+# The columns of a session's manifest.csv, as SessionWriter.swift writes them
+# (a test checks the two lists are the same).
 HEADER = [
-    "session",
-    "condition",
-    "phase",
-    "label",
-    "variant",
-    "frame",
-    "time",
-    "side",
-    "file",
-    "crop_x",
-    "crop_y",
-    "crop_side",
-    "eye_distance",
-    "roll",
-    "yaw",
-    "frame_w",
-    "frame_h",
-]
+    "session", "condition", "phase", "label", "variant", "frame", "time", "side", "file",
+    "crop_x", "crop_y", "crop_side", "eye_distance", "roll", "yaw", "frame_w", "frame_h",
+]  # fmt: skip
 
 
-def percentile(values: list[float], fraction: float) -> float:
-    ordered = sorted(values)
-    return ordered[min(len(ordered) - 1, int(fraction * len(ordered)))]
+def label_of(capture: Capture, index: int, side: str) -> tuple[str, str] | None:
+    """(label, variant) for one eye of one frame, or None when the rules stay silent."""
+    other = "R" if side == "L" else "L"
+    frame = capture.frames[index]
+    if frame.answer(side) >= SURE:
+        return "closed", "blink"
+    if frame.answer(other) >= SURE and capture.outline(side)[index] <= FLAT_OUTLINE:
+        return "closed", "blink-other-eye"
+
+    around = range(max(0, index - CALM_FRAMES), min(len(capture.frames), index + CALM_FRAMES + 1))
+    calm = all(
+        capture.frames[j].left < QUIET
+        and capture.frames[j].right < QUIET
+        and capture.outline("L")[j] > 0.5
+        and capture.outline("R")[j] > 0.5
+        for j in around
+    )
+    return ("open", "between-blinks") if calm and index % KEEP_OPEN_EVERY == 0 else None
 
 
-def label_capture(capture: Path, destination: Path = BLINKS) -> tuple[int, int, list[tuple[Path, str]]]:
-    """Labels one capture into `destination`. Returns (closed, open, the pictures labelled
-    closed BY THE OTHER EYE - the ones worth a look)."""
-    with (capture / "trace.csv").open(newline="", encoding="utf-8") as handle:
-        frames = [row for row in csv.DictReader(handle) if row["p_left"] and row["p_right"]]
-
-    sides = {"L": ("p_left", "open_left"), "R": ("p_right", "open_right")}
-    p = {s: [float(f[sides[s][0]]) for f in frames] for s in sides}
-    # Outline height rescaled per eye and per capture: its shape differs between the
-    # two eyes and with the distance to the camera, so only the relative change counts.
-    outline = {}
-    for s in sides:
-        raw = [float(f[sides[s][1]]) for f in frames]
-        low, usual = percentile(raw, 0.02), percentile(raw, 0.5)
-        outline[s] = [(value - low) / max(usual - low, 1e-6) for value in raw]
-
+def label_capture(capture: Capture, destination: Path = BLINKS) -> tuple[int, int, list[sheets.Tile]]:
+    """Labels one capture into `destination`, replacing what was there. Returns (closed,
+    open, the pictures labelled closed BY THE OTHER EYE - the ones worth a look)."""
     session = destination / capture.name
     shutil.rmtree(session, ignore_errors=True)
     for label in ("open", "closed"):
@@ -95,82 +87,60 @@ def label_capture(capture: Path, destination: Path = BLINKS) -> tuple[int, int, 
 
     rows, by_other_eye = [], []
     counts = {"closed": 0, "open": 0}
-    for i, frame in enumerate(frames):
-        around = range(max(0, i - CALM_FRAMES), min(len(frames), i + CALM_FRAMES + 1))
-        calm = all(
-            p["L"][j] < QUIET and p["R"][j] < QUIET and outline["L"][j] > 0.5 and outline["R"][j] > 0.5
-            for j in around
-        )
-        for side, other in (("L", "R"), ("R", "L")):
-            if p[side][i] >= SURE:
-                label, variant = "closed", "blink"
-            elif p[other][i] >= SURE and outline[side][i] <= FLAT_OUTLINE:
-                label, variant = "closed", "blink-other-eye"
-            elif calm and i % KEEP_OPEN_EVERY == 0:
-                label, variant = "open", "between-blinks"
-            else:
+    for index, frame in enumerate(capture.frames):
+        for side in SIDES:
+            decided = label_of(capture, index, side)
+            source = capture.picture(frame, side)
+            if decided is None or not source.is_file():
                 continue
-
-            name = f"f{int(frame['frame']):06d}_{side}.png"
-            source = capture / "frames" / name
-            if not source.is_file():
-                continue
-            shutil.copyfile(source, session / label / name)
+            label, variant = decided
+            copy = session / label / source.name
+            shutil.copyfile(source, copy)
             counts[label] += 1
             if variant == "blink-other-eye":
+                other = "R" if side == "L" else "L"
                 by_other_eye.append(
-                    (session / label / name, f"{side} p {p[side][i]:.2f} other {p[other][i]:.2f}")
+                    sheets.Tile(copy, f"{side} {frame.answer(side):.2f} other {frame.answer(other):.2f}")
                 )
-            rows.append(
-                [
-                    capture.name,
-                    "live capture",
-                    0,
-                    label,
-                    variant,
-                    frame["frame"],
-                    frame["time"],
-                    side,
-                    f"{label}/{name}",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-            )
+            line = dict.fromkeys(HEADER, "")
+            line |= {
+                "session": capture.name,
+                "condition": "live capture",
+                "phase": 0,
+                "label": label,
+                "variant": variant,
+                "frame": frame.number,
+                "time": f"{frame.time:.4f}",
+                "side": side,
+                "file": f"{label}/{source.name}",
+            }
+            rows.append(line)
 
     with (session / "manifest.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(HEADER)
+        writer = csv.DictWriter(handle, fieldnames=HEADER, lineterminator="\n")
+        writer.writeheader()
         writer.writerows(rows)
     return counts["closed"], counts["open"], by_other_eye
 
 
-def review_sheet(pictures: list[tuple[Path, str]], destination: Path) -> None:
-    """Every picture labelled closed on the word of the other eye, to be looked at."""
-    tile, caption, columns = 96, 14, 12
-    lines = -(-len(pictures) // columns)
-    sheet = Image.new("RGB", (columns * tile, max(lines, 1) * (tile + caption)), "white")
-    draw = ImageDraw.Draw(sheet)
-    for position, (path, text) in enumerate(pictures):
-        x, y = (position % columns) * tile, (position // columns) * (tile + caption)
-        sheet.paste(Image.open(path).convert("RGB").resize((tile, tile), Image.LANCZOS), (x, y))
-        draw.text((x + 2, y + tile + 1), text, fill="black")
-    destination.parent.mkdir(exist_ok=True)
-    sheet.save(destination)
-
-
 def main() -> None:
-    captures = sorted(p for p in LIVE.iterdir() if (p / "trace.csv").is_file()) if LIVE.is_dir() else []
-    if not captures:
-        raise SystemExit(f"No capture found in {LIVE}")
+    parser = argparse.ArgumentParser(description="Label the real blink frames of the live captures.")
+    parser.add_argument(
+        "--redo",
+        action="store_true",
+        help="label again the captures already labelled (pictures you removed by hand come back)",
+    )
+    arguments = parser.parse_args()
 
-    to_review = []
+    captures = all_captures()
+    if not captures:
+        raise SystemExit("No capture found in data/live")
+
+    to_review: list[sheets.Tile] = []
     for capture in captures:
+        if (BLINKS / capture.name).is_dir() and not arguments.redo:
+            print(f"{capture.name}: already labelled, left as it is (--redo to label it again)")
+            continue
         closed, opened, by_other_eye = label_capture(capture)
         to_review += by_other_eye
         print(
@@ -178,10 +148,12 @@ def main() -> None:
             f"({len(by_other_eye)} on the word of the other eye), {opened} open"
         )
 
-    sheet = HERE / "out" / "review_blink_labels.png"
-    review_sheet(to_review, sheet)
     print(f"\nLabelled pictures: {BLINKS}")
-    print(f"To look at ({len(to_review)} pictures labelled closed by the other eye): {sheet}")
+    if to_review:
+        OUT.mkdir(exist_ok=True)
+        sheet = OUT / "review_blink_labels.png"
+        sheets.flow(to_review, columns=12).save(sheet)
+        print(f"To look at ({len(to_review)} pictures labelled closed by the other eye): {sheet}")
 
 
 if __name__ == "__main__":

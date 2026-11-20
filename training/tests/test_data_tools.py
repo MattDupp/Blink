@@ -2,12 +2,16 @@
 
 import csv
 import importlib.util
+import re
 from pathlib import Path
 
 from PIL import Image
 
+import annotate
+import captures
 import data
 import label_captures
+from captures import Capture
 
 PROJECT = Path(__file__).resolve().parents[2]
 HEADER = label_captures.HEADER
@@ -63,52 +67,53 @@ def test_load_reads_every_session_and_skips_what_it_should(tmp_path):
     assert [loaded.rows[i]["file"] for i in loaded.indices({"s2"})] == ["closed/c.png"]
 
 
-# --- labelling a capture -----------------------------------------------------------------
+# --- captures: reading, labelling, annotating ----------------------------------------------
 
 
-def capture(root: Path, frames: list[tuple[float, float, float, float]]) -> Path:
+def capture(root: Path, frames: list[tuple[float, float, float, float]]) -> Capture:
     """A capture whose frames are (p_left, p_right, outline_left, outline_right)."""
     folder = root / "cap"
     (folder / "frames").mkdir(parents=True)
     with (folder / "trace.csv").open("w", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(
-            [
-                "frame",
-                "time",
-                "p_left",
-                "p_right",
-                "p_mean",
-                "open_left",
-                "open_right",
-                "state",
-                "event",
-                "tick",
-            ]
-        )
+        writer.writerow(captures.TRACE_HEADER.split(","))
         for i, (left, right, outline_left, outline_right) in enumerate(frames):
-            writer.writerow(
-                [i, f"{i / 30:.4f}", left, right, (left + right) / 2, outline_left, outline_right, "", "", ""]
-            )
+            mean = (left + right) / 2
+            writer.writerow([i, f"{i / 30:.4f}", left, right, mean, outline_left, outline_right, "", "", ""])
             for side in "LR":
                 picture(folder / "frames" / f"f{i:06d}_{side}.png")
-    return folder
+    return Capture.load(folder)
+
+
+CALM = (0.0, 0.0, 0.25, 0.28)
+ONE_BLINK = [CALM] * 20 + [
+    (0.10, 1.00, 0.09, 0.19),  # right eye sure, left outline flat      -> left labelled closed
+    (0.10, 1.00, 0.20, 0.19),  # right eye sure, left outline NOT flat  -> left left alone
+    (0.95, 0.95, 0.09, 0.19),  # both sure
+] + [CALM] * 20  # fmt: skip
+
+
+def test_a_capture_is_read_into_numbers(tmp_path):
+    loaded = capture(tmp_path, ONE_BLINK)
+    assert len(loaded.frames) == 43
+    frame = loaded.frames[20]
+    assert (frame.number, frame.left, frame.right, frame.counted, frame.tick) == (
+        20,
+        0.10,
+        1.00,
+        False,
+        False,
+    )
+    assert frame.answer("R") == 1.00
+    assert loaded.picture(frame, "L").name == "f000020_L.png"
+    assert abs(loaded.seconds - 42 / 30) < 1e-6
+    # Outlines are rescaled per eye: 0 = most closed in this capture, 1 = usual open.
+    assert loaded.outline("L")[0] == 1.0 and loaded.outline("L")[20] == 0.0
 
 
 def test_one_eye_labels_the_other(tmp_path):
-    calm = (0.0, 0.0, 0.25, 0.28)
-    frames = (
-        [calm] * 20
-        + [
-            (0.10, 1.00, 0.09, 0.19),  # right eye sure, left outline flat      -> left labelled closed
-            (0.10, 1.00, 0.20, 0.19),  # right eye sure, left outline NOT flat  -> left left alone
-            (0.95, 0.95, 0.09, 0.19),  # both sure
-        ]
-        + [calm] * 20
-    )
-
     closed, opened, by_other_eye = label_captures.label_capture(
-        capture(tmp_path / "live", frames), tmp_path / "out"
+        capture(tmp_path / "live", ONE_BLINK), tmp_path / "out"
     )
 
     labelled = {
@@ -126,6 +131,83 @@ def test_one_eye_labels_the_other(tmp_path):
         int(Path(f).stem[1:7]) not in range(14, 29) for f, v in labelled.items() if v == "between-blinks"
     )
     assert all((tmp_path / "out/cap" / f).is_file() for f in labelled)
+
+
+def test_annotating_again_keeps_every_answer(tmp_path):
+    loaded = capture(tmp_path, ONE_BLINK)
+    assert annotate.annotate(loaded, tmp_path / "sheets") == (1, 1, 0)  # one candidate, to answer
+
+    answers = loaded.folder / "blinks.csv"
+    lines = list(csv.DictReader(answers.open()))
+    lines[0] |= {"kind": "blink", "note": "clear"}
+    # A second answered line, about frames that are no candidate (any more).
+    lines.append({"id": 2, "first_frame": 5, "last_frame": 6, "kind": "none", "note": ""})
+    with answers.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=annotate.FIELDS)
+        writer.writeheader()
+        writer.writerows(lines)
+
+    assert annotate.annotate(loaded, tmp_path / "sheets") == (1, 0, 1)  # nothing to answer, one line kept
+    kept = {(line["first_frame"], line["kind"]): line["note"] for line in csv.DictReader(answers.open())}
+    assert kept == {("5", "none"): "[no longer a candidate]", ("20", "blink"): "clear"}
+
+
+def test_an_answer_follows_a_candidate_whose_frames_shifted():
+    old = [{"first_frame": "100", "last_frame": "104", "kind": "blink", "note": "n"}]
+    lines, orphans = annotate.carry_answers(old, [(101, 106), (300, 302)])
+    assert [(line["kind"], line["note"]) for line in lines] == [("blink", "n"), ("", "")]
+    assert orphans == []
+
+
+def test_two_answers_merged_into_one_candidate_are_asked_again():
+    old = [
+        {"first_frame": "100", "last_frame": "102", "kind": "blink", "note": ""},
+        {"first_frame": "104", "last_frame": "106", "kind": "none", "note": ""},
+    ]
+    lines, orphans = annotate.carry_answers(old, [(100, 106)])
+    assert lines[0]["kind"] == "" and lines[0]["note"] == "was: blink + none"
+    assert orphans == []
+
+
+def test_labelling_leaves_a_labelled_capture_alone(tmp_path, monkeypatch, capsys):
+    loaded = capture(tmp_path / "live", ONE_BLINK)
+    monkeypatch.setattr(label_captures, "all_captures", lambda: [loaded])
+    monkeypatch.setattr(label_captures, "BLINKS", tmp_path / "blinks")
+    monkeypatch.setattr(label_captures, "OUT", tmp_path / "out")
+    kept = tmp_path / "blinks" / "cap" / "cleaned-by-hand.txt"
+    kept.parent.mkdir(parents=True)
+    kept.write_text("mine")
+
+    monkeypatch.setattr("sys.argv", ["label_captures.py"])
+    label_captures.main()
+    assert kept.read_text() == "mine"
+    assert "already labelled" in capsys.readouterr().out
+
+
+# --- the formats shared with the Swift code -------------------------------------------------
+
+
+def swift(path: str, pattern: str) -> str:
+    match = re.search(pattern, (PROJECT / path).read_text(), re.S)
+    assert match, f"{pattern} not found in {path}"
+    return match.group(1)
+
+
+def test_the_manifest_columns_are_the_ones_swift_writes():
+    declared = swift(
+        "Sources/BlinkCore/Recording/SessionWriter.swift", r'static let header = ((?:\s*\+?\s*"[^"]*")+)'
+    )
+    assert "".join(re.findall(r'"([^"]*)"', declared)).split(",") == label_captures.HEADER
+
+
+def test_the_trace_columns_are_the_ones_swift_writes():
+    declared = swift("Sources/BlinkCore/Recording/CaptureWriter.swift", r'static let header = "([^"]*)"')
+    assert declared == captures.TRACE_HEADER
+
+
+def test_the_head_turn_limit_is_the_swift_one():
+    declared = swift("Sources/BlinkCore/Vision/EyeLocator.swift", r"maxYawForBothEyes = ([0-9.]+)")
+    assert float(declared) == data.MAX_YAW_FOR_BOTH_EYES
 
 
 # --- keeping manifests in step with the pictures ------------------------------------------

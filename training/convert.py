@@ -34,9 +34,7 @@ from PIL import Image
 
 from data import load
 from model import EyeNet
-
-HERE = Path(__file__).resolve().parent
-MODELS = HERE.parent / "models"
+from paths import MODEL_FILE, MODELS, PROJECT
 
 
 class Exported(torch.nn.Module):
@@ -56,7 +54,7 @@ class Exported(torch.nn.Module):
 
 
 def main() -> None:
-    saved = torch.load(MODELS / "eyenet.pt", weights_only=True)
+    saved = torch.load(MODEL_FILE, weights_only=True)
     network = EyeNet()
     network.load_state_dict(saved["weights"])
     exported = Exported(network).eval()  # evaluation mode: dropout off, fixed batch-norm
@@ -116,7 +114,7 @@ def main() -> None:
         if position % 8 == 0:
             reference.append(
                 {
-                    "file": str(Path(data.rows[i]["path"]).relative_to(HERE.parent)),
+                    "file": str(Path(data.rows[i]["path"]).relative_to(PROJECT)),
                     "label": data.rows[i]["label"],
                     "closed": round(expected[position], 6),
                 }
