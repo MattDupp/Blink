@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import CoreVideo
 import ImageIO
 import UniformTypeIdentifiers
 import BlinkCore
@@ -7,7 +8,8 @@ import BlinkCore
 /// One eye of one captured frame.
 struct CapturedEye {
     let side: EyeRegion.Side
-    let picture: CGImage
+    /// The 64x64 picture the model was given.
+    let picture: CVPixelBuffer
     /// The model's answer for this picture.
     let closed: Double
     /// Vision's outline height / width (EyeRegion.openness).
@@ -49,8 +51,9 @@ final class CaptureWriter {
         for eye in eyes {
             byside[eye.side] = eye
             let url = folder.appendingPathComponent(String(format: "frames/f%06d_%@.png", frame, eye.side.rawValue))
-            if let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) {
-                CGImageDestinationAddImage(destination, eye.picture, nil)
+            if let image = EyeCropper.image(from: eye.picture),
+               let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) {
+                CGImageDestinationAddImage(destination, image, nil)
                 CGImageDestinationFinalize(destination)
             }
         }

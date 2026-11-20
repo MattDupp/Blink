@@ -149,7 +149,8 @@ enum SelfTest {
             let space = CGColorSpace(name: CGColorSpace.sRGB)!
             guard let context = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
                                           space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
-                  let picture = context.makeImage() else { throw CocoaError(.fileWriteUnknown) }
+                  let image = context.makeImage(), let picture = EyeCropper.buffer(from: image)
+            else { throw CocoaError(.fileWriteUnknown) }
             let writer = try CaptureWriter(root: root, name: "test")
             writer.write(frame: 7, time: 0.2333,
                          eyes: [CapturedEye(side: .imageLeft, picture: picture, closed: 0.9, openness: 0.11),

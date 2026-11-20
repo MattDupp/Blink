@@ -109,6 +109,11 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
                               from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
-        onFrame?(pixelBuffer, time)
+        // The frameworks called for each frame create temporary objects that are only
+        // freed when an "autorelease pool" is emptied. On a queue that never rests, that
+        // can be much later; a pool per frame frees them before the next frame arrives.
+        autoreleasepool {
+            onFrame?(pixelBuffer, time)
+        }
     }
 }

@@ -60,6 +60,26 @@ enum SelfTest {
         } else {
             check("crop: produced", false)
         }
+        // The pictures the model was trained on were made by the first version's
+        // `createCGImage`. The pixel-buffer path must give the same pixels, on a frame
+        // with detail at every scale (noise) and a square that is NOT a round multiple of 64.
+        if let noisy = paintedFrame(width: 1920, height: 1080, target: target, noise: true) {
+            let odd = CGRect(x: 700, y: 300, width: 131, height: 131)
+            if let old = cropper.legacyCrop(noisy, rect: odd), let new = cropper.crop(noisy, rect: odd) {
+                var worst = 0
+                for y in stride(from: 0, to: 64, by: 3) {
+                    for x in stride(from: 0, to: 64, by: 3) {
+                        let a = pixel(of: old, x: x, y: y), b = pixel(of: new, x: x, y: y)
+                        worst = max(worst, abs(a.r - b.r), abs(a.g - b.g), abs(a.b - b.b))
+                    }
+                }
+                check("crop: the pixel-buffer path gives the pixels the model was trained on", worst <= 1,
+                      "largest difference \(worst) of 255")
+            } else {
+                check("crop: both paths produce a picture", false)
+            }
+        }
+
         check("crop: a square partly outside the frame is refused",
               cropper.crop(frame, rect: CGRect(x: 1900, y: 10, width: 64, height: 64)) == nil)
         if let preview = cropper.preview(frame, maxWidth: 960) {
@@ -132,7 +152,7 @@ enum SelfTest {
     }
 
     /// A BGRA frame: mid grey, with `target` painted red (top half) and blue (bottom half).
-    private static func paintedFrame(width: Int, height: Int, target: CGRect) -> CVPixelBuffer? {
+    private static func paintedFrame(width: Int, height: Int, target: CGRect, noise: Bool = false) -> CVPixelBuffer? {
         var buffer: CVPixelBuffer?
         let attributes: [CFString: Any] = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary]
         CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
@@ -150,7 +170,11 @@ enum SelfTest {
             for x in 0..<width {
                 let p = y * rowBytes + x * 4
                 var (b, g, r): (UInt8, UInt8, UInt8) = (128, 128, 128)
-                if target.contains(CGPoint(x: CGFloat(x) + 0.5, y: CGFloat(y) + 0.5)) {
+                if noise {
+                    // A fixed pseudo-random pattern: the same picture at every run.
+                    let v = UInt32(truncatingIfNeeded: (x &* 73_856_093) ^ (y &* 19_349_663))
+                    (b, g, r) = (UInt8(v & 255), UInt8((v >> 8) & 255), UInt8((v >> 16) & 255))
+                } else if target.contains(CGPoint(x: CGFloat(x) + 0.5, y: CGFloat(y) + 0.5)) {
                     if CGFloat(y) < target.midY { (b, g, r) = (0, 0, 255) } else { (b, g, r) = (255, 0, 0) }
                 }
                 bytes[p] = b

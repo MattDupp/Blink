@@ -119,7 +119,7 @@ final class MonitorPipeline: @unchecked Sendable {
                 update.faceFound = true
                 update.eyeRects = located.usableEyes.map { $0.cropRect }
                 for eye in located.usableEyes {
-                    if let picture = cropper.crop(pixelBuffer, rect: eye.cropRect) {
+                    if let picture = cropper.cropBuffer(pixelBuffer, rect: eye.cropRect) {
                         eyes.append(CapturedEye(side: eye.side, picture: picture,
                                                 closed: try classifier.closedProbability(of: picture),
                                                 openness: Double(eye.openness)))
