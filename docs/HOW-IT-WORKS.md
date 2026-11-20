@@ -75,7 +75,7 @@ Eyes held open or closed are not blinks. In a real blink the lid is caught half-
 blurred, and the first model missed them on the darker side of the face
 ([Lessons](LESSONS.md), number 2).
 
-The diagnostics window of the app can record every frame for 30 or 60 seconds, with the
+The app's Live View window can record every frame for 30 or 60 seconds, with the
 model's answer for each. From those captures:
 
 - `training/label_captures.py` labels frames with the rule "both eyes blink together":
@@ -139,5 +139,5 @@ The app runs all day, so its cost matters as much as its accuracy.
   This saved 15% of a frame's cost, not the 40% expected: each search got slower. The README has the numbers.
 - After 3 s without a face, one frame in six is analysed. (Both rules are one tested type, `FrameSchedule`.)
 - With no window open, the interface is updated on change and once a second.
-- The camera picture is only prepared while the diagnostics window shows it.
+- The camera picture is only prepared while the Live View window shows it.
 - The pipeline times its own stages and logs them every minute.

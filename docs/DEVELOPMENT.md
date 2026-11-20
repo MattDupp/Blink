@@ -12,13 +12,17 @@ Run `make` to list them.
 
 | Command | What it does |
 |---|---|
+| `make doctor` | Check that this Mac has what the project needs |
+| `make demo` | Build and start the demo: the whole app on made-up blinks, no camera, no model |
 | `make test` | Swift tests (`swift test`) and Python tests (`pytest`) |
 | `make lint` / `make format` | Check / fix the Python code's style with ruff |
 | `make recorder` | Build and open the recorder; sessions go to `data/raw` |
 | `make train` | Train, cross-validate by session, save `models/eyenet.pt`, convert to Core ML |
+| `make improve` | Label the captures recorded in Live View, train again, convert |
 | `make evaluate` | Blink-level accuracy on the annotated captures |
 | `make monitor` | Build the menu-bar app, install it in `~/Applications`, start it |
-| `make snapshots` | Render every screen, in every state worth looking at, to `docs/img` with made-up data |
+| `make uninstall` | Remove the installed app; history, recordings and model are kept |
+| `make snapshots` | Render every screen of both apps, in every state worth looking at, to `build/screens` with made-up data; the pictures the docs show are copied to `docs/img` |
 | `make icon` | Draw the app icon |
 | `make clean` | Remove build products. Never touches `data/` or `models/` |
 
@@ -53,12 +57,13 @@ Sources/BlinkUI/             the camera preview and its notes, shown by both app
 Sources/BlinkRecorder/       the recording app
 Sources/BlinkMonitor/
     App/         entry point, MonitorModel (the facts), Preferences (every stored
-                 choice), the pipeline, one small controller per subject, the
-                 screenshot renderer
+                 choice), the pipeline, one small controller per subject, the demo
+                 (DemoCamera), the made-up data and the list of screenshots
     MenuBar/     status item, panel, and the history, settings, blink-break and
-                 welcome windows
-    Diagnostics/ the diagnostics window
-Tests/BlinkCoreTests/        Swift Testing suites
+                 welcome windows; Moment (the clock a window reads)
+    LiveView/    the Live View window: camera, curve, counters, captures
+Tests/BlinkCoreTests/        the rules: Swift Testing suites
+Tests/BlinkMonitorTests/     the app itself: its model fed by hand, the demo, its source
 training/
     paths.py, captures.py, sheets.py    folders, a typed capture, sheets of pictures
     data.py, model.py, learning.py      loading, the network, augment / train / predict
@@ -79,7 +84,7 @@ trained on them.
 | Path | Made by | Contents |
 |---|---|---|
 | `data/raw/<session>/` | the recorder | `open/`, `closed/`, `manifest.csv` |
-| `data/live/<capture>/` | the diagnostics window | `frames/`, `trace.csv`, and `blinks.csv` once annotated |
+| `data/live/<capture>/` | the Live View window | `frames/`, `trace.csv`, and `blinks.csv` once annotated |
 | `data/blinks/<capture>/` | `label_captures.py` | same shape as a session |
 | `data/removed/` | you | pictures set aside while cleaning labels |
 | `models/` | `make train` | `eyenet.pt`, `EyeNet.mlpackage`, `EyeNet.mlmodelc`, `eyenet_reference.json` |
@@ -99,7 +104,27 @@ The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `histo
   the Python copy of the counting rules, including a test that its numbers equal the ones
   in `BlinkDetector.swift`.
 
+- **The app** (`Tests/BlinkMonitorTests`): the model started from a state and fed updates
+  by hand (timed pause, a camera that goes silent, the blink break), the demo's made-up
+  eyes run through the real pipeline, and one rule about the source: no view may store
+  the moment it was created (see the next section).
+
 No test needs a camera or a face.
+
+## The demo, and the clock
+
+**The demo** (`make demo`) is the same program built under another name and identifier,
+with one key in its Info.plist. `DemoCamera` replaces the camera and the model, and only
+those: its readings enter `MonitorPipeline` after the camera stage and are counted by the
+real detector, statistics and history. It has its own settings, a temporary history file,
+and never opens the camera.
+
+**The clock.** A window describes "now", and the screenshots need a fixed "now". The first
+version gave every view `var now = Date()`. A view is created once, so that date was the
+moment the app was launched, for as long as it ran: the last-hour chart never drew a
+minute recorded after launch. A view now holds a `Moment`, which reads the clock each
+time it is asked unless a screenshot froze it, and `AtPresent` redraws when the minute
+changes. `SourceTests` fails if a stored `Date()` comes back.
 
 ## Building without Xcode
 
@@ -121,4 +146,6 @@ The project builds with the Swift Package Manager alone. Two consequences:
 - The counting rules live in `BlinkDetector.swift` and `training/detector.py`; change them together. Tests compare the numbers, and the file formats, across the two languages.
 - What a window says is derived from facts (`MonitorStatus`), never stored and kept up to date by hand.
 - A new screen or state gets a line in `Snapshots.swift`, and is looked at in light and dark before it ships.
+- To check a window in the running app without clicking, open it at launch (`--open=history,settings`) and read the app's log: `/usr/bin/log show --last 1m --predicate 'subsystem == "local.blinkmonitor"'`. In zsh, a bare `log` is a shell builtin, not this tool.
+- Made-up data lives in `SampleData.swift` and nowhere else; it never touches the user's own files.
 - Nothing personal in the repository: check `git status` before committing new files under `docs/img`.

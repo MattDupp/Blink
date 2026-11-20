@@ -1,4 +1,4 @@
-# Six things this project taught me
+# Seven things this project taught me
 
 Each of these looked fine until something was measured or looked at. The numbers are from
 my own recordings: one person, one morning.
@@ -144,3 +144,25 @@ A test feeds it four weeks of steady decline and checks that nothing has moved.
 
 **What I keep from it:** a measure that adapts to its subject stops measuring it. Ask of
 any "personalised" threshold what happens when the person slowly gets worse.
+
+## 7. The chart that showed the hour before launch
+
+The panel's last-hour chart looked wrong in a screenshot: a few bars on the far left,
+nothing else. The explanation came easily: those are old minutes, the chart needs a time
+axis. An axis was added. The chart was still wrong.
+
+The cause was one line. Every window had `var now = Date()`, so that the screenshots could
+pass a fixed date. A view is created once and kept, so that date was the moment the app
+was launched. Every minute recorded afterwards was "in the future" and never drawn; after
+midnight, "today" was still yesterday. All 80 tests passed, because each test passed its
+own date, and the screenshots looked right, because they passed one too.
+
+The fix is a type that cannot hold a stale date: a window asks a `Moment` for the present
+each time it draws, and a test fails if a view stores `Date()` again. The app had no
+tests of its own, only its rules had; it has them now, and it can run on made-up eyes so
+that its windows can be exercised without a face.
+
+**What I keep from it:** a default value written to make something testable can be the
+bug, and the tests built on it will never show it. And the first plausible explanation
+of a symptom is a hypothesis: the chart was "explained" and decorated before anyone
+checked what it was drawing.

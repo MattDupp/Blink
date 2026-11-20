@@ -1,5 +1,7 @@
 # Blink Monitor
 
+[![CI](https://github.com/MattDupp/blink-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/MattDupp/blink-monitor/actions/workflows/ci.yml)
+
 A macOS menu-bar app that counts your blinks through the webcam, with a small neural
 network **you train on your own eyes**. Everything runs on your Mac: no picture is stored
 or sent anywhere.
@@ -12,6 +14,25 @@ or sent anywhere.
 
 <sub>Screenshots are rendered by the app itself with made-up data (`make snapshots`). A window that is never shown draws its switches grey: read a switch by the side its knob is on.</sub>
 
+## Try it first
+
+No camera, no model, nothing to record: the demo runs the whole app on made-up blinks.
+It needs an Apple Silicon Mac, macOS 14 or later and Apple's Command Line Tools
+(`xcode-select --install`), and builds in about a minute.
+
+```bash
+git clone https://github.com/MattDupp/blink-monitor.git && cd blink-monitor
+```
+
+```bash
+make demo
+```
+
+An eye marked "demo" appears in the menu bar and its panel opens. Every window works, the
+blink break counts, and the made-up eyes are counted by the same code that counts real ones.
+It never opens the camera and keeps its settings and history apart from the real app's.
+To use Blink Monitor on your own eyes, see [Train it on your own eyes](#train-it-on-your-own-eyes).
+
 ## Why
 
 People blink much less when they look at a screen, and for someone with dry eyes that is
@@ -22,6 +43,9 @@ and shipping it inside a real app.
 ## What it does
 
 - Shows your **blinks per minute** in the menu bar, with no Dock icon and no window.
+  The eye in the menu bar **blinks when you do**: the quickest proof that it sees you.
+- **Live View** shows what the app sees: the camera with your eyes framed, the model's
+  answer as a curve, and a sound at each blink it counts.
 - Keeps a **minute-by-minute history** (numbers only): today, the last hour, any of the last
   seven days hour by hour, the week as a heat map, and a few sentences on what stands out.
 - **Reminds you** when your rate stays low for three minutes; at most one reminder every
@@ -44,6 +68,23 @@ and shipping it inside a real app.
   &nbsp;
   <img src="docs/img/panel-pause-choices-dark.png" alt="The panel in dark mode, with the four pause choices" width="270">
 </p>
+
+<details>
+<summary>More screens</summary>
+<p align="center">
+  <img src="docs/img/welcome-light.png" alt="The welcome window: what the app does, where the pictures go, and where to find it afterwards" width="420">
+  &nbsp;
+  <img src="docs/img/settings-general-light.png" alt="Settings, General tab" width="420">
+</p>
+<p align="center">
+  <img src="docs/img/live-view-light.png" alt="Live View: the camera area, the model's answer as a curve with three blinks, the counters and the cost per frame" width="700">
+</p>
+<p align="center">
+  <img src="docs/img/history-day-dark.png" alt="History in dark mode, on an earlier day, with the decline against the reference reported" width="480">
+  &nbsp;
+  <img src="docs/img/panel-demo-light.png" alt="The panel in the demo, with its banner" width="270">
+</p>
+</details>
 
 ## How it works
 
@@ -127,7 +168,7 @@ thing to work on. The app logs its cost once a minute to
 
 - The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection.
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`. Settings shows the file and can erase it.
-- Pictures are written to disk only by the recorder and by the capture buttons of the diagnostics window, when you press them, to build your own training data.
+- Pictures are written to disk only by the recorder and by the capture buttons of the Live View window, when you press them, to build your own training data.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
 - Recordings are written to folders only your account can read.
 - Both apps are signed with macOS's hardened runtime and ask for one thing, the camera, so another program cannot load its code into them to borrow that permission.
@@ -137,32 +178,60 @@ thing to work on. The app logs its cost once a minute to
 You need an Apple Silicon Mac with macOS 14 or later, Apple's Command Line Tools
 (`xcode-select --install`; full Xcode is not required) and [uv](https://docs.astral.sh/uv/).
 
-```bash
-git clone https://github.com/MattDupp/blink-monitor.git && cd blink-monitor
-```
+`make doctor` checks all of that and says what is missing. Each command ends by naming the next one.
 
 | Step | Command | What happens |
 |---|---|---|
-| 1. Record | `make recorder` | A voice guides you through 16 poses, eyes open and closed. Two minutes a session; record five or six in different light. |
+| 1. Record | `make recorder` | A voice guides you through 16 poses, eyes open and closed. Two minutes a session; the recorder counts them and tells you when you have the five it recommends. |
 | 2. Train | `make train` | Trains the model (about a minute), reports its accuracy on sessions it never saw, converts it to Core ML and checks the conversion. |
-| 3. Run | `make monitor` | Installs the menu-bar app in `~/Applications` and starts it. |
-| 4. Measure (optional) | `make evaluate` | Counts blinks on captures you recorded and marked, with models that never saw them. |
+| 3. Run | `make monitor` | Installs the menu-bar app in `~/Applications` and starts it. macOS asks for the camera. |
 
-After step 2, look at `training/out/review_suspicious.png`: it shows the pictures the
-model disagrees with. Many will be blinks you made during an "eyes open" pose. Delete
-them, run `python3 scripts/sync_manifests.py`, and train again.
+<p align="center">
+  <img src="docs/img/recorder-session-light.png" alt="The recorder during a session: pose 5 of 16, the instruction, and how many sessions are recorded" width="700">
+</p>
+
+**Make it better with your own blinks.** The recorder's pictures are eyes held open or
+closed; a real blink is caught half-way and blurred. Once the app runs, open Live View,
+press *Record Freely (60 s)* a few times while you work, then:
+
+```bash
+make improve
+```
+
+It labels the blink frames of those captures by itself, trains again and converts. On my
+recordings this step took the count from 79% to 93% of real blinks
+([Lessons](docs/LESSONS.md), numbers 2 and 4).
+
+After training, `training/out/review_suspicious.png` shows the pictures the model
+disagrees with. Many will be blinks you made during an "eyes open" pose. Delete them, run
+`python3 scripts/sync_manifests.py`, and train again.
 [Development](docs/DEVELOPMENT.md) describes every command and file format.
+
+## Troubleshooting
+
+| What you see | Why, and what to do |
+|---|---|
+| macOS asks for the camera again | The permission belongs to one build. A rebuilt app is a new app to macOS: allow it again. |
+| "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink Monitor, and open it again. |
+| "No picture" in the panel | The camera is on but sends nothing: the lid is closed, or the camera failed. Counting resumes by itself. |
+| No eye in the menu bar | On a MacBook with many menu-bar items, the notch can hide it. Quit a few, or use a menu-bar manager. |
+| No reminder ever shows | Settings > Reminders > *Send a Test Reminder*. If nothing appears, allow notifications for Blink Monitor in System Settings. |
+| A banner with a blank icon after reinstalling | Notification Centre kept the old one. Run `killall NotificationCenter`; macOS restarts it. |
+| The linker prints "search path ... not found" | Harmless: two folders that only exist inside Xcode. `make` hides them. |
+
+To remove the app: `make uninstall`. It keeps your history, your recordings and your model, and says where they are.
 
 ## Project layout
 
 ```
-Sources/BlinkCore       camera, eye finding and cropping, model, counting rules, history, file formats
-Sources/BlinkUI         the SwiftUI views both apps share
-Sources/BlinkRecorder   the app that records labelled eye pictures
-Sources/BlinkMonitor    the menu-bar app
-Tests/BlinkCoreTests    80 tests (Swift Testing)
-training/               PyTorch training, Core ML conversion, labelling and evaluation tools, 23 tests
-scripts/                app bundling, icon drawing, manifest repair
+Sources/BlinkCore        camera, eye finding and cropping, model, counting rules, history, file formats
+Sources/BlinkUI          the SwiftUI views both apps share, and the screenshot renderer
+Sources/BlinkRecorder    the app that records labelled eye pictures
+Sources/BlinkMonitor     the menu-bar app, and its demo
+Tests/BlinkCoreTests     84 tests of the rules (Swift Testing)
+Tests/BlinkMonitorTests  12 tests of the app itself: its model, its clock, the demo
+training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 23 tests
+scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
 docs/                   how it works, lessons, development notes
 ```
 
