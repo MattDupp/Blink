@@ -74,7 +74,7 @@ struct RecordingTests {
         both.closed = 0.8
 
         let writer = try CaptureWriter(root: root, name: "test")
-        writer.write(frame: 7, time: 0.2333, reading: both, state: .closed(since: 0.2, frames: 1), event: nil, tick: true)
+        writer.write(frame: 7, time: 0.2333, reading: both, state: .closed(since: 0.2, frames: 1, peak: 0.8), event: nil, tick: true)
         writer.write(frame: 8, time: 0.2667, reading: FrameReading(), state: .unknown, event: nil, tick: false)
 
         for side in ["L", "R"] {

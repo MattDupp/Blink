@@ -19,6 +19,8 @@ class Settings:
     closed_above: float = 0.6
     open_below: float = 0.4
     minimum_closed_frames: int = 2
+    # A closure seen on ONE frame only still counts when the answer was at least this sure.
+    single_frame_sure: float = 0.8
     maximum_blink_seconds: float = 0.6
     maximum_gap_seconds: float = 0.5
 
@@ -36,7 +38,7 @@ def count_blinks(
     `closed[i]` is the model's answer for frame i (None when no eye could be read),
     `times[i]` its time in seconds.
     """
-    state, since, frames, last_seen = "unknown", None, 0, None
+    state, since, frames, last_seen, peak = "unknown", None, 0, None, 0.0
     counted: list[int] = []
     for i, (time, p) in enumerate(zip(times, closed, strict=True)):
         if last_seen is not None and time - last_seen > settings.maximum_gap_seconds:
@@ -50,12 +52,14 @@ def count_blinks(
             state, since, frames = ("closed", None, 1) if p > settings.closed_above else ("open", None, 0)
         elif state == "open":
             if p > settings.closed_above:
-                state, since, frames = "closed", time, 1
+                state, since, frames, peak = "closed", time, 1, p
         elif p >= settings.open_below:
             frames += 1
+            peak = max(peak, p)
         else:
             state = "open"
             timed = since is not None and time - since <= settings.maximum_blink_seconds
-            if timed and frames >= settings.minimum_closed_frames:
+            long_enough = frames >= settings.minimum_closed_frames or peak >= settings.single_frame_sure
+            if timed and long_enough:
                 counted.append(i)
     return counted

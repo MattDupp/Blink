@@ -26,6 +26,7 @@ def test_numbers_are_the_swift_numbers():
     assert settings.closed_above == swift("closedAbove")
     assert settings.open_below == swift("openBelow")
     assert settings.minimum_closed_frames == swift("minimumClosedFrames")
+    assert settings.single_frame_sure == swift("singleFrameSure")
     assert settings.maximum_blink_seconds == swift("maximumBlinkSeconds")
     assert settings.maximum_gap_seconds == swift("maximumGapSeconds")
 
@@ -38,8 +39,13 @@ def test_two_blinks_in_a_row():
     assert blinks([OPEN] * 10 + [CLOSED] * 3 + [OPEN] * 10 + [CLOSED] * 3 + [OPEN] * 5) == 2
 
 
-def test_a_lone_closed_frame_is_a_model_mistake():
-    assert blinks([OPEN] * 10 + [CLOSED] + [OPEN] * 10) == 0
+def test_a_lone_hesitant_frame_is_a_model_mistake():
+    assert blinks([OPEN] * 10 + [0.7] + [OPEN] * 10) == 0
+    assert blinks([OPEN] * 10 + [0.79] + [OPEN] * 10) == 0
+
+
+def test_a_lone_frame_counts_when_the_model_is_very_sure():
+    assert blinks([OPEN] * 10 + [0.97] + [OPEN] * 10) == 1
 
 
 def test_hovering_around_half_is_not_a_blink():

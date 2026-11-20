@@ -26,9 +26,16 @@ struct DetectionTests {
         #expect(Fixture.blinkCount(stream) == 2)
     }
 
-    @Test("One lone closed frame is treated as a model mistake")
-    func loneFrame() {
-        #expect(Fixture.events(Fixture.frames(open, 10) + Fixture.frames(closed, 1) + Fixture.frames(open, 10)).isEmpty)
+    @Test("One lone, hesitant closed frame is treated as a model mistake")
+    func loneUnsureFrame() {
+        #expect(Fixture.events(Fixture.frames(open, 10) + [0.7] + Fixture.frames(open, 10)).isEmpty)
+    }
+
+    /// A fast blink can be closed on a single frame of a 30-frames-a-second camera.
+    @Test("One lone closed frame counts when the model is very sure")
+    func loneSureFrame() {
+        #expect(Fixture.blinkCount(Fixture.frames(open, 10) + [0.97] + Fixture.frames(open, 10)) == 1)
+        #expect(Fixture.blinkCount(Fixture.frames(open, 10) + [0.79] + Fixture.frames(open, 10)) == 0)
     }
 
     @Test("An answer hovering around 50% is not a blink")

@@ -49,7 +49,8 @@ evaluate:  ## 3. Measure blink counting on your captures (models that never saw 
 
 monitor: monitor-app  ## 4. Install the menu-bar app in ~/Applications and start it
 	@# Stop the copy that is running, if any, and wait for it to be gone.
-	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; fi
+	@# (The extra second lets macOS notice it has quit: opening the app too early fails with error -600.)
+	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; sleep 1; fi
 	mkdir -p "$(INSTALL_DIR)" "$(DATA)/live"
 	rm -rf "$(INSTALL_DIR)/BlinkMonitor.app"
 	cp -R build/BlinkMonitor.app "$(INSTALL_DIR)/BlinkMonitor.app"

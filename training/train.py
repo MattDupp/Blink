@@ -38,6 +38,11 @@ OUT = HERE / "out"
 MODEL_FILE = HERE.parent / "models" / "eyenet.pt"
 
 MAX_ROTATION_DEGREES = 35
+# Train with vertical motion blur and low light as well (see `augment`, step 3b).
+# OFF, because it was measured (2026-11-20, 3 trainings per capture, 216 held-out blinks):
+# with it 198 blinks were found and 3 false ones counted; without it 201 and 1.
+# It sounded right and did not help - which is why it was measured before being kept.
+HARD_CONDITIONS = False
 
 
 # --------------------------------------------------------------------------------------
@@ -45,8 +50,10 @@ MAX_ROTATION_DEGREES = 35
 # --------------------------------------------------------------------------------------
 
 
-def augment(x: torch.Tensor) -> torch.Tensor:
+def augment(x: torch.Tensor, hard_conditions: bool = False) -> torch.Tensor:
     """Returns a randomly altered copy of a batch of pictures (N, 3, 64, 64), values 0..1.
+
+    `hard_conditions` adds the two things that made real blinks hard (step 3b below).
 
     WHY. We have a few thousand pictures, all of one person, taken in one morning. A
     network shown the exact same pictures again and again ends up memorising them
@@ -96,6 +103,25 @@ def augment(x: torch.Tensor) -> torch.Tensor:
         small = F.interpolate(x[soft], size=(size, size), mode="bilinear", align_corners=False)
         x[soft] = F.interpolate(small, size=x.shape[-2:], mode="bilinear", align_corners=False)
 
+    # 3b. (optional) What a real blink looks like on the darker side of the face.
+    #     FIRST LIVE TEST (2026-11-20): the eye in the shadow was read "open" while plainly
+    #     closed - a dim picture, smeared by the eyelid's own speed.
+    if hard_conditions:
+        # The lid moves up and down: smear a quarter of the pictures vertically.
+        smeared = torch.rand(n, device=device) < 0.25
+        if smeared.any():
+            length = int(torch.randint(1, 4, (1,)).item()) * 2 + 1  # 3, 5 or 7 pixels
+            kernel = torch.full((3, 1, length, 1), 1.0 / length, device=device)
+            padded = F.pad(x[smeared], (0, 0, length // 2, length // 2), mode="replicate")
+            x[smeared] = F.conv2d(padded, kernel, groups=3)
+        # Little light: a quarter of the pictures get darker, and the sensor's noise,
+        # which does not shrink with the light, becomes large next to the picture.
+        dim = torch.rand(n, device=device) < 0.25
+        if dim.any():
+            count = int(dim.sum().item())
+            darker = x[dim] * uniform(0.25, 0.6, count, 1, 1, 1)
+            x[dim] = darker + torch.randn_like(darker) * uniform(0.02, 0.05, count, 1, 1, 1)
+
     # 4. Bend the brightness curve (gamma) and add a little sensor noise. The model's
     #    own preprocessing already cancels plain "darker / lighter"; gamma changes how
     #    shadows relate to highlights, which it cannot cancel.
@@ -129,6 +155,7 @@ def train(
     epochs: int,
     seed: int,
     watch: tuple[torch.Tensor, torch.Tensor] | None = None,
+    hard_conditions: bool = HARD_CONDITIONS,
 ) -> EyeNet:
     """Trains a new model on these pictures (already on the training device).
 
@@ -163,7 +190,7 @@ def train(
         total = 0.0
         for start in range(0, len(images), batch_size):
             batch = order[start : start + batch_size]
-            scores = model(augment(as_input(images[batch])))
+            scores = model(augment(as_input(images[batch]), hard_conditions))
             loss = loss_function(scores, labels[batch])
 
             optimizer.zero_grad()  # forget the previous batch's gradients

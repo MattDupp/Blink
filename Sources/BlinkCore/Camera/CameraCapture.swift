@@ -31,7 +31,10 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     }
 
     private let session = AVCaptureSession()
-    private let frameQueue = DispatchQueue(label: "blink.camera.frames")
+    // "Utility" priority: macOS may run this work on the efficiency cores. Counting blinks
+    // must not compete with what you are doing; a frame takes a few milliseconds of the
+    // 33 available, so there is room. (The stage timings show it if that stops being true.)
+    private let frameQueue = DispatchQueue(label: "blink.camera.frames", qos: .utility)
     private var onFrame: FrameHandler?
 
     /// Asks macOS for the camera. The first time, macOS shows its own permission window;
