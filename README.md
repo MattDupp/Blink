@@ -240,6 +240,7 @@ docs/                   how it works, lessons, development notes
 - **One person, one morning.** The model has only seen its author, in daylight. Other light is untested.
 - **Processor use.** About 37% of one core while it watches you (see Results).
 - **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look.
+- **The Mac's own camera has to face you.** If you work on an external display with the MacBook to one side, it sees you in profile or not at all, and the panel says "No face". There is no camera picker yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.
 - **Looking down** at the keyboard looks like closed eyes from the camera's angle. A closure longer than 0.6 s is not counted as a blink, which covers most of it.
 - **Incomplete blinks** (the lid comes down part of the way) matter for dry eyes and are not measured yet.
