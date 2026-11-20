@@ -41,6 +41,26 @@ struct RecordingTests {
         #expect(DatasetStats.scan(root) == DatasetStats(sessions: 1, open: 0, closed: 1))
     }
 
+    @Test("Text typed by the user cannot break the CSV or become a spreadsheet formula")
+    func conditionText() {
+        #expect(SessionWriter.csvSafe("lamp, \"glasses\"\nevening") == "lamp glasses evening")
+        #expect(SessionWriter.csvSafe("=HYPERLINK(\"x\")") == "HYPERLINK( x )")
+        #expect(SessionWriter.csvSafe(" +-@ daylight") == "daylight")
+        #expect(SessionWriter.csvSafe("no glasses - evening") == "no glasses - evening")
+    }
+
+    @Test("Recordings are written to folders only their owner can read")
+    func privateFolders() throws {
+        let root = Fixture.temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try SessionWriter(root: root, session: "s", condition: "")
+        _ = try CaptureWriter(root: root, name: "c")
+        for path in ["s", "s/open", "c", "c/frames"] {
+            let attributes = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent(path).path)
+            #expect(attributes[.posixPermissions] as? Int == 0o700, "\(path)")
+        }
+    }
+
     @Test("Discarding the latest session removes it whole and keeps the others")
     func discard() throws {
         let root = Fixture.temporaryFolder()

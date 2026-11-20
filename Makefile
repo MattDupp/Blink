@@ -38,7 +38,7 @@ format:  ## Reformat the Python code
 
 recorder: App/AppIcon.icns  ## 1. Record labelled pictures of your eyes (opens the recorder)
 	scripts/bundle.sh BlinkRecorder
-	mkdir -p "$(DATA)/raw"
+	mkdir -p -m 700 "$(DATA)" "$(DATA)/raw"
 	open -n build/BlinkRecorder.app --args "--out=$(DATA)/raw"
 
 train:  ## 2. Train the model on your recordings and convert it to Core ML
@@ -51,7 +51,8 @@ monitor: monitor-app  ## 4. Install the menu-bar app in ~/Applications and start
 	@# Stop the copy that is running, if any, and wait for it to be gone.
 	@# (The extra second lets macOS notice it has quit: opening the app too early fails with error -600.)
 	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; sleep 1; fi
-	mkdir -p "$(INSTALL_DIR)" "$(DATA)/live"
+	mkdir -p "$(INSTALL_DIR)"
+	mkdir -p -m 700 "$(DATA)" "$(DATA)/live"
 	rm -rf "$(INSTALL_DIR)/BlinkMonitor.app"
 	cp -R build/BlinkMonitor.app "$(INSTALL_DIR)/BlinkMonitor.app"
 	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live"

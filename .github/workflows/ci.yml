@@ -9,20 +9,26 @@ on:
     branches: [main]
   pull_request:
 
+# The workflow only reads the repository: it needs no other right.
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to a commit, not a tag: a tag can be moved to other code.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Build
         run: swift build -c release
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
 
       - name: Python environment
-        run: cd training && uv sync
+        # --locked: install exactly what uv.lock records, or fail.
+        run: cd training && uv sync --locked
 
       - name: Lint
         run: make lint

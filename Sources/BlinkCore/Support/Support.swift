@@ -14,6 +14,19 @@ public enum Log {
     public static let app = Logger(subsystem: subsystem, category: "app")
 }
 
+/// Folders that hold recordings.
+public enum PrivateFolder {
+
+    /// Creates the folder (and any missing parent) readable by its owner only.
+    ///
+    /// Recordings are pictures of someone's eyes. A folder made the usual way can be read
+    /// by every account of the Mac; these cannot.
+    public static func create(at url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+    }
+}
+
 /// Writes pictures to disk as PNG.
 ///
 /// PNG, not JPEG: PNG keeps every pixel exactly. JPEG throws detail away, and its blocks
@@ -24,12 +37,12 @@ public enum PNGFile {
     @discardableResult
     public static func write(_ image: CGImage, to url: URL) -> Bool {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            Log.storage.error("PNG not created: \(url.path, privacy: .public)")
+            Log.storage.error("PNG not created: \(url.lastPathComponent, privacy: .public)")
             return false
         }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else {
-            Log.storage.error("PNG not written: \(url.path, privacy: .public)")
+            Log.storage.error("PNG not written: \(url.lastPathComponent, privacy: .public)")
             return false
         }
         return true

@@ -21,8 +21,7 @@ public final class CaptureWriter {
 
     public init(root: URL, name: String) throws {
         folder = root.appendingPathComponent(name, isDirectory: true)
-        try FileManager.default.createDirectory(at: folder.appendingPathComponent("frames", isDirectory: true),
-                                                withIntermediateDirectories: true)
+        try PrivateFolder.create(at: folder.appendingPathComponent("frames", isDirectory: true))
         let traceURL = folder.appendingPathComponent("trace.csv")
         try (Self.header + "\n").write(to: traceURL, atomically: true, encoding: .utf8)
         trace = try FileHandle(forWritingTo: traceURL)

@@ -141,7 +141,7 @@ final class MonitorModel: ObservableObject {
     }
 
     private func fail(_ reason: String) {
-        Log.app.error("Not started: \(reason, privacy: .public)")
+        Log.app.error("Not started: \(reason, privacy: .private)")   // the reason can hold a path
         stage = .failed(reason)
         refreshStatus()
     }

@@ -34,5 +34,10 @@ fi
 # "-" = no developer certificate) is a fingerprint of the app's own content: the same code
 # gives the same fingerprint every time and keeps its permission, changed code gives a new
 # one and macOS asks for the camera again.
-codesign --force --sign - "$APP" 2>/dev/null
+#
+# "--options runtime" turns on the HARDENED RUNTIME. Without it, any program running under
+# your account can make this app load its own code (DYLD_INSERT_LIBRARIES) and then use
+# the camera permission you gave the app, with no question asked. With it, macOS refuses
+# foreign code, and the app only gets what App/Camera.entitlements declares: the camera.
+codesign --force --options runtime --entitlements App/Camera.entitlements --sign - "$APP" 2>/dev/null
 echo "Built $APP"

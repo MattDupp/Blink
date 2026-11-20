@@ -60,23 +60,30 @@ public final class SessionWriter {
 
     public init(root: URL, session: String, condition: String) throws {
         sessionID = session
-        // The condition is free text typed by the user; commas or quotes would break the CSV.
-        self.condition = condition
-            .components(separatedBy: CharacterSet(charactersIn: ",\"\r\n"))
-            .joined(separator: " ")
-            .split(separator: " ")
-            .joined(separator: " ")
+        self.condition = Self.csvSafe(condition)
 
         folder = root.appendingPathComponent(session, isDirectory: true)
         for label in [EyeLabel.open, EyeLabel.closed] {
-            try FileManager.default.createDirectory(at: folder.appendingPathComponent(label.rawValue, isDirectory: true),
-                                                    withIntermediateDirectories: true)
+            try PrivateFolder.create(at: folder.appendingPathComponent(label.rawValue, isDirectory: true))
         }
 
         let manifestURL = folder.appendingPathComponent("manifest.csv")
         try (Self.header + "\n").write(to: manifestURL, atomically: true, encoding: .utf8)
         manifest = try FileHandle(forWritingTo: manifestURL)
         try manifest.seekToEnd()
+    }
+
+    /// Free text typed by the user, made safe to sit in one CSV cell:
+    ///   - commas, quotes and line breaks would break the line, so they become spaces;
+    ///   - a cell that starts with = + - or @ is run as a FORMULA by spreadsheet programs
+    ///     when the file is opened there, so those leading characters are dropped.
+    static func csvSafe(_ text: String) -> String {
+        let oneLine = text
+            .components(separatedBy: CharacterSet(charactersIn: ",\"\r\n\t"))
+            .joined(separator: " ")
+            .split(separator: " ")
+            .joined(separator: " ")
+        return String(oneLine.drop { "=+-@ ".contains($0) })
     }
 
     /// Saves one eye picture and its manifest line. Returns false when the disk refused.
