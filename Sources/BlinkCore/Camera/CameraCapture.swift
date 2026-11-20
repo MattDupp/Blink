@@ -16,14 +16,17 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     /// - pixelBuffer: the raw picture (a block of memory holding the pixels).
     /// - time: the frame's capture time in seconds (the camera's own clock). The blink
     ///   detector will later measure blink durations with it.
-    public typealias FrameHandler = (_ pixelBuffer: CVPixelBuffer, _ time: Double) -> Void
+    public typealias FrameHandler = @Sendable (_ pixelBuffer: CVPixelBuffer, _ time: Double) -> Void
 
     public enum CameraError: Error, CustomStringConvertible {
+        /// macOS (that is, the user) refused the camera.
+        case refused
         case noCamera
         case cannotConfigure(String)
 
         public var description: String {
             switch self {
+            case .refused: return "Camera access was refused."
             case .noCamera: return "No camera was found on this Mac."
             case .cannotConfigure(let what): return "The camera could not be set up: \(what)."
             }
@@ -37,9 +40,29 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     private let frameQueue = DispatchQueue(label: "blink.camera.frames", qos: .utility)
     private var onFrame: FrameHandler?
 
+    /// Asks for the camera, then starts it. Returns once frames are on their way; throws
+    /// `CameraError.refused` when the permission is not given.
+    ///
+    /// Both apps start the camera through this one call: the permission question, and
+    /// the hop off the main thread that `startRunning` needs (it blocks while the camera
+    /// wakes up), are written once.
+    public func start(onFrame: @escaping FrameHandler) async throws {
+        guard await Self.requestPermission() else { throw CameraError.refused }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try self.startSession(onFrame: onFrame)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     /// Asks macOS for the camera. The first time, macOS shows its own permission window;
     /// afterwards it remembers the answer (System Settings > Privacy & Security > Camera).
-    public static func requestPermission() async -> Bool {
+    private static func requestPermission() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: return true
         case .notDetermined: return await AVCaptureDevice.requestAccess(for: .video)
@@ -48,8 +71,8 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     }
 
     /// Builds the graph and starts the camera. `startRunning` blocks for a moment,
-    /// so call this away from the main thread.
-    public func start(onFrame: @escaping FrameHandler) throws {
+    /// so this runs away from the main thread.
+    private func startSession(onFrame: @escaping FrameHandler) throws {
         self.onFrame = onFrame
 
         // The built-in camera, not an iPhone that Continuity Camera may offer as "default".

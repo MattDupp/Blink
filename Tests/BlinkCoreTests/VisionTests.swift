@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreImage
 import Testing
 @testable import BlinkCore
 
@@ -70,7 +71,11 @@ struct VisionTests {
         let cropper = EyeCropper()
         let noisy = Fixture.frame(noise: true)
         let odd = CGRect(x: 700, y: 300, width: 131, height: 131)
-        let old = try #require(cropper.legacyCrop(noisy, rect: odd))
+        // The first version's way of making the picture: the same recipe, rendered with
+        // createCGImage. It lives here, in the test, and nowhere in the shipped code.
+        let recipe = try #require(cropper.recipe(for: noisy, rect: odd))
+        let old = try #require(cropper.context.createCGImage(recipe, from: EyeCropper.outputRect,
+                                                             format: .RGBA8, colorSpace: cropper.colorSpace))
         let new = try #require(cropper.crop(noisy, rect: odd))
 
         var worst = 0

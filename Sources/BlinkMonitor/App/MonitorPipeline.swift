@@ -52,9 +52,8 @@ struct MonitorUpdate {
 ///     frame -> EyeReader (find eyes, crop, model) -> BlinkDetector -> statistics -> update
 ///
 /// TWO THINGS KEEP IT CHEAP IN THE BACKGROUND:
-///   - No face, no work. After 3 s without a face, only one frame in six is analysed
-///     (enough to notice your return within a fifth of a second). An empty chair costs
-///     almost nothing.
+///   - Frames get only the work they need: `FrameSchedule` (inside the reader) searches
+///     for the eyes every other frame, and looks at one frame in six when nobody is there.
 ///   - The rest of the app is only told what it needs. With no window open, an update is
 ///     sent when something changes (a blink, a face, a minute) and once a second -
 ///     not 30 times a second.
@@ -63,9 +62,15 @@ final class MonitorPipeline: @unchecked Sendable {
     /// Called on the camera queue. Not every frame: see `shouldSend`.
     var onUpdate: ((MonitorUpdate) -> Void)?
 
-    static let idleAfterFrames = 90      // 3 s at 30 frames a second
-    static let idleStride = 6
+    /// What the main thread asks of the camera thread, taken in at the start of each frame.
+    private struct Requests {
+        var reset = false
+        var liveView = false
+        var capture: CaptureWriter?
+        var tick = false
+    }
 
+    private let requests = Locked(Requests())
     private let reader: EyeReader
     private var detector = BlinkDetector()
     private var stats = BlinkStats()
@@ -74,16 +79,9 @@ final class MonitorPipeline: @unchecked Sendable {
     private var minuteTimings = StageTimings()
 
     private var frameIndex = 0
-    private var framesWithoutFace = 0
     private var lastSent = MonitorUpdate()
     private var lastTimingsAt = 0.0
     private var lastMinuteTimingsAt = 0.0
-
-    private let lock = NSLock()
-    private var resetRequested = false
-    private var liveView = false
-    private var capture: CaptureWriter?
-    private var tickPending = false
 
     init(classifier: EyeClassifier) {
         reader = EyeReader(classifier: classifier)
@@ -93,31 +91,25 @@ final class MonitorPipeline: @unchecked Sendable {
 
     /// The live counters start again from zero at the next frame. The history is not touched.
     func requestReset() {
-        lock.lock()
-        resetRequested = true
-        lock.unlock()
+        requests.withLock { $0.reset = true }
     }
 
     /// A window is showing the camera and the curve: prepare the picture, send every frame.
     func setLiveView(_ on: Bool) {
-        lock.lock()
-        liveView = on
-        lock.unlock()
+        requests.withLock { $0.liveView = on }
     }
 
     /// Starts (a writer) or stops (nil) recording every frame for later study.
     func setCapture(_ writer: CaptureWriter?) {
-        lock.lock()
-        capture = writer
-        tickPending = false
-        lock.unlock()
+        requests.withLock {
+            $0.capture = writer
+            $0.tick = false
+        }
     }
 
     /// A cue sound was just played: the next frame is marked in the capture.
     func markTick() {
-        lock.lock()
-        tickPending = true
-        lock.unlock()
+        requests.withLock { $0.tick = true }
     }
 
     // MARK: - Every frame
@@ -128,15 +120,15 @@ final class MonitorPipeline: @unchecked Sendable {
         recentTimings.frameDelivered(at: clock)
         minuteTimings.frameDelivered(at: clock)
 
-        lock.lock()
-        let reset = resetRequested
-        resetRequested = false
-        let live = liveView
-        let capture = self.capture
-        let tick = tickPending
-        tickPending = false
-        lock.unlock()
-        if reset {
+        // Take this frame's requests; the one-shot ones (reset, tick) are consumed.
+        let asked = requests.withLock { requests in
+            defer {
+                requests.reset = false
+                requests.tick = false
+            }
+            return requests
+        }
+        if asked.reset {
             detector.reset()
             stats = BlinkStats()
         }
@@ -145,21 +137,18 @@ final class MonitorPipeline: @unchecked Sendable {
         update.time = time
         update.live.frameSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
 
-        // No face for 3 s: analyse one frame in six. A capture always gets every frame.
-        let idle = framesWithoutFace >= Self.idleAfterFrames && capture == nil
+        // A capture gets every frame read in full; otherwise the reader's schedule
+        // decides (and returns nothing for a frame it skips).
         var reading = FrameReading()
-        if !idle || frameIndex % Self.idleStride == 0 {
-            do {
-                reading = try reader.read(pixelBuffer, searchEveryFrame: capture != nil)
-                recentTimings.record(findEyes: reading.findEyesSeconds, crop: reading.cropSeconds,
-                                     model: reading.modelSeconds, total: reading.totalSeconds)
-                minuteTimings.record(findEyes: reading.findEyesSeconds, crop: reading.cropSeconds,
-                                     model: reading.modelSeconds, total: reading.totalSeconds)
-            } catch {
-                update.error = "\(error)"
-                Log.pipeline.error("Frame not read: \(String(describing: error), privacy: .public)")
+        do {
+            if let read = try reader.read(pixelBuffer, everyFrame: asked.capture != nil) {
+                reading = read.reading
+                recentTimings.record(read.cost)
+                minuteTimings.record(read.cost)
             }
-            framesWithoutFace = reading.faceFound ? 0 : framesWithoutFace + 1
+        } catch {
+            update.error = "\(error)"
+            Log.pipeline.error("Frame not read: \(String(describing: error), privacy: .public)")
         }
         update.live.faceFound = reading.faceFound
         update.live.eyeRects = reading.eyeRects
@@ -180,8 +169,8 @@ final class MonitorPipeline: @unchecked Sendable {
         update.completedMinute = minutes.add(at: Date(), observedSeconds: watched, blinks: newBlinks)
         update.currentMinute = minutes.current
 
-        capture?.write(frame: frameIndex, time: time, reading: reading,
-                       state: detector.state, event: update.event, tick: tick)
+        asked.capture?.write(frame: frameIndex, time: time, reading: reading,
+                             state: detector.state, event: update.event, tick: asked.tick)
 
         if clock - lastTimingsAt >= 2 {
             update.timings = recentTimings.takeSummary(at: clock)
@@ -192,10 +181,10 @@ final class MonitorPipeline: @unchecked Sendable {
             lastMinuteTimingsAt = clock
         }
 
-        if live && frameIndex % 2 == 0 {
+        if asked.liveView && frameIndex % 2 == 0 {
             update.preview = reader.preview(pixelBuffer, maxWidth: 640)
         }
-        if shouldSend(update, live: live) {
+        if shouldSend(update, live: asked.liveView) {
             lastSent = update
             onUpdate?(update)
         }

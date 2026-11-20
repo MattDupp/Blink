@@ -83,15 +83,4 @@ extension MonitorStatus {
             return String(format: "About %.0f a minute over the last 3 minutes. Close your eyes gently a few times.", recent)
         }
     }
-
-    /// What the camera view says while it has no picture to show.
-    var cameraNote: String {
-        switch self {
-        case .cameraRefused:
-            return "Camera access was refused.\nSystem Settings > Privacy & Security > Camera > allow Blink Monitor, then open it again."
-        case .failed(let reason): return reason
-        case .paused: return "Paused: the camera is off."
-        case .starting, .noFace, .watching, .low: return "Starting the camera..."
-        }
-    }
 }

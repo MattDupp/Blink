@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import BlinkCore
+import BlinkUI
 
 /// One point of the live curve: the model's answer at one moment.
 struct TraceSample: Equatable {
@@ -104,7 +105,11 @@ final class MonitorModel: ObservableObject {
     }
 
     /// What the camera view shows while it has no picture.
-    var cameraNote: String { cameraNoteOverride ?? status().cameraNote }
+    var cameraNote: String {
+        if let cameraNoteOverride { return cameraNoteOverride }
+        if lifecycle == .running && (paused || asleep) { return "Paused: the camera is off." }
+        return CameraNote.text(for: lifecycle, appName: "Blink Monitor")
+    }
 
     // MARK: - Starting and stopping
 
@@ -129,10 +134,6 @@ final class MonitorModel: ObservableObject {
             fail("The camera is off (--no-camera). The model loaded correctly.")
             return
         }
-        guard await CameraCapture.requestPermission() else {
-            lifecycle = .cameraRefused
-            return
-        }
 
         // Frames come from the camera's thread; the windows belong to the main thread.
         // `DispatchQueue.main.async` hands each result over, in the order it was produced.
@@ -141,23 +142,15 @@ final class MonitorModel: ObservableObject {
                 MainActor.assumeIsolated { self?.apply(update) }
             }
         }
-        let camera = self.camera
-        let failure: String? = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    try camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
-                    continuation.resume(returning: nil)
-                } catch {
-                    continuation.resume(returning: "\(error)")
-                }
-            }
+        do {
+            try await camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
+            lifecycle = .running
+            reminders.prepare()
+        } catch CameraCapture.CameraError.refused {
+            lifecycle = .cameraRefused
+        } catch {
+            fail("\(error)")
         }
-        if let failure {
-            fail(failure)
-            return
-        }
-        lifecycle = .running
-        reminders.prepare()
     }
 
     private func fail(_ reason: String) {

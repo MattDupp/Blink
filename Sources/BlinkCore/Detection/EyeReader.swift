@@ -2,6 +2,79 @@ import Foundation
 import CoreGraphics
 import CoreVideo
 
+// The first two stages of the pipeline, for one frame:
+//
+//     frame -> find the eyes (Vision) -> cut 64x64 pictures -> model: closed?
+//              └────────── EyeFinder ──────────┘                └ EyeReader
+//
+// The recorder stops after EyeFinder (it saves the pictures); the monitor goes on with
+// EyeReader. Both go through the SAME EyeFinder, which is what guarantees the model is
+// asked about pictures made exactly like the ones it learned from.
+
+/// One eye cut out of a frame.
+public struct EyeCrop {
+    public let region: EyeRegion
+    /// The 64x64 picture, in the model's own format.
+    public let picture: CVPixelBuffer
+}
+
+/// The eyes of one frame, found and cut out.
+public struct FoundEyes {
+    public let located: LocatedEyes
+    /// One crop per usable eye that could be cut (an eye too near the frame's edge is missing).
+    public let crops: [EyeCrop]
+
+    /// Every usable eye was cut cleanly.
+    public var isComplete: Bool {
+        !crops.isEmpty && crops.count == located.usableEyes.count
+    }
+}
+
+/// Finds the eyes in a frame and cuts them out, doing as little work as `FrameSchedule` allows.
+public final class EyeFinder {
+
+    public enum Outcome {
+        /// The schedule skipped this frame (nobody has been there for a while).
+        case skipped
+        case noFace
+        case found(FoundEyes)
+    }
+
+    private let locator = EyeLocator()
+    private let cropper = EyeCropper()
+    private var schedule = FrameSchedule()
+    private var lastLocated: LocatedEyes?
+
+    public init() {}
+
+    /// `everyFrame`: search on this frame whatever the schedule says.
+    /// The time spent is added to `cost`.
+    public func find(in pixelBuffer: CVPixelBuffer, everyFrame: Bool = false, cost: inout FrameCost) throws -> Outcome {
+        switch schedule.next(everyFrame: everyFrame) {
+        case .skip:
+            return .skipped
+        case .search:
+            lastLocated = try FrameCost.measure(into: &cost.findEyes) { try locator.locate(in: pixelBuffer) }
+            schedule.searched(found: lastLocated != nil)
+        case .reuseSquares:
+            break
+        }
+        guard let located = lastLocated else { return .noFace }
+
+        let crops = FrameCost.measure(into: &cost.crop) {
+            located.usableEyes.compactMap { eye in
+                cropper.cropBuffer(pixelBuffer, rect: eye.cropRect).map { EyeCrop(region: eye, picture: $0) }
+            }
+        }
+        return .found(FoundEyes(located: located, crops: crops))
+    }
+
+    /// The whole frame, made smaller, for showing in a window.
+    public func preview(_ pixelBuffer: CVPixelBuffer, maxWidth: CGFloat) -> CGImage? {
+        cropper.preview(pixelBuffer, maxWidth: maxWidth)
+    }
+}
+
 /// What the model said about one eye in one frame.
 public struct EyeReading {
     public let side: EyeRegion.Side
@@ -29,12 +102,6 @@ public struct FrameReading {
     /// The two eyes' answers combined into one (`EyeFusion`); nil when no eye was readable.
     public var closed: Double?
 
-    /// How long each stage took for this frame, in seconds (see `StageTimings`).
-    public var findEyesSeconds = 0.0
-    public var cropSeconds = 0.0
-    public var modelSeconds = 0.0
-    public var totalSeconds = 0.0
-
     public init() {}
 }
 
@@ -52,101 +119,46 @@ public enum EyeFusion {
     }
 }
 
-/// Decides on which frames the eyes are searched for again.
-///
-/// MEASURED in the running app (2026-11-20, performance.csv): finding the eyes with Vision
-/// takes 12 to 15 ms per frame, cutting and classifying them 2 ms. But eyes do not move
-/// far in a thirtieth of a second: the squares found on one frame still frame the eyes on
-/// the next. So the search runs every other frame, and the frame in between reads the
-/// same squares - every frame is still classified, which is what catching a blink needs.
-///
-/// As soon as a search finds no face, the next frame searches again: stale squares are
-/// never kept for more than one frame.
-public struct LocateSchedule {
-
-    /// Search for the eyes on one frame in this many.
-    public var every: Int
-
-    private var framesSinceSearch = 0
-    private var haveEyes = false
-
-    public init(every: Int = 2) {
-        self.every = max(1, every)
-    }
-
-    /// Call once per frame, before deciding. True = search now.
-    public mutating func shouldSearch() -> Bool {
-        guard haveEyes, framesSinceSearch + 1 < every else { return true }
-        framesSinceSearch += 1
-        return false
-    }
-
-    /// Call after a search, with whether it found the eyes.
-    public mutating func searched(found: Bool) {
-        haveEyes = found
-        framesSinceSearch = 0
-    }
-}
-
-/// Stages 1 and 2 of the pipeline, for one frame:
-///
-///     frame -> find the eyes (Vision) -> cut 64x64 pictures -> model: closed?
-///              EyeLocator                EyeCropper            EyeClassifier
-///
-/// The recorder uses the first two steps to build the training pictures; the monitor uses
-/// all three. The same code on both sides is what guarantees the model is asked about
-/// pictures made exactly like the ones it learned from.
+/// Finds the eyes (through `EyeFinder`) and asks the model about each.
 public final class EyeReader {
 
-    private let locator = EyeLocator()
-    private let cropper = EyeCropper()
+    private let finder = EyeFinder()
     private let classifier: EyeClassifier
-    private var schedule = LocateSchedule()
-    private var lastLocated: LocatedEyes?
 
     public init(classifier: EyeClassifier) {
         self.classifier = classifier
     }
 
-    /// `searchEveryFrame`: find the eyes again on this frame whatever the schedule says
-    /// (a capture wants Vision's outline on every frame).
-    public func read(_ pixelBuffer: CVPixelBuffer, searchEveryFrame: Bool = false) throws -> FrameReading {
+    /// What this frame says about the eyes, and what reading it cost.
+    /// Nil when the schedule skipped the frame.
+    public func read(_ pixelBuffer: CVPixelBuffer, everyFrame: Bool = false) throws -> (reading: FrameReading, cost: FrameCost)? {
+        var cost = FrameCost()
         var reading = FrameReading()
         let start = StageTimings.now()
-        var cropTime = 0.0, modelTime = 0.0
 
-        if schedule.shouldSearch() || searchEveryFrame {
-            lastLocated = try locator.locate(in: pixelBuffer)
-            schedule.searched(found: lastLocated != nil)
-        }
-        let located = lastLocated
-        let afterLocate = StageTimings.now()
-
-        if let located {
+        switch try finder.find(in: pixelBuffer, everyFrame: everyFrame, cost: &cost) {
+        case .skipped:
+            return nil
+        case .noFace:
+            break
+        case .found(let found):
             reading.faceFound = true
-            reading.eyeRects = located.usableEyes.map { $0.cropRect }
-            for eye in located.usableEyes {
-                let beforeCrop = StageTimings.now()
-                guard let picture = cropper.cropBuffer(pixelBuffer, rect: eye.cropRect) else { continue }
-                let beforeModel = StageTimings.now()
-                let closed = try classifier.closedProbability(of: picture)
-                let done = StageTimings.now()
-                cropTime += beforeModel - beforeCrop
-                modelTime += done - beforeModel
-                reading.eyes.append(EyeReading(side: eye.side, picture: picture, closed: closed,
-                                               openness: Double(eye.openness)))
+            reading.eyeRects = found.located.usableEyes.map(\.cropRect)
+            reading.eyes = try FrameCost.measure(into: &cost.model) {
+                try found.crops.map { crop in
+                    EyeReading(side: crop.region.side, picture: crop.picture,
+                               closed: try classifier.closedProbability(of: crop.picture),
+                               openness: Double(crop.region.openness))
+                }
             }
+            reading.closed = EyeFusion.combine(reading.eyes.map(\.closed))
         }
-        reading.closed = EyeFusion.combine(reading.eyes.map(\.closed))
-        reading.findEyesSeconds = afterLocate - start
-        reading.cropSeconds = cropTime
-        reading.modelSeconds = modelTime
-        reading.totalSeconds = StageTimings.now() - start
-        return reading
+        cost.total = StageTimings.now() - start
+        return (reading, cost)
     }
 
     /// The whole frame, made smaller, for showing in a window.
     public func preview(_ pixelBuffer: CVPixelBuffer, maxWidth: CGFloat) -> CGImage? {
-        cropper.preview(pixelBuffer, maxWidth: maxWidth)
+        finder.preview(pixelBuffer, maxWidth: maxWidth)
     }
 }

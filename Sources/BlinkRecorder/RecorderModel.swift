@@ -10,19 +10,13 @@ import BlinkCore
 @MainActor
 final class RecorderModel: ObservableObject {
 
-    enum Stage: Equatable {
-        case starting
-        case denied
-        case failed(String)
-        case ready
-        case running
-    }
-
     enum PhaseState {
         case idle, listening, settling, recording
     }
 
-    @Published var stage: Stage = .starting
+    @Published private(set) var lifecycle: Lifecycle = .starting
+    /// A recording session is under way.
+    @Published private(set) var sessionRunning = false
     @Published var phaseState: PhaseState = .idle
     @Published var phaseIndex = 0
     @Published var currentLabel: EyeLabel?
@@ -61,20 +55,17 @@ final class RecorderModel: ObservableObject {
 
     // MARK: - Camera
 
+    /// A session can start: the camera runs, a face is in view, no session is under way.
+    var canStartSession: Bool { lifecycle == .running && faceFound && !sessionRunning }
+
     func start() async {
-        guard stage == .starting else { return }
+        guard lifecycle == .starting else { return }
         dataset = DatasetStats.scan(outputRoot)
         lastSessionFolder = SessionStore.latest(in: outputRoot)
 
         if Options.noCamera {
-            stage = .failed("The camera is off (--no-camera).")
+            lifecycle = .failed("The camera is off (--no-camera).")
             prompt = "Window check: the camera is off."
-            return
-        }
-
-        guard await CameraCapture.requestPermission() else {
-            stage = .denied
-            prompt = "Camera access was refused."
             return
         }
 
@@ -86,25 +77,17 @@ final class RecorderModel: ObservableObject {
             }
         }
 
-        // startRunning blocks while the camera wakes up: do it off the main thread.
-        let camera = self.camera, pipeline = self.pipeline
-        let failure: String? = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    try camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
-                    continuation.resume(returning: nil)
-                } catch {
-                    continuation.resume(returning: "\(error)")
-                }
-            }
-        }
-
-        if let failure {
-            stage = .failed(failure)
-            prompt = failure
-        } else {
-            stage = .ready
+        let pipeline = self.pipeline
+        do {
+            try await camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
+            lifecycle = .running
             prompt = "Check that the two green squares sit on your eyes, then start a session."
+        } catch CameraCapture.CameraError.refused {
+            lifecycle = .cameraRefused
+            prompt = "Camera access was refused."
+        } catch {
+            lifecycle = .failed("\(error)")
+            prompt = "\(error)"
         }
     }
 
@@ -115,8 +98,6 @@ final class RecorderModel: ObservableObject {
         faceFound = update.faceFound
         if update.faceFound {
             cropSide = update.cropSide
-            // An eye that is not usable in this frame shows as a black square: what you
-            // see here is what would be saved.
             leftCrop = update.leftCrop
             rightCrop = update.rightCrop
         }
@@ -128,9 +109,12 @@ final class RecorderModel: ObservableObject {
     // MARK: - Session
 
     func startSession() {
-        guard stage == .ready else { return }
-        stage = .running
-        sessionTask = Task { await runSession() }
+        guard canStartSession else { return }
+        sessionRunning = true
+        sessionTask = Task {
+            await runSession()
+            sessionRunning = false
+        }
     }
 
     func stopSession() {
@@ -146,7 +130,7 @@ final class RecorderModel: ObservableObject {
     /// Throws the most recent session away - the way to redo a session that went wrong.
     /// It goes to the Trash, so it can still be put back from there.
     func discardLastSession() {
-        guard stage != .running, let folder = lastSessionFolder else { return }
+        guard !sessionRunning, let folder = lastSessionFolder else { return }
         do {
             try SessionStore.discard(folder, toTrash: true)
             prompt = "Session \(folder.lastPathComponent) was moved to the Trash."
@@ -171,7 +155,6 @@ final class RecorderModel: ObservableObject {
             writer = try SessionWriter(root: outputRoot, session: sessionID, condition: condition)
         } catch {
             problem = "The session folder could not be created: \(error.localizedDescription)"
-            stage = .ready
             return
         }
 
@@ -218,6 +201,5 @@ final class RecorderModel: ObservableObject {
             await speaker.say("Finished. You can open your eyes.")
             prompt = "Session saved: \(sessionOpen) open and \(sessionClosed) closed pictures."
         }
-        stage = .ready
     }
 }

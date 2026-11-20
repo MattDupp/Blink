@@ -48,7 +48,7 @@ private struct PromptBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                if model.stage == .running {
+                if model.sessionRunning {
                     Text("Pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
                         .font(.headline)
                     Spacer()
@@ -82,18 +82,7 @@ private struct CameraPreview: View {
 
     var body: some View {
         CameraPreviewView(image: model.preview, frameSize: model.frameSize, eyeRects: model.eyeRects,
-                          placeholder: placeholder)
-    }
-
-    private var placeholder: String {
-        switch model.stage {
-        case .denied:
-            return "Camera access was refused.\nSystem Settings > Privacy & Security > Camera > allow Blink Recorder, then open it again."
-        case .failed(let reason):
-            return reason
-        default:
-            return "Starting the camera..."
-        }
+                          placeholder: CameraNote.text(for: model.lifecycle, appName: "Blink Recorder"))
     }
 }
 
@@ -178,13 +167,13 @@ private struct Controls: View {
         HStack(spacing: 12) {
             TextField("Conditions of this session (daylight, lamp, glasses...)", text: $model.condition)
                 .textFieldStyle(.roundedBorder)
-                .disabled(model.stage == .running)
+                .disabled(model.sessionRunning)
 
             Button("Show pictures") { model.revealData() }
 
             // A session that went wrong is thrown away whole, after one confirmation.
             Button("Discard last session") { model.confirmingDiscard = true }
-                .disabled(model.stage == .running || model.lastSessionFolder == nil)
+                .disabled(model.sessionRunning || model.lastSessionFolder == nil)
                 .confirmationDialog(
                     "Move session \(model.lastSessionFolder?.lastPathComponent ?? "") to the Trash?",
                     isPresented: $model.confirmingDiscard
@@ -195,13 +184,13 @@ private struct Controls: View {
                     Text("All its pictures go with it. The other sessions are kept.")
                 }
 
-            if model.stage == .running {
+            if model.sessionRunning {
                 Button("Stop") { model.stopSession() }
                     .keyboardShortcut(.cancelAction)
             } else {
                 Button("Start session") { model.startSession() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(model.stage != .ready || !model.faceFound)
+                    .disabled(!model.canStartSession)
             }
         }
     }

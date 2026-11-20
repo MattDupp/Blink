@@ -54,6 +54,44 @@ public enum PNGFile {
     }
 }
 
+/// A value two threads share, reachable only while holding its lock.
+///
+/// The camera thread and the main thread exchange a few requests ("start a capture",
+/// "reset the counters"). Two threads touching the same variable without a lock is a data
+/// race. Wrapping the value makes forgetting the lock impossible: there is no other way in.
+public final class Locked<Value>: @unchecked Sendable {
+
+    private var value: Value
+    private let lock = NSLock()
+
+    public init(_ value: Value) {
+        self.value = value
+    }
+
+    public func withLock<Result>(_ body: (inout Value) throws -> Result) rethrows -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return try body(&value)
+    }
+}
+
+/// What one frame cost, stage by stage, in seconds.
+public struct FrameCost: Equatable {
+    public var findEyes = 0.0
+    public var crop = 0.0
+    public var model = 0.0
+    public var total = 0.0
+
+    public init() {}
+
+    /// Runs `work` and adds the time it took to `seconds`.
+    public static func measure<Result>(into seconds: inout Double, _ work: () throws -> Result) rethrows -> Result {
+        let start = StageTimings.now()
+        defer { seconds += StageTimings.now() - start }
+        return try work()
+    }
+}
+
 /// How long each stage of the pipeline takes, averaged over a stretch of frames.
 ///
 /// "It feels slow" cannot be optimised; "finding the eyes takes 2.1 ms of a 2.9 ms frame"
@@ -89,13 +127,13 @@ public struct StageTimings {
         Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
     }
 
-    /// One analysed frame; durations in seconds.
-    public mutating func record(findEyes: Double, crop: Double, model: Double, total: Double) {
-        self.findEyes += findEyes
-        self.crop += crop
-        self.model += model
-        self.total += total
-        worst = max(worst, total)
+    /// One analysed frame.
+    public mutating func record(_ cost: FrameCost) {
+        findEyes += cost.findEyes
+        crop += cost.crop
+        model += cost.model
+        total += cost.total
+        worst = max(worst, cost.total)
         analysed += 1
     }
 

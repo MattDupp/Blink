@@ -110,34 +110,81 @@ struct DetectionTests {
         #expect(abs(stats.observedSeconds - 299.0 / 30) < 0.001)
     }
 
-    // MARK: When the eyes are searched for
+    // MARK: How much work each frame gets
 
-    @Test("The eyes are searched for every other frame while they are found")
-    func searchEveryOtherFrame() {
-        var schedule = LocateSchedule(every: 2)
-        var searches: [Bool] = []
-        for _ in 0..<6 {
-            let search = schedule.shouldSearch()
-            searches.append(search)
-            if search { schedule.searched(found: true) }
+    /// Runs a schedule over `frames` frames; `found` says whether a search finds the eyes.
+    private func steps(_ schedule: inout FrameSchedule, frames: Int, found: (Int) -> Bool) -> [FrameSchedule.Step] {
+        (0..<frames).map { frame in
+            let step = schedule.next()
+            if step == .search { schedule.searched(found: found(frame)) }
+            return step
         }
-        #expect(searches == [true, false, true, false, true, false])
+    }
+
+    @Test("While the eyes are found, they are searched for on one frame in two")
+    func searchEveryOtherFrame() {
+        var schedule = FrameSchedule()
+        #expect(steps(&schedule, frames: 6) { _ in true }
+                == [.search, .reuseSquares, .search, .reuseSquares, .search, .reuseSquares])
     }
 
     @Test("After a search that finds no face, the very next frame searches again")
     func searchAgainWhenLost() {
-        var schedule = LocateSchedule(every: 3)
-        var searches: [Bool] = []
-        for frame in 0..<7 {
-            let search = schedule.shouldSearch()
-            searches.append(search)
-            // The face is found on the first search, lost on the second, found again after.
-            if search { schedule.searched(found: frame != 3) }
-        }
-        #expect(searches == [true, false, false, true, true, false, false])
+        var schedule = FrameSchedule()
+        schedule.searchEvery = 3
+        // The face is found on the first search, lost on the second, found again after.
+        #expect(steps(&schedule, frames: 7) { $0 != 3 }
+                == [.search, .reuseSquares, .reuseSquares, .search, .search, .reuseSquares, .reuseSquares])
+    }
+
+    @Test("An empty chair: after 3 s without a face, one frame in six is looked at")
+    func idle() {
+        var schedule = FrameSchedule()
+        let first = steps(&schedule, frames: 90) { _ in false }
+        #expect(first.allSatisfy { $0 == .search })          // 90 searches, none finds a face
+
+        let idle = steps(&schedule, frames: 60) { _ in false }
+        #expect(idle.filter { $0 == .search }.count == 10)   // one in six
+        #expect(idle.filter { $0 == .skip }.count == 50)
+    }
+
+    @Test("Someone sits down again: full attention from the next search on")
+    func backFromIdle() {
+        var schedule = FrameSchedule()
+        _ = steps(&schedule, frames: 96) { _ in false }
+        let back = steps(&schedule, frames: 12) { _ in true }
+        // At most five skipped frames (a fifth of a second), then never again.
+        let firstSearch = back.firstIndex(of: .search) ?? 99
+        #expect(firstSearch <= 5)
+        #expect(!back[firstSearch...].contains(.skip))
+    }
+
+    @Test("A capture reads every frame in full, whatever the rules say")
+    func everyFrame() {
+        var schedule = FrameSchedule()
+        _ = steps(&schedule, frames: 120) { _ in false }     // idle
+        #expect((0..<10).allSatisfy { _ in schedule.next(everyFrame: true) == .search })
     }
 
     // MARK: Stage timings
+
+    @Test("Measuring adds the time a piece of work took")
+    func measure() {
+        var seconds = 0.0
+        let answer = FrameCost.measure(into: &seconds) { () -> Int in
+            Thread.sleep(forTimeInterval: 0.02)
+            return 7
+        }
+        #expect(answer == 7)
+        #expect(seconds >= 0.02 && seconds < 0.5)
+    }
+
+    @Test("A value behind a lock is changed by one thread at a time")
+    func locked() {
+        let counter = Locked(0)
+        DispatchQueue.concurrentPerform(iterations: 2_000) { _ in counter.withLock { $0 += 1 } }
+        #expect(counter.withLock { $0 } == 2_000)
+    }
 
     @Test("Stage timings average the analysed frames and count the skipped ones")
     func timings() throws {
@@ -145,7 +192,12 @@ struct DetectionTests {
         for frame in 0..<60 {
             timings.frameDelivered(at: Double(frame) / 30)
             if frame % 2 == 0 {     // every other frame analysed
-                timings.record(findEyes: 0.002, crop: 0.0005, model: 0.0002, total: frame == 10 ? 0.009 : 0.003)
+                var cost = FrameCost()
+                cost.findEyes = 0.002
+                cost.crop = 0.0005
+                cost.model = 0.0002
+                cost.total = frame == 10 ? 0.009 : 0.003
+                timings.record(cost)
             }
         }
         let taken = timings.takeSummary(at: 2.0)
