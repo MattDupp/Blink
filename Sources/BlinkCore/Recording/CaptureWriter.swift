@@ -14,7 +14,7 @@ import CoreGraphics
 public final class CaptureWriter {
 
     public let folder: URL
-    private let trace: FileHandle
+    private let trace: CSVAppender
     public private(set) var frames = 0
 
     public static let header = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick"
@@ -22,10 +22,7 @@ public final class CaptureWriter {
     public init(root: URL, name: String) throws {
         folder = root.appendingPathComponent(name, isDirectory: true)
         try PrivateFolder.create(at: folder.appendingPathComponent("frames", isDirectory: true))
-        let traceURL = folder.appendingPathComponent("trace.csv")
-        try (Self.header + "\n").write(to: traceURL, atomically: true, encoding: .utf8)
-        trace = try FileHandle(forWritingTo: traceURL)
-        try trace.seekToEnd()
+        trace = try CSVAppender(url: folder.appendingPathComponent("trace.csv"), header: Self.header)
     }
 
     /// `tick`: a cue sound was played just before this frame ("blink now").
@@ -59,11 +56,6 @@ public final class CaptureWriter {
             number(bySide[.imageLeft]?.openness), number(bySide[.imageRight]?.openness),
             stateName, eventName, tick ? "1" : "",
         ]
-        do {
-            try trace.write(contentsOf: Data((fields.joined(separator: ",") + "\n").utf8))
-            frames += 1
-        } catch {
-            Log.storage.error("Capture line not written: \(error.localizedDescription, privacy: .public)")
-        }
+        if trace.append(fields) { frames += 1 }
     }
 }

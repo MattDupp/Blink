@@ -31,20 +31,13 @@ enum Entry {
 }
 
 enum Options {
-    static var noCamera: Bool { CommandLine.arguments.contains("--no-camera") }
-    static var openDiagnostics: Bool { CommandLine.arguments.contains("--diagnostics") }
-
-    private static func value(of name: String) -> String? {
-        for argument in CommandLine.arguments where argument.hasPrefix("--\(name)=") {
-            return String(argument.dropFirst(name.count + 3))
-        }
-        return nil
-    }
+    static var noCamera: Bool { LaunchArguments.has("no-camera") }
+    static var openDiagnostics: Bool { LaunchArguments.has("diagnostics") }
 
     /// The compiled model: given on the command line, else the copy inside the app
     /// (BlinkMonitor.app/Contents/Resources/EyeNet.mlmodelc, put there by the build script).
     static var modelURL: URL {
-        if let path = value(of: "model") { return URL(fileURLWithPath: path, isDirectory: true) }
+        if let folder = LaunchArguments.folder("model") { return folder }
         return (Bundle.main.resourceURL ?? Bundle.main.bundleURL)
             .appendingPathComponent("EyeNet.mlmodelc", isDirectory: true)
     }
@@ -52,13 +45,11 @@ enum Options {
     /// Where the diagnostics window saves its captures: the folder given at launch
     /// (`make monitor` passes the project's data/live), else next to the app's own files.
     static var captureRoot: URL {
-        if let path = value(of: "capture-dir") { return URL(fileURLWithPath: path, isDirectory: true) }
+        if let folder = LaunchArguments.folder("capture-dir") { return folder }
         return HistoryStore.applicationFolder.appendingPathComponent("captures", isDirectory: true)
     }
 
-    static var snapshotFolder: URL? {
-        value(of: "snapshots").map { URL(fileURLWithPath: $0, isDirectory: true) }
-    }
+    static var snapshotFolder: URL? { LaunchArguments.folder("snapshots") }
 }
 
 @MainActor

@@ -52,7 +52,7 @@ public final class SessionWriter {
     public let folder: URL
     private let sessionID: String
     private let condition: String
-    private let manifest: FileHandle
+    private let manifest: CSVAppender
 
     /// The columns of manifest.csv: one line per picture.
     public static let header = "session,condition,phase,label,variant,frame,time,side,file,"
@@ -67,10 +67,7 @@ public final class SessionWriter {
             try PrivateFolder.create(at: folder.appendingPathComponent(label.rawValue, isDirectory: true))
         }
 
-        let manifestURL = folder.appendingPathComponent("manifest.csv")
-        try (Self.header + "\n").write(to: manifestURL, atomically: true, encoding: .utf8)
-        manifest = try FileHandle(forWritingTo: manifestURL)
-        try manifest.seekToEnd()
+        manifest = try CSVAppender(url: folder.appendingPathComponent("manifest.csv"), header: Self.header)
     }
 
     /// Free text typed by the user, made safe to sit in one CSV cell:
@@ -103,13 +100,7 @@ public final class SessionWriter {
             angle(sample.located.roll), angle(sample.located.yaw),
             String(Int(sample.frameSize.width)), String(Int(sample.frameSize.height)),
         ]
-        do {
-            try manifest.write(contentsOf: Data((fields.joined(separator: ",") + "\n").utf8))
-            return true
-        } catch {
-            Log.storage.error("Manifest line not written: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
+        return manifest.append(fields)
     }
 }
 

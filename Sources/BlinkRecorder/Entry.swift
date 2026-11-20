@@ -16,13 +16,11 @@ enum Entry {
 enum Options {
     /// `--no-camera`: open the window without touching the camera (to check that the
     /// window itself works, without a permission question).
-    static var noCamera: Bool { CommandLine.arguments.contains("--no-camera") }
+    static var noCamera: Bool { LaunchArguments.has("no-camera") }
 
     /// The folder the sessions are written to.
     static var outputRoot: URL {
-        for argument in CommandLine.arguments where argument.hasPrefix("--out=") {
-            return URL(fileURLWithPath: String(argument.dropFirst("--out=".count)), isDirectory: true)
-        }
+        if let folder = LaunchArguments.folder("out") { return folder }
         // No folder given: next to the app's other files, never a path of one machine.
         return HistoryStore.applicationFolder.appendingPathComponent("recordings", isDirectory: true)
     }

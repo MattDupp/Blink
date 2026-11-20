@@ -18,21 +18,18 @@ public struct PerformanceLog {
     }
 
     public func append(_ summary: StageTimings.Summary, at date: Date = Date()) {
-        let line = String(format: "%@,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.1f\n",
-                          ISO8601DateFormatter().string(from: date), summary.framesPerSecond, summary.analysedShare,
-                          summary.findEyes, summary.crop, summary.model, summary.total, summary.worstTotal)
         do {
-            if !FileManager.default.fileExists(atPath: file.path) {
-                try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try "time,frames_per_second,analysed_share,find_eyes_ms,crop_ms,model_ms,frame_ms,worst_frame_ms\n"
-                    .write(to: file, atomically: true, encoding: .utf8)
-            }
-            let handle = try FileHandle(forWritingTo: file)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: Data(line.utf8))
+            try CSVAppender(url: file, header: Self.header).append([
+                ISO8601DateFormatter().string(from: date),
+                String(format: "%.1f", summary.framesPerSecond), String(format: "%.2f", summary.analysedShare),
+                String(format: "%.2f", summary.findEyes), String(format: "%.2f", summary.crop),
+                String(format: "%.2f", summary.model), String(format: "%.2f", summary.total),
+                String(format: "%.1f", summary.worstTotal),
+            ])
         } catch {
-            Log.storage.error("Performance log not written: \(error.localizedDescription, privacy: .public)")
+            Log.storage.error("Performance log not opened: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    static let header = "time,frames_per_second,analysed_share,find_eyes_ms,crop_ms,model_ms,frame_ms,worst_frame_ms"
 }

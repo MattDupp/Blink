@@ -114,21 +114,14 @@ public struct HistoryStore {
     /// Adds one minute at the end of the file. Returns false (and logs why) on failure.
     @discardableResult
     public func append(_ record: MinuteRecord) -> Bool {
-        let line = String(format: "%@,%.1f,%d\n", ISO8601DateFormatter().string(from: record.start),
-                          record.observedSeconds, record.blinks)
         do {
-            let files = FileManager.default
-            if !files.fileExists(atPath: file.path) {
-                try files.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try (Self.header + "\n").write(to: file, atomically: true, encoding: .utf8)
-            }
-            let handle = try FileHandle(forWritingTo: file)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: Data(line.utf8))
-            return true
+            return try CSVAppender(url: file, header: Self.header).append([
+                ISO8601DateFormatter().string(from: record.start),
+                String(format: "%.1f", record.observedSeconds),
+                String(record.blinks),
+            ])
         } catch {
-            Log.storage.error("History not written: \(error.localizedDescription, privacy: .public)")
+            Log.storage.error("History not opened: \(error.localizedDescription, privacy: .public)")
             return false
         }
     }

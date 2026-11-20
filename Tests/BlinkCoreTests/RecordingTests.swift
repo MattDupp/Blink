@@ -41,6 +41,42 @@ struct RecordingTests {
         #expect(DatasetStats.scan(root) == DatasetStats(sessions: 1, open: 0, closed: 1))
     }
 
+    @Test("A CSV file gets its header once, then one line per call - also when reopened")
+    func csvAppender() throws {
+        let folder = Fixture.temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("deep/log.csv")      // the folder does not exist yet
+
+        #expect(try CSVAppender(url: file, header: "a,b").append(["1", "2"]))
+        let reopened = try CSVAppender(url: file, header: "a,b")
+        #expect(reopened.append(["3", "4"]))
+        #expect(reopened.append(["5", "6"]))
+
+        #expect(try String(contentsOf: file, encoding: .utf8) == "a,b\n1,2\n3,4\n5,6\n")
+    }
+
+    @Test("The performance log writes one readable line per minute")
+    func performanceLog() throws {
+        let folder = Fixture.temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        var summary = StageTimings.Summary()
+        summary.findEyes = 6.4
+        summary.crop = 1.3
+        summary.model = 0.7
+        summary.total = 8.6
+        summary.worstTotal = 21.5
+        summary.framesPerSecond = 30
+        summary.analysedShare = 0.5
+
+        let log = PerformanceLog(file: folder.appendingPathComponent("performance.csv"))
+        log.append(summary, at: Date(timeIntervalSince1970: 1_800_000_000))
+        let lines = try String(contentsOf: log.file, encoding: .utf8).split(separator: "\n").map(String.init)
+        #expect(lines == [
+            "time,frames_per_second,analysed_share,find_eyes_ms,crop_ms,model_ms,frame_ms,worst_frame_ms",
+            "2027-01-15T08:00:00Z,30.0,0.50,6.40,1.30,0.70,8.60,21.5",
+        ])
+    }
+
     @Test("Text typed by the user cannot break the CSV or become a spreadsheet formula")
     func conditionText() {
         #expect(SessionWriter.csvSafe("lamp, \"glasses\"\nevening") == "lamp glasses evening")
