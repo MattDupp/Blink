@@ -52,6 +52,42 @@ public enum EyeFusion {
     }
 }
 
+/// Decides on which frames the eyes are searched for again.
+///
+/// MEASURED in the running app (2026-11-20, performance.csv): finding the eyes with Vision
+/// takes 12 to 15 ms per frame, cutting and classifying them 2 ms. But eyes do not move
+/// far in a thirtieth of a second: the squares found on one frame still frame the eyes on
+/// the next. So the search runs every other frame, and the frame in between reads the
+/// same squares - every frame is still classified, which is what catching a blink needs.
+///
+/// As soon as a search finds no face, the next frame searches again: stale squares are
+/// never kept for more than one frame.
+public struct LocateSchedule {
+
+    /// Search for the eyes on one frame in this many.
+    public var every: Int
+
+    private var framesSinceSearch = 0
+    private var haveEyes = false
+
+    public init(every: Int = 2) {
+        self.every = max(1, every)
+    }
+
+    /// Call once per frame, before deciding. True = search now.
+    public mutating func shouldSearch() -> Bool {
+        guard haveEyes, framesSinceSearch + 1 < every else { return true }
+        framesSinceSearch += 1
+        return false
+    }
+
+    /// Call after a search, with whether it found the eyes.
+    public mutating func searched(found: Bool) {
+        haveEyes = found
+        framesSinceSearch = 0
+    }
+}
+
 /// Stages 1 and 2 of the pipeline, for one frame:
 ///
 ///     frame -> find the eyes (Vision) -> cut 64x64 pictures -> model: closed?
@@ -65,17 +101,25 @@ public final class EyeReader {
     private let locator = EyeLocator()
     private let cropper = EyeCropper()
     private let classifier: EyeClassifier
+    private var schedule = LocateSchedule()
+    private var lastLocated: LocatedEyes?
 
     public init(classifier: EyeClassifier) {
         self.classifier = classifier
     }
 
-    public func read(_ pixelBuffer: CVPixelBuffer) throws -> FrameReading {
+    /// `searchEveryFrame`: find the eyes again on this frame whatever the schedule says
+    /// (a capture wants Vision's outline on every frame).
+    public func read(_ pixelBuffer: CVPixelBuffer, searchEveryFrame: Bool = false) throws -> FrameReading {
         var reading = FrameReading()
         let start = StageTimings.now()
         var cropTime = 0.0, modelTime = 0.0
 
-        let located = try locator.locate(in: pixelBuffer)
+        if schedule.shouldSearch() || searchEveryFrame {
+            lastLocated = try locator.locate(in: pixelBuffer)
+            schedule.searched(found: lastLocated != nil)
+        }
+        let located = lastLocated
         let afterLocate = StageTimings.now()
 
         if let located {

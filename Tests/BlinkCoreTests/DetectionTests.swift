@@ -110,6 +110,33 @@ struct DetectionTests {
         #expect(abs(stats.observedSeconds - 299.0 / 30) < 0.001)
     }
 
+    // MARK: When the eyes are searched for
+
+    @Test("The eyes are searched for every other frame while they are found")
+    func searchEveryOtherFrame() {
+        var schedule = LocateSchedule(every: 2)
+        var searches: [Bool] = []
+        for _ in 0..<6 {
+            let search = schedule.shouldSearch()
+            searches.append(search)
+            if search { schedule.searched(found: true) }
+        }
+        #expect(searches == [true, false, true, false, true, false])
+    }
+
+    @Test("After a search that finds no face, the very next frame searches again")
+    func searchAgainWhenLost() {
+        var schedule = LocateSchedule(every: 3)
+        var searches: [Bool] = []
+        for frame in 0..<7 {
+            let search = schedule.shouldSearch()
+            searches.append(search)
+            // The face is found on the first search, lost on the second, found again after.
+            if search { schedule.searched(found: frame != 3) }
+        }
+        #expect(searches == [true, false, false, true, true, false, false])
+    }
+
     // MARK: Stage timings
 
     @Test("Stage timings average the analysed frames and count the skipped ones")

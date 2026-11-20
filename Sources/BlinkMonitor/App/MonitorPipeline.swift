@@ -136,7 +136,7 @@ final class MonitorPipeline: @unchecked Sendable {
         var reading = FrameReading()
         if !idle || frameIndex % Self.idleStride == 0 {
             do {
-                reading = try reader.read(pixelBuffer)
+                reading = try reader.read(pixelBuffer, searchEveryFrame: capture != nil)
                 recentTimings.record(findEyes: reading.findEyesSeconds, crop: reading.cropSeconds,
                                      model: reading.modelSeconds, total: reading.totalSeconds)
                 minuteTimings.record(findEyes: reading.findEyesSeconds, crop: reading.cropSeconds,
