@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import BlinkCore
 
-/// Records every frame for a while, for study and for training (diagnostics window).
+/// Records every frame for a while, for study and for training (Live View window).
 @MainActor
 final class CaptureController: ObservableObject {
 

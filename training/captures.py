@@ -1,6 +1,6 @@
 """A live capture, read once into typed values.
 
-A capture is what the app's diagnostics window records: every frame's two eye pictures
+A capture is what the app's Live View window records: every frame's two eye pictures
 and one line per frame in trace.csv (see `CaptureWriter` in the Swift code). Four tools
 work on captures. Each used to read the CSV its own way and carry the lines around as
 dictionaries of text, converting "0.9731" to a number again wherever it was needed.

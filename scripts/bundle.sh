@@ -5,6 +5,9 @@
 #   build/<Product>.app/Contents/Info.plist           from App/<Product>-Info.plist
 #   build/<Product>.app/Contents/Resources/...        the resources given, and the icon
 #
+#   DEMO=1 scripts/bundle.sh BlinkMonitor             build/BlinkMonitorDemo.app: the same
+#                                                     program under another identity (below)
+#
 # WHY AN APP AND NOT JUST THE PROGRAM. macOS gives the camera to an APP, identified by its
 # bundle (a folder ending in .app that holds the program and an Info.plist describing it).
 # The Info.plist carries the sentence shown in the camera permission window; a program
@@ -16,13 +19,30 @@ cd "$(dirname "$0")/.."
 PRODUCT="$1"
 shift
 
-swift build -c release --product "$PRODUCT"
+# With Apple's Command Line Tools alone, every link prints "ld: warning: search path ...
+# not found" for two folders that only exist inside Xcode. They are harmless, and they are
+# the first thing a newcomer would read: they are left out, everything else is shown.
+swift build -c release --product "$PRODUCT" 2>&1 | { grep -v "ld: warning: search path" || true; }
 
-APP="build/$PRODUCT.app"
+NAME="$PRODUCT"
+[ "${DEMO:-}" = 1 ] && NAME="${PRODUCT}Demo"
+APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/$PRODUCT" "$APP/Contents/MacOS/$PRODUCT"
 cp "App/$PRODUCT-Info.plist" "$APP/Contents/Info.plist"
+
+# THE DEMO IS ANOTHER APP as far as macOS is concerned: its own name and identifier, so
+# that it shares nothing with the real one - not its settings, not its entry in
+# Notification Centre, not its place in the menu bar. The key BlinkMonitorDemo is what
+# the program reads to know it must run on made-up eyes (see Options.demo).
+if [ "${DEMO:-}" = 1 ]; then
+    plist() { /usr/libexec/PlistBuddy -c "$1" "$APP/Contents/Info.plist"; }
+    plist "Set :CFBundleIdentifier local.blinkmonitor.demo"
+    plist "Set :CFBundleName Blink Monitor Demo"
+    plist "Set :CFBundleDisplayName Blink Monitor Demo"
+    plist "Add :BlinkMonitorDemo bool true"
+fi
 for resource in "$@"; do
     cp -R "$resource" "$APP/Contents/Resources/"
 done

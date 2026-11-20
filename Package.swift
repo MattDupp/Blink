@@ -29,5 +29,8 @@ let package = Package(
 
         // `make test` runs these (Swift Testing).
         .testTarget(name: "BlinkCoreTests", dependencies: ["BlinkCore"]),
+
+        // The menu-bar app's own logic: its model, its clock, the demo.
+        .testTarget(name: "BlinkMonitorTests", dependencies: ["BlinkMonitor"]),
     ]
 )

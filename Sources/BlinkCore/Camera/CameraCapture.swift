@@ -33,7 +33,13 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
         }
     }
 
+    /// The camera in use, as macOS names it ("FaceTime HD Camera"). Nil before `start`.
+    public private(set) var deviceName: String?
+
     private let session = AVCaptureSession()
+    /// The camera is meant to be running (it was started, and not stopped since).
+    private let wanted = Locked(false)
+    private var errorObserver: NSObjectProtocol?
     // "Utility" priority: macOS may run this work on the efficiency cores. Counting blinks
     // must not compete with what you are doing; a frame takes a few milliseconds of the
     // 33 available, so there is room. (The stage timings show it if that stops being true.)
@@ -75,11 +81,8 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     private func startSession(onFrame: @escaping FrameHandler) throws {
         self.onFrame = onFrame
 
-        // The built-in camera, not an iPhone that Continuity Camera may offer as "default".
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified)
-                ?? AVCaptureDevice.default(for: .video) else {
-            throw CameraError.noCamera
-        }
+        guard let device = Self.pickCamera() else { throw CameraError.noCamera }
+        deviceName = device.localizedName
         let input = try AVCaptureDeviceInput(device: device)
 
         session.beginConfiguration()
@@ -116,17 +119,52 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
         }
 
         session.commitConfiguration()
+
+        // A session can stop by itself (the camera's driver restarted, the device was
+        // taken away for a moment). Without this it would stay stopped, and the app
+        // would go on showing its last number.
+        errorObserver = NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
+        ) { [weak self] notification in
+            let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
+            Log.app.error("Camera stopped: \(error?.localizedDescription ?? "unknown error", privacy: .public)")
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) { self?.recover() }
+        }
+
+        wanted.withLock { $0 = true }
         session.startRunning()
+    }
+
+    /// The camera to use: the Mac's own; on a Mac that has none, the first one plugged in.
+    ///
+    /// NOT simply "the default camera". With an iPhone nearby, macOS can offer the phone
+    /// as the default (Continuity Camera) - and, unless the app's Info.plist sets
+    /// NSCameraUseContinuityCameraDeviceType, it even reports that phone as a "built-in
+    /// wide angle camera". Both apps set the key, so here a built-in camera is the Mac's.
+    private static func pickCamera() -> AVCaptureDevice? {
+        let found = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external],
+                                                     mediaType: .video, position: .unspecified).devices
+        return found.first { $0.deviceType == .builtInWideAngleCamera } ?? found.first
+            ?? AVCaptureDevice.default(for: .video)
     }
 
     /// Turns the camera off (its green light goes out). The graph stays built.
     public func stop() {
+        wanted.withLock { $0 = false }
         session.stopRunning()
     }
 
     /// Turns the camera back on after `stop`. Blocks for a moment like `start`.
     public func resume() {
+        wanted.withLock { $0 = true }
         if !session.isRunning { session.startRunning() }
+    }
+
+    /// Starts the camera again if it stopped BY ITSELF. Does nothing when it runs, and
+    /// nothing when it was stopped on purpose: a pause must stay a pause.
+    public func recover() {
+        guard wanted.withLock({ $0 }), !session.isRunning else { return }
+        session.startRunning()
     }
 
     // AVFoundation calls this for every frame, on `frameQueue`.

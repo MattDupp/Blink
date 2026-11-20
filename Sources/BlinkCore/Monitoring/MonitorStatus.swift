@@ -23,6 +23,9 @@ public enum MonitorStatus: Equatable {
     /// The camera is off: you chose Pause (`until`: when it resumes by itself, nil when it
     /// waits for you), or the screen sleeps.
     case paused(until: Date?)
+    /// The camera is on but no picture arrives (the lid is closed, the camera failed).
+    /// Said out loud because the alternative is the last number staying on screen for ever.
+    case cameraSilent
     /// Nobody in front of the camera.
     case noFace
     /// `rate`: blinks a minute over the last minute watched (nil for the first 20 s).
@@ -32,7 +35,7 @@ public enum MonitorStatus: Equatable {
 
     /// `pause` is taken as it is: resolve it against the clock first (`PauseState.resolved`).
     public init(lifecycle: Lifecycle, pause: PauseState = .running, asleep: Bool = false,
-                faceFound: Bool, rate: Double?, recentLowRate: Double?) {
+                cameraSilent: Bool = false, faceFound: Bool, rate: Double?, recentLowRate: Double?) {
         switch lifecycle {
         case .starting: self = .starting
         case .cameraRefused: self = .cameraRefused
@@ -42,6 +45,8 @@ public enum MonitorStatus: Equatable {
                 self = .paused(until: until)
             } else if asleep {
                 self = .paused(until: nil)
+            } else if cameraSilent {
+                self = .cameraSilent
             } else if !faceFound {
                 self = .noFace
             } else if let recentLowRate {
@@ -52,11 +57,11 @@ public enum MonitorStatus: Equatable {
         }
     }
 
-    /// The camera is on and the pipeline is running (somebody in view or not).
+    /// The camera is on and its pictures are being read (somebody in view or not).
     public var isCameraOn: Bool {
         switch self {
         case .noFace, .watching, .low: return true
-        case .starting, .cameraRefused, .failed, .paused: return false
+        case .starting, .cameraRefused, .failed, .paused, .cameraSilent: return false
         }
     }
 

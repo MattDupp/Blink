@@ -7,7 +7,7 @@ PROJECT = TRAINING.parent
 
 DATA = PROJECT / "data"
 RAW = DATA / "raw"  # sessions made by the recorder: eyes held open or closed
-LIVE = DATA / "live"  # captures made by the app's diagnostics window: every frame
+LIVE = DATA / "live"  # captures made by the app's Live View window: every frame
 BLINKS = DATA / "blinks"  # real blink frames taken from the captures and labelled
 REMOVED = DATA / "removed"  # pictures set aside while cleaning labels
 

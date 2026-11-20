@@ -5,9 +5,11 @@ import BlinkCore
 ///
 ///     BlinkMonitor                         the menu-bar app
 ///       --model=<EyeNet.mlmodelc>          another model than the one inside the app
-///       --capture-dir=<folder>             where the diagnostics window saves its captures
-///       --diagnostics                      open the diagnostics window at launch
+///       --capture-dir=<folder>             where the Live View window saves its captures
+///       --open=<window>[,<window>]         open windows at launch: live-view, history, settings,
+///                                          blink-break (to look at them, or to check they open)
 ///       --no-camera                        leave the camera off (to look at the windows)
+///       --demo                             made-up eyes: no camera, no model (make demo)
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
 @main
 enum Entry {
@@ -32,7 +34,17 @@ enum Entry {
 
 enum Options {
     static var noCamera: Bool { LaunchArguments.has("no-camera") }
-    static var openDiagnostics: Bool { LaunchArguments.has("diagnostics") }
+    /// The windows to open at launch, by name.
+    static var windowsToOpen: [String] {
+        (LaunchArguments.value(of: "open") ?? "").split(separator: ",").map(String.init)
+    }
+
+    /// The demo: the whole app on made-up eyes, for trying it before training a model.
+    /// Asked for at launch, or built in: the app that `make demo` builds carries the key,
+    /// so that opening it from the Finder is a demo too.
+    static var demo: Bool {
+        LaunchArguments.has("demo") || Bundle.main.object(forInfoDictionaryKey: "BlinkMonitorDemo") as? Bool == true
+    }
 
     /// The compiled model: given on the command line, else the copy inside the app
     /// (BlinkMonitor.app/Contents/Resources/EyeNet.mlmodelc, put there by the build script).
@@ -42,7 +54,7 @@ enum Options {
             .appendingPathComponent("EyeNet.mlmodelc", isDirectory: true)
     }
 
-    /// Where the diagnostics window saves its captures: the folder given at launch
+    /// Where the Live View window saves its captures: the folder given at launch
     /// (`make monitor` passes the project's data/live), else next to the app's own files.
     static var captureRoot: URL {
         if let folder = LaunchArguments.folder("capture-dir") { return folder }
@@ -58,8 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: MonitorModel?
     private var statusItem: StatusItemController?
     private var windows: [WindowController] = []
+    private var settings: WindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let demo = Options.demo
+
         // One copy only: two would mean two menu-bar items and the camera read twice.
         if !Options.noCamera, let identifier = Bundle.main.bundleIdentifier {
             let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
@@ -70,8 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        let preferences = Preferences()
-        let model = MonitorModel(preferences: preferences)
+        let model = demo ? SampleData.demoModel() : MonitorModel(preferences: Preferences())
+        let preferences = model.preferences
         self.model = model
 
         let historyState = HistoryState()
@@ -79,11 +94,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             HistoryView(history: model.history, preferences: preferences, state: historyState)
         }
         history.onVisibilityChange = { open in if open { historyState.selectedDay = nil } }   // opens on today
-        let diagnostics = WindowController(title: "Blink Monitor - Diagnostics", resizable: true) {
-            DiagnosticsView(model: model, captures: model.captures)
+        let liveView = WindowController(title: "Blink Monitor - Live View", resizable: true) {
+            LiveView(model: model, captures: model.captures)
         }
         // The camera picture and the curve are only prepared while this window shows them.
-        diagnostics.onVisibilityChange = { open in model.setDiagnosticsOpen(open) }
+        liveView.onVisibilityChange = { open in model.setLiveViewOpen(open) }
 
         // The blink break: its window opening starts the exercise, its closing ends it,
         // and the exercise ending closes the window.
@@ -101,14 +116,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
                          loginItem: model.loginItem, state: settingsState,
                          actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
-                                                  openDiagnostics: { diagnostics.show() }))
+                                                  openLiveView: { liveView.show() }))
         }
         settings.onVisibilityChange = { open in if !open { settingsState.reset() } }
-        windows = [history, diagnostics, blinkBreak, settings]
+        self.settings = settings
+        windows = [history, liveView, blinkBreak, settings]
 
-        statusItem = StatusItemController(model: model, actions: PanelActions(
+        let statusItem = StatusItemController(model: model, actions: PanelActions(
             startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
-            openDiagnostics: { diagnostics.show() }, quit: { NSApp.terminate(nil) }))
+            openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings, quit: { NSApp.terminate(nil) }))
+        self.statusItem = statusItem
+        NSApp.mainMenu = MainMenu.make(target: self, settings: #selector(showSettings))
 
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
@@ -123,11 +141,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // The first time, say what the app does BEFORE macOS asks for the camera.
-        if preferences.welcomed || Options.noCamera {
+        // An app with no window has to show where it lives: the first time (and in the
+        // demo), the panel opens by itself under its menu-bar item once things run.
+        let startAndShow = {
+            Task {
+                await model.start()
+                statusItem.showPanel()
+            }
+        }
+        if demo {
+            _ = startAndShow()
+        } else if preferences.welcomed || Options.noCamera {
             Task { await model.start() }
         } else {
-            let welcome = WindowController(title: "Welcome to Blink Monitor") { [weak self] in
+            // The first time, say what the app does BEFORE macOS asks for the camera.
+            let welcome = WindowController(title: "Welcome to Blink Monitor", remembersPosition: false) { [weak self] in
                 WelcomeView { self?.windows.last?.close() }      // Start = close the window
             }
             // Closing the window IS starting, whichever way it is closed: by the Start
@@ -136,12 +164,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             welcome.onVisibilityChange = { open in
                 guard !open else { return }
                 preferences.welcomed = true
-                Task { await model.start() }
+                _ = startAndShow()
             }
             windows.append(welcome)
             welcome.show()
         }
-        if Options.openDiagnostics { diagnostics.show() }
+        let byName = ["live-view": liveView, "history": history, "settings": settings, "blink-break": blinkBreak]
+        for name in Options.windowsToOpen { byName[name]?.show() }
+    }
+
+    @objc private func showSettings() {
+        settings?.show()
+    }
+
+    /// System Settings, on the page where the camera is allowed app by app.
+    private static func openCameraSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

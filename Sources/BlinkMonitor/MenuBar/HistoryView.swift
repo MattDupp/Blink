@@ -18,12 +18,16 @@ struct HistoryView: View {
     @ObservedObject var history: HistoryController
     @ObservedObject var preferences: Preferences
     @ObservedObject var state: HistoryState
-    /// The moment the window describes: now, except in the screenshots.
-    var now = Date()
+    /// The moment the window describes: the present, except in the screenshots.
+    var moment = Moment()
 
     private var limit: Double { Double(preferences.limit) }
 
     var body: some View {
+        AtPresent(moment: moment) { now in window(now: now) }
+    }
+
+    private func window(now: Date) -> some View {
         let calendar = Calendar.current
         let days = history.lastDays(7, threshold: limit, now: now)
         let today = calendar.startOfDay(for: now)
@@ -31,62 +35,66 @@ struct HistoryView: View {
         let weekRecords = days.flatMap { history.records(on: $0.day) }
         let week = DaySummary(records: weekRecords, threshold: limit)
 
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle("Last 7 days")
-                HStack(spacing: 8) {
-                    StatTile(value: Format.duration(week.observedSeconds), caption: "watched")
-                    StatTile(value: week.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
-                    StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--",
-                             caption: "of minutes on target")
-                }
-                BarChart(bars: days.map { day in
-                    BarChart.Bar(label: day.day.formatted(.dateTime.weekday(.abbreviated)), value: day.summary.ratePerMinute)
-                }, threshold: limit, showValues: true,
-                         selected: days.firstIndex { $0.day == selected }) { state.selectedDay = days[$0].day }
-                    .frame(height: 140)
-                    .help("Click a day to see it hour by hour")
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    SectionTitle(selected == today ? "Today, hour by hour" : "\(selected.formatted(.dateTime.weekday(.wide).day().month(.wide))), hour by hour")
-                    Spacer()
-                    DayStepper(days: days.map(\.day), selected: selected) { state.selectedDay = $0 }
-                }
-                BarChart(bars: history.hours(of: selected, threshold: limit).enumerated().map { hour, summary in
-                    BarChart.Bar(label: hour % 3 == 0 ? "\(hour)" : "", value: summary.ratePerMinute)
-                }, threshold: limit, showValues: false)
-                    .frame(height: 100)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle("The week, by hour of the day")
-                HeatMap(days: days.map(\.day), rates: Insights.heatMap(records: weekRecords, days: days.map(\.day)),
-                        limit: limit, selected: selected)
-            }
-
-            let findings = self.findings(days: days, weekRecords: weekRecords)
-            if !findings.isEmpty {
-                VStack(alignment: .leading, spacing: 7) {
-                    SectionTitle("What stands out")
-                    ForEach(findings, id: \.text) { finding in
-                        Label(finding.text, systemImage: finding.symbol)
-                            .foregroundStyle(finding.tint)
-                            .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 18) {
+            if weekRecords.isEmpty {
+                NothingYet()
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("Last 7 days")
+                    HStack(spacing: 8) {
+                        StatTile(value: Format.duration(week.observedSeconds), caption: "watched")
+                        StatTile(value: week.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
+                        StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--",
+                                 caption: "of minutes on target")
                     }
+                    BarChart(bars: days.map { day in
+                        BarChart.Bar(label: day.day.formatted(.dateTime.weekday(.abbreviated)), value: day.summary.ratePerMinute)
+                    }, threshold: limit, showValues: true,
+                             selected: days.firstIndex { $0.day == selected }) { state.selectedDay = days[$0].day }
+                        .frame(height: 140)
+                        .help("Click a day to see it hour by hour")
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        SectionTitle(selected == today ? "Today, hour by hour" : "\(selected.formatted(.dateTime.weekday(.wide).day().month(.wide))), hour by hour")
+                        Spacer()
+                        DayStepper(days: days.map(\.day), selected: selected) { state.selectedDay = $0 }
+                    }
+                    BarChart(bars: history.hours(of: selected, threshold: limit).enumerated().map { hour, summary in
+                        BarChart.Bar(label: hour % 3 == 0 ? "\(hour)" : "", value: summary.ratePerMinute)
+                    }, threshold: limit, showValues: false)
+                        .frame(height: 100)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("The week, by hour of the day")
+                    HeatMap(days: days.map(\.day), rates: Insights.heatMap(records: weekRecords, days: days.map(\.day)),
+                            limit: limit, selected: selected)
+                }
+
+                let findings = self.findings(days: days, weekRecords: weekRecords)
+                if !findings.isEmpty {
+                    VStack(alignment: .leading, spacing: 7) {
+                        SectionTitle("What stands out")
+                        ForEach(findings, id: \.text) { finding in
+                            Label(finding.text, systemImage: finding.symbol)
+                                .foregroundStyle(finding.tint)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .font(.callout)
+                }
+
+                HStack {
+                    Label("Orange: under \(preferences.limit) blinks a minute, your limit.", systemImage: "square.fill")
+                        .labelStyle(LegendStyle(color: .orange))
+                    Spacer()
+                    Button("Show Data File") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
+                        .help("One line per minute, in a file any spreadsheet opens. No picture is ever stored.")
                 }
                 .font(.callout)
             }
-
-            HStack {
-                Label("Orange: under \(preferences.limit) blinks a minute, your limit.", systemImage: "square.fill")
-                    .labelStyle(LegendStyle(color: .orange))
-                Spacer()
-                Button("Show Data File") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
-                    .help("One line per minute, in a file any spreadsheet opens. No picture is ever stored.")
-            }
-            .font(.callout)
         }
         .padding(20)
         .frame(width: 620)
@@ -123,6 +131,26 @@ struct HistoryView: View {
                                                 worst.day.formatted(.dateTime.weekday(.wide)), worst.rate), .primary))
         }
         return findings
+    }
+}
+
+/// What a new install shows instead of seven empty charts.
+private struct NothingYet: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 38))
+                .foregroundStyle(.tertiary)
+            Text("Nothing recorded yet")
+                .font(.system(size: 17, weight: .semibold))
+            Text("One line is kept for every minute your eyes are watched. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 420)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
     }
 }
 

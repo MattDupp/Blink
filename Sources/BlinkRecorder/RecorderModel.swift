@@ -37,6 +37,8 @@ final class RecorderModel: ObservableObject {
     @Published var lastSessionFolder: URL?
     @Published var condition = ""
     @Published var problem: String?
+    /// Said after a session that saved far fewer pictures than a session holds.
+    @Published private(set) var sessionNote: String?
     /// True while the "Move session ... to the Trash?" question is on screen. It lives here
     /// and not in the view as `@State`: in this macOS SDK `@State` is a compiler plug-in
     /// that ships with Xcode only, and this project builds without Xcode.
@@ -49,8 +51,29 @@ final class RecorderModel: ObservableObject {
     private let speaker = Speaker()
     private var sessionTask: Task<Void, Never>?
 
-    init(outputRoot: URL) {
+    /// `lifecycle`, `sessionRunning`: what the screenshots start from, instead of the camera.
+    init(outputRoot: URL, lifecycle: Lifecycle = .starting, sessionRunning: Bool = false) {
         self.outputRoot = outputRoot
+        self.lifecycle = lifecycle
+        self.sessionRunning = sessionRunning
+    }
+
+    /// What to know before the next session: what a session is (the first time), how many
+    /// are still worth recording, and the command that comes after.
+    var guidance: [String] {
+        let recorded = dataset.sessions
+        let wanted = SessionScript.recommendedSessions
+        switch recorded {
+        case 0:
+            return ["A session is \(SessionScript.phases.count) poses, in about two minutes.",
+                    "A voice tells you what to do: half of the poses are with your eyes closed, and a sound ends each one.",
+                    "Record \(wanted) sessions, each in a different light. Then the next step trains your model."]
+        case 1..<wanted:
+            return ["Session \(recorded + 1) of \(wanted). Change something first: the light, the time of day, glasses on or off."]
+        default:
+            return ["\(recorded) sessions recorded: enough to train. Close this window and run:  make train",
+                    "Another session in a new light still helps."]
+        }
     }
 
     // MARK: - Camera
@@ -135,6 +158,7 @@ final class RecorderModel: ObservableObject {
             try SessionStore.discard(folder, toTrash: true)
             prompt = "Session \(folder.lastPathComponent) was moved to the Trash."
             problem = nil
+            sessionNote = nil
         } catch {
             problem = "The session could not be removed: \(error.localizedDescription)"
         }
@@ -161,6 +185,7 @@ final class RecorderModel: ObservableObject {
         sessionOpen = 0
         sessionClosed = 0
         problem = nil
+        sessionNote = nil
         prompt = "Listen to the voice..."
         await speaker.say("Starting. Follow my voice, and blink whenever you need to.")
 
@@ -200,6 +225,13 @@ final class RecorderModel: ObservableObject {
         } else {
             await speaker.say("Finished. You can open your eyes.")
             prompt = "Session saved: \(sessionOpen) open and \(sessionClosed) closed pictures."
+            // Pictures are only saved while a face is in view. A session that kept far
+            // fewer than it can hold was partly recorded on an empty chair.
+            let share = Double(sessionOpen + sessionClosed) / Double(SessionScript.fullSessionPictures)
+            if share < 0.7 {
+                sessionNote = "That is \(Int(share * 100))% of what a session holds: your face was out of view "
+                    + "during some poses. Discard this session and record it again."
+            }
         }
     }
 }

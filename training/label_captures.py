@@ -134,7 +134,10 @@ def main() -> None:
 
     captures = all_captures()
     if not captures:
-        raise SystemExit("No capture found in data/live")
+        raise SystemExit(
+            "No capture found in data/live. Record one in the app: Live View > Record Freely (60 s), "
+            "with the app started by 'make monitor'."
+        )
 
     to_review: list[sheets.Tile] = []
     for capture in captures:

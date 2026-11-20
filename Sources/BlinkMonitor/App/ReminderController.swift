@@ -62,6 +62,15 @@ final class ReminderController: ObservableObject {
         }
     }
 
+    /// Shows the reminder now, as it will look. Nobody should have to blink too little
+    /// for three minutes to find out whether banners are allowed.
+    func sendTest() {
+        notifier.requestPermission { [weak self] granted in
+            self?.notificationsRefused = !granted
+            self?.notifier.show(.lowRate(recent: 6))
+        }
+    }
+
     /// No reminder and no nudge for this long (nil: they are back now).
     func snooze(minutes: Int?, now: Date = Date()) {
         let until = minutes.map { now.addingTimeInterval(Double($0) * 60) }

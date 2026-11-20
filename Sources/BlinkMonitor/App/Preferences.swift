@@ -12,6 +12,7 @@ final class Preferences: ObservableObject {
 
     private enum Key {
         static let showRate = "showRateInMenuBar"
+        static let blinkBack = "blinkBack"
         static let remindersOn = "remindersOn"
         static let automaticLimit = "automaticLimit"
         static let floor = "threshold"            // its name in the first version
@@ -32,6 +33,9 @@ final class Preferences: ObservableObject {
 
     /// The menu bar shows the rate next to the eye (off: the eye alone).
     @Published var showRateInMenuBar: Bool { didSet { defaults.set(showRateInMenuBar, forKey: Key.showRate) } }
+
+    /// The eye in the menu bar closes for a moment each time you blink.
+    @Published var blinkBack: Bool { didSet { defaults.set(blinkBack, forKey: Key.blinkBack) } }
 
     // MARK: Reminders
 
@@ -89,6 +93,7 @@ final class Preferences: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         showRateInMenuBar = defaults.object(forKey: Key.showRate) as? Bool ?? true
+        blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
         floor = defaults.object(forKey: Key.floor) as? Int ?? 10

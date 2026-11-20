@@ -2,12 +2,12 @@ import SwiftUI
 import BlinkCore
 import BlinkUI
 
-/// The diagnostics window: what the pipeline sees and decides, live.
+/// The Live View window: what the pipeline sees and decides, as it happens.
 ///
 /// On the left, the camera with the eye squares and, under it, the model's answer drawn as
 /// a curve over the last 10 seconds. On the right, the counters and the pipeline's own cost.
 /// At the bottom, the tools that record captures for study and training.
-struct DiagnosticsView: View {
+struct LiveView: View {
     @ObservedObject var model: MonitorModel
     @ObservedObject var captures: CaptureController
 

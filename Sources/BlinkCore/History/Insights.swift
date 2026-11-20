@@ -31,7 +31,7 @@ public enum Insights {
     /// were watched. `days`: the starts of the days wanted, in the order wanted.
     public static func heatMap(records: [MinuteRecord], days: [Date], calendar: Calendar = .current) -> [[Double?]] {
         days.map { day in
-            ratesByHour(records: records.filter { calendar.isDate($0.start, inSameDayAs: day) }, calendar: calendar)
+            ratesByHour(records: records.on(day, calendar: calendar), calendar: calendar)
         }
     }
 }

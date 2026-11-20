@@ -4,7 +4,7 @@ import SwiftUI
 /// sitting on the same line.
 ///
 /// ONE view on purpose. The first version wrote this layout twice (in the panel and in
-/// the diagnostics window), with the unit on two lines aligned on its FIRST line: the
+/// the Live View window), with the unit on two lines aligned on its FIRST line: the
 /// second line hung under the number, and the two copies could drift apart. Here the unit
 /// is one line, aligned on the number's baseline - the line the digits stand on.
 public struct RateReadout: View {

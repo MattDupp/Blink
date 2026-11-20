@@ -6,12 +6,14 @@ import BlinkUI
 /// left, the two 64x64 pictures the model will learn from on the right, the controls below.
 struct RecorderView: View {
     @ObservedObject var model: RecorderModel
+    /// Shown in place of the camera picture (the screenshots have none).
+    var cameraNote: String?
 
     var body: some View {
         VStack(spacing: 14) {
             PromptBanner(model: model)
             HStack(alignment: .top, spacing: 14) {
-                CameraPreview(model: model)
+                CameraPreview(model: model, note: cameraNote)
                 SidePanel(model: model)
                     .frame(width: 250)
             }
@@ -61,14 +63,31 @@ private struct PromptBanner: View {
                 .font(.system(size: 26, weight: .semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // The bar fills while a pose is being recorded.
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.12))
-                    Capsule().fill(tint).frame(width: geometry.size.width * model.recordProgress)
+            // Between sessions: what a session is, how many are left, what comes next.
+            if !model.sessionRunning && model.lifecycle == .running {
+                VStack(alignment: .leading, spacing: 3) {
+                    if let note = model.sessionNote {
+                        Label(note, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
+                    ForEach(model.guidance, id: \.self) { line in
+                        Text(line).foregroundStyle(.secondary)
+                    }
                 }
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(height: 6)
+
+            // The bar fills while a pose is being recorded.
+            if model.sessionRunning {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.12))
+                        Capsule().fill(tint).frame(width: geometry.size.width * model.recordProgress)
+                    }
+                }
+                .frame(height: 6)
+            }
         }
         .padding(14)
         .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
@@ -79,10 +98,11 @@ private struct PromptBanner: View {
 
 private struct CameraPreview: View {
     @ObservedObject var model: RecorderModel
+    let note: String?
 
     var body: some View {
         CameraPreviewView(image: model.preview, frameSize: model.frameSize, eyeRects: model.eyeRects,
-                          placeholder: CameraNote.text(for: model.lifecycle, appName: "Blink Recorder"))
+                          placeholder: note ?? CameraNote.text(for: model.lifecycle, appName: "Blink Recorder"))
     }
 }
 
@@ -117,9 +137,11 @@ private struct SidePanel: View {
             Text("\(model.sessionOpen) open, \(model.sessionClosed) closed")
                 .monospacedDigit()
 
-            Text("On disk")
+            Text("Recorded")
                 .font(.headline)
-            Text("\(model.dataset.sessions) sessions: \(model.dataset.open) open, \(model.dataset.closed) closed")
+            SessionDots(recorded: model.dataset.sessions)
+            Text("\(model.dataset.sessions) of \(SessionScript.recommendedSessions) sessions: "
+                 + "\(model.dataset.open) open, \(model.dataset.closed) closed")
                 .monospacedDigit()
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -131,6 +153,22 @@ private struct SidePanel: View {
             }
             Spacer(minLength: 0)
         }
+    }
+}
+
+/// One dot per recommended session, filled as they are recorded.
+private struct SessionDots: View {
+    let recorded: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<max(SessionScript.recommendedSessions, recorded), id: \.self) { index in
+                Circle()
+                    .fill(index < recorded ? Color.green : Color.primary.opacity(0.15))
+                    .frame(width: 10, height: 10)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

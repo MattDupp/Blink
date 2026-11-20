@@ -40,7 +40,7 @@ struct WelcomeView: View {
                 MenuBarSketch()
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Afterwards, look up").fontWeight(.semibold)
-                    Text("Blink Monitor has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye.")
+                    Text("Blink Monitor has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye. To watch it work, open Live View from there.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

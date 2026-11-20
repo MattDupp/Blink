@@ -25,6 +25,21 @@ public struct MinuteRecord: Equatable {
     }
 }
 
+public extension Array where Element == MinuteRecord {
+
+    /// The records of one calendar day.
+    ///
+    /// Two date comparisons per record, against the day's two ends. The obvious way -
+    /// asking the calendar "is this the same day?" for each record - cost 4 ms on a week
+    /// of minutes, and the panel asks at every redraw: measured, it was nearly half of
+    /// the main thread's work with the Live View open.
+    func on(_ day: Date, calendar: Calendar = .current) -> [MinuteRecord] {
+        let start = calendar.startOfDay(for: day)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
+        return filter { $0.start >= start && $0.start < end }
+    }
+}
+
 /// Sorts the stream of frames into minutes of the clock.
 ///
 /// The live counters forget everything after ten minutes. To answer "do I blink enough?"

@@ -5,7 +5,7 @@ import BlinkCore
 /// What the Settings window's buttons do outside of it.
 struct SettingsActions {
     var startBlinkBreak: () -> Void = {}
-    var openDiagnostics: () -> Void = {}
+    var openLiveView: () -> Void = {}
 }
 
 /// What the Settings window remembers while it is open.
@@ -46,8 +46,8 @@ struct SettingsView: View {
     @ObservedObject var reminders: ReminderController
     @ObservedObject var loginItem: LoginItem
     @ObservedObject var state: SettingsState
-    /// The moment the window describes: now, except in the screenshots.
-    var now = Date()
+    /// The moment the window describes: the present, except in the screenshots.
+    var moment = Moment()
     let actions: SettingsActions
 
     var body: some View {
@@ -80,16 +80,23 @@ struct SettingsView: View {
 
     private var generalCard: some View {
         Card {
-            Row("Start at login", detail: loginItem.problem ?? "Blink Monitor opens by itself when you log in.") {
+            Row("Start at login", detail: !loginItem.available ? "Not in the demo."
+                    : (loginItem.problem ?? "Blink Monitor opens by itself when you log in.")) {
                 Toggle("Start at login", isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))
+                    .disabled(!loginItem.available)
             }
             Divider()
             Row("Show the rate in the menu bar", detail: "Off: only the eye is shown, and it changes when you blink too little.") {
                 Toggle("Show the rate in the menu bar", isOn: $preferences.showRateInMenuBar)
             }
             Divider()
-            Row("Diagnostics", detail: "The camera picture, the model's answers and what the analysis costs.") {
-                Button("Open...") { actions.openDiagnostics() }
+            Row("The menu-bar eye blinks with you", detail: "It closes for a moment at each blink the camera counts.") {
+                Toggle("The menu-bar eye blinks with you", isOn: $preferences.blinkBack)
+            }
+            Divider()
+            Row("Live View", detail: "The camera with your eyes framed, and each blink as it is counted."
+                    + (model.cameraName.map { " Camera: \($0)." } ?? "")) {
+                Button("Open...") { actions.openLiveView() }
             }
         }
     }
@@ -102,6 +109,10 @@ struct SettingsView: View {
                 Row("Remind me when I blink too little",
                     detail: "When your rate stays under the limit for three minutes. Never more than one every five minutes.") {
                     Toggle("Remind me when I blink too little", isOn: $preferences.remindersOn)
+                }
+                Divider()
+                Row("See what it looks like", detail: "Shows the reminder now, with its two buttons.") {
+                    Button("Send a Test Reminder") { reminders.sendTest() }
                 }
             }
             Card {
@@ -228,7 +239,7 @@ struct SettingsView: View {
     }
 
     private func measureAgain() {
-        let proposal = Baseline.proposal(current: preferences.reference, records: history.minutes, now: now)
+        let proposal = Baseline.proposal(current: preferences.reference, records: history.minutes, now: moment.now)
         state.measurement = proposal.map { .proposed($0) } ?? .tooLittle
     }
 
@@ -239,7 +250,7 @@ struct SettingsView: View {
             Card {
                 Row("Blink break", detail: "Ten slow, full blinks, counted by the camera. Also offered when your rate is low.") {
                     Button("Start") { actions.startBlinkBreak() }
-                        .disabled(!model.status(now: now).isCameraOn)
+                        .disabled(!model.status(now: moment.now).isCameraOn)
                 }
             }
             Card {

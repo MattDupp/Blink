@@ -10,7 +10,7 @@ extension MonitorStatus {
     var symbol: String {
         switch self {
         case .starting, .noFace, .watching: return "eye"
-        case .cameraRefused, .paused: return "eye.slash"
+        case .cameraRefused, .paused, .cameraSilent: return "eye.slash"
         case .failed: return "exclamationmark.triangle"
         case .low: return "eye.trianglebadge.exclamationmark"
         }
@@ -24,7 +24,7 @@ extension MonitorStatus {
     /// The text next to the menu-bar symbol.
     var menuBarText: String {
         switch self {
-        case .starting, .failed, .paused: return ""
+        case .starting, .failed, .paused, .cameraSilent: return ""
         case .cameraRefused: return "!"
         case .noFace, .watching, .low: return rateText
         }
@@ -36,6 +36,7 @@ extension MonitorStatus {
         case .cameraRefused: return "Blink Monitor: camera access refused"
         case .failed(let reason): return "Blink Monitor: \(reason)"
         case .paused(let until): return "Blink Monitor is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
+        case .cameraSilent: return "Blink Monitor: the camera is not sending pictures"
         case .noFace: return "Blink Monitor: no face in view"
         case .watching: return "Blinks per minute, over the last minute"
         case .low(_, let recent):
@@ -50,6 +51,7 @@ extension MonitorStatus {
         case .cameraRefused: return "No camera"
         case .failed: return "Problem"
         case .paused: return "Paused"
+        case .cameraSilent: return "No picture"
         case .noFace: return "No face"
         case .watching: return "Watching"
         case .low: return "Low"
@@ -59,7 +61,7 @@ extension MonitorStatus {
     var tint: Color {
         switch self {
         case .watching: return .green
-        case .low: return .orange
+        case .low, .cameraSilent: return .orange
         case .cameraRefused, .failed: return .red
         case .starting, .paused, .noFace: return .secondary
         }
@@ -76,6 +78,8 @@ extension MonitorStatus {
             return reason
         case .paused(let until):
             return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume") + ". Nothing is being counted."
+        case .cameraSilent:
+            return "The camera is not sending pictures, so nothing is counted. With the lid closed that is expected; otherwise it is started again by itself."
         case .noFace:
             return "Nobody in front of the camera: this time is not counted."
         case .watching(let rate):

@@ -31,7 +31,7 @@ public final class CaptureWriter {
         var bySide: [EyeRegion.Side: EyeReading] = [:]
         for eye in reading.eyes {
             bySide[eye.side] = eye
-            if let image = EyeCropper.image(from: eye.picture) {
+            if let picture = eye.picture, let image = EyeCropper.image(from: picture) {
                 let name = String(format: "frames/f%06d_%@.png", frame, eye.side.rawValue)
                 PNGFile.write(image, to: folder.appendingPathComponent(name))
             }

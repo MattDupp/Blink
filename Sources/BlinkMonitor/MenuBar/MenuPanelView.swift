@@ -8,7 +8,8 @@ struct PanelActions {
     var startBlinkBreak: () -> Void = {}
     var openHistory: () -> Void = {}
     var openSettings: () -> Void = {}
-    var openDiagnostics: () -> Void = {}
+    var openLiveView: () -> Void = {}
+    var openCameraSettings: () -> Void = {}
     var quit: () -> Void = {}
 }
 
@@ -35,15 +36,20 @@ struct MenuPanelView: View {
     @ObservedObject var reminders: ReminderController
     @ObservedObject var preferences: Preferences
     @ObservedObject var state: PanelState
-    /// The moment the panel describes: now, except in the screenshots.
-    var now = Date()
+    /// The moment the panel describes: the present, except in the screenshots.
+    var moment = Moment()
     let actions: PanelActions
 
     var body: some View {
+        AtPresent(moment: moment) { now in panel(now: now) }
+    }
+
+    private func panel(now: Date) -> some View {
         let status = model.status(now: now)
-        VStack(alignment: .leading, spacing: 0) {
+        return VStack(alignment: .leading, spacing: 0) {
+            if model.isDemo { DemoBanner() }
             VStack(alignment: .leading, spacing: 10) {
-                NowSection(status: status)
+                NowSection(status: status, blinks: model.live.counters.totalBlinks, actions: actions)
                 Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
             }
             .padding(16)
@@ -68,20 +74,41 @@ enum AppInfo {
 
 // MARK: - Now
 
+/// Said at the top of the panel for as long as the app runs on made-up eyes.
+private struct DemoBanner: View {
+    var body: some View {
+        Label("Demo: the blinks are made up and the camera is off. To use it on your own eyes, see the README.",
+              systemImage: "sparkles")
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.accentColor.opacity(0.16))
+    }
+}
+
 private struct NowSection: View {
     let status: MonitorStatus
+    /// Blinks counted so far: when it changes, the status dot pulses.
+    let blinks: Int
+    let actions: PanelActions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center) {
                 RateReadout(rate: status.rate, tint: status.isLow ? .orange : .primary)
                 Spacer(minLength: 8)
-                StatusPill(text: status.label, color: status.tint)
+                StatusPill(text: status.label, color: status.tint, pulse: blinks)
             }
             Text(status.explanation)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if status == .cameraRefused {
+                Button("Open Camera Settings") { actions.openCameraSettings() }
+                    .padding(.top, 2)
+            }
         }
     }
 }
@@ -89,10 +116,15 @@ private struct NowSection: View {
 private struct StatusPill: View {
     let text: String
     let color: Color
+    /// The dot swells for a moment each time this changes: one pulse per blink.
+    let pulse: Int
 
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 7, height: 7)
+                .phaseAnimator([1.0, 1.9, 1.0], trigger: pulse) { dot, scale in
+                    dot.scaleEffect(scale)
+                } animation: { _ in .easeOut(duration: 0.14) }
             Text(text).font(.caption.weight(.medium))
         }
         .padding(.horizontal, 9)
@@ -243,37 +275,6 @@ private struct DashedLine: View {
     }
 }
 
-/// The last 60 minutes as the chart needs them: one rate per minute, by how long ago.
-struct LastHour {
-    /// Index 0 = the minute in progress, 59 = fifty-nine minutes ago. Nil: not watched.
-    private(set) var rates = [Double?](repeating: nil, count: 60)
-    private let currentStart: Date
-
-    init(minutes: [MinuteRecord], current: MinuteRecord?, now: Date) {
-        currentStart = MinuteRecord.minuteStart(of: now)
-        // The finished minutes are in order of time: the last 60 are enough to look at.
-        for record in minutes.suffix(60) + [current].compactMap({ $0 }) {
-            let ago = Int((currentStart.timeIntervalSince(record.start) / 60).rounded())
-            if rates.indices.contains(ago) { rates[ago] = record.ratePerMinute }
-        }
-    }
-
-    var isEmpty: Bool { rates.allSatisfy { $0 == nil } }
-
-    func rate(minutesAgo: Int) -> Double? {
-        rates.indices.contains(minutesAgo) ? rates[minutesAgo] : nil
-    }
-
-    func start(minutesAgo: Int) -> Date {
-        currentStart.addingTimeInterval(-Double(minutesAgo) * 60)
-    }
-
-    /// Which minute a point of the chart belongs to (the newest is on the right).
-    static func minutesAgo(atX x: CGFloat, width: CGFloat) -> Int {
-        min(59, max(0, 59 - Int(x / (width / 60))))
-    }
-}
-
 /// The last 60 minutes, one bar per minute: its height is that minute's blink rate.
 /// Orange = under the limit (the dashed line). The minute in progress is drawn lighter:
 /// its rate is not final.
@@ -303,6 +304,7 @@ private struct MinuteBars: View {
                 context.fill(Path(roundedRect: bar, cornerRadius: 1.5), with: .color(colour.opacity(ago == 0 ? 0.45 : 1)))
             }
 
+            guard !hour.isEmpty else { return }       // nothing to compare with the limit yet
             let y = size.height - CGFloat(limit / top) * size.height
             var line = Path()
             line.move(to: CGPoint(x: 0, y: y))
@@ -376,7 +378,8 @@ private struct ActionsSection: View {
                 Text("Blink Monitor \(AppInfo.version)")
                     .foregroundStyle(.tertiary)
                 Spacer()
-                Button("Diagnostics") { actions.openDiagnostics() }
+                Button("Live View") { actions.openLiveView() }
+                    .help("The camera with your eyes framed, and each blink as it is counted")
                 Button("Quit") { actions.quit() }
             }
             .font(.caption)

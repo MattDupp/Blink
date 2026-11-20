@@ -24,6 +24,10 @@
     <true/>
     <!-- macOS shows this sentence in its camera permission window. Without this key,
          macOS ends an app the moment it touches the camera. -->
+    <!-- Without this key macOS reports an iPhone offered by Continuity Camera as a
+         "built-in wide angle camera", and the app could pick the phone for the Mac's own. -->
+    <key>NSCameraUseContinuityCameraDeviceType</key>
+    <true/>
     <key>NSCameraUsageDescription</key>
     <string>Blink Recorder films your eyes to build the pictures your blink model is trained on. Nothing leaves this Mac.</string>
 </dict>

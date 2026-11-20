@@ -81,6 +81,58 @@ struct HistoryTests {
         #expect(summary.lowShare == 0.5)
     }
 
+    @Test("The records of a day are those between its two midnights, whatever the time zone")
+    func recordsOfADay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Paris")!
+        let midnight = calendar.startOfDay(for: ten)
+        let records = [-1, 0, 1, 1439, 1440].map {
+            MinuteRecord(start: midnight.addingTimeInterval(Double($0) * 60), observedSeconds: 60, blinks: $0 + 2)
+        }
+        #expect(records.on(ten, calendar: calendar).map(\.blinks) == [2, 3, 1441])
+        #expect(records.on(midnight.addingTimeInterval(-3600), calendar: calendar).map(\.blinks) == [1])
+        #expect([MinuteRecord]().on(ten, calendar: calendar).isEmpty)
+
+        // The same answer as asking the calendar record by record, which is what it replaces.
+        let asked = records.filter { calendar.isDate($0.start, inSameDayAs: ten) }
+        #expect(records.on(ten, calendar: calendar) == asked)
+    }
+
+    // MARK: The last hour, as the panel draws it
+
+    @Test("A minute recorded AFTER the chart was first drawn appears when it is drawn again")
+    func lastHourFollowsTheClock() {
+        // The panel once kept the moment it was created: every later minute was "in the
+        // future" for it and was never drawn.
+        let launch = ten.addingTimeInterval(30)
+        let before = [minute(-2, watched: 60, blinks: 12), minute(-1, watched: 60, blinks: 9)]
+        let atLaunch = LastHour(minutes: before, current: nil, now: launch)
+        #expect(atLaunch.rate(minutesAgo: 1) == 9 && atLaunch.rate(minutesAgo: 2) == 12)
+
+        let later = before + [minute(0, watched: 60, blinks: 14), minute(1, watched: 60, blinks: 15)]
+        let twoMinutesOn = LastHour(minutes: later, current: minute(2, watched: 30, blinks: 8), now: launch.addingTimeInterval(120))
+        #expect(twoMinutesOn.rate(minutesAgo: 1) == 15 && twoMinutesOn.rate(minutesAgo: 2) == 14)
+        #expect(twoMinutesOn.rate(minutesAgo: 0) == 16)                   // the minute in progress
+        #expect(twoMinutesOn.rate(minutesAgo: 4) == 12)
+        #expect(twoMinutesOn.start(minutesAgo: 2) == ten)
+    }
+
+    @Test("The chart holds sixty minutes, says when it is empty, and knows which bar is under the pointer")
+    func lastHourEdges() {
+        let old = [minute(-75, watched: 60, blinks: 10), minute(-59, watched: 60, blinks: 11)]
+        let hour = LastHour(minutes: old, current: nil, now: ten)
+        #expect(hour.rate(minutesAgo: 59) == 11 && hour.rates.compactMap { $0 }.count == 1)
+        #expect(hour.rate(minutesAgo: 75) == nil && hour.rate(minutesAgo: -1) == nil)
+        #expect(LastHour(minutes: [], current: nil, now: ten).isEmpty)
+        #expect(LastHour(minutes: [minute(-1, watched: 10, blinks: 2)], current: nil, now: ten).isEmpty)   // too short to have a rate
+
+        #expect(LastHour.minutesAgo(atX: 0, width: 300) == 59)            // the left edge is the oldest
+        #expect(LastHour.minutesAgo(atX: 299, width: 300) == 0)
+        #expect(LastHour.minutesAgo(atX: 152, width: 300) == 29)
+        #expect(LastHour.minutesAgo(atX: -5, width: 300) == 59 && LastHour.minutesAgo(atX: 400, width: 300) == 0)
+        #expect(LastHour.minutesAgo(atX: 10, width: 0) == 0)
+    }
+
     // MARK: Reminders
 
     private func minute(_ index: Int, watched: Double, blinks: Int) -> MinuteRecord {

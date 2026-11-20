@@ -10,8 +10,8 @@ import BlinkCore
 struct BlinkBreakView: View {
     @ObservedObject var model: MonitorModel
     @ObservedObject var blinkBreak: BlinkBreakController
-    /// The moment the window describes: now, except in the screenshots.
-    var now = Date()
+    /// The moment the window describes: the present, except in the screenshots.
+    var moment = Moment()
 
     var body: some View {
         let exercise = blinkBreak.exercise ?? BlinkBreak()
@@ -65,13 +65,15 @@ struct BlinkBreakView: View {
     /// What to do - or why nothing is being counted.
     private func note(done: Bool) -> String {
         if done { return "\(blinkBreak.exercise?.target ?? 10) full blinks. This window closes by itself." }
-        switch model.status(now: now) {
+        switch model.status(now: moment.now) {
         case .watching, .low:
             return "Slowly, all the way down. A sound marks each blink: no need to look."
         case .noFace:
             return "No face in view: the camera cannot count for now."
         case .paused:
             return "The camera is paused, so nothing is counted. Resume from the menu bar."
+        case .cameraSilent:
+            return "The camera is not sending pictures, so nothing is counted."
         case .starting, .cameraRefused, .failed:
             return "The camera is not running, so nothing is counted."
         }

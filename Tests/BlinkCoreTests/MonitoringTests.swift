@@ -29,6 +29,15 @@ struct MonitoringTests {
         #expect(status(face: false, low: 4) == .noFace)
     }
 
+    @Test("A camera that sends nothing is said - but a pause still wins, and it is not 'on'")
+    func cameraSilent() {
+        let silent = MonitorStatus(lifecycle: .running, cameraSilent: true, faceFound: true, rate: 13, recentLowRate: 4)
+        #expect(silent == .cameraSilent && !silent.isCameraOn && silent.rate == nil)
+        #expect(MonitorStatus(lifecycle: .running, pause: .paused(until: nil), cameraSilent: true, faceFound: true,
+                              rate: 13, recentLowRate: nil) == .paused(until: nil))
+        #expect(MonitorStatus(lifecycle: .starting, cameraSilent: true, faceFound: false, rate: nil, recentLowRate: nil) == .starting)
+    }
+
     @Test("Watching, with the rate once there is one")
     func watching() {
         #expect(status(rate: nil) == .watching(rate: nil))

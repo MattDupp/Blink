@@ -33,6 +33,15 @@ enum SessionScript {
     /// How long each pose is recorded.
     static let recordSeconds = 3.0
 
+    /// Sessions to record before training. One session shows the model your eyes in one
+    /// light; it has to work in all of yours.
+    static let recommendedSessions = 5
+
+    /// The most pictures a session can hold: every pose, both eyes, every frame kept.
+    static var fullSessionPictures: Int {
+        Int(Double(phases.count) * recordSeconds * 30 / Double(saveEveryNthFrame)) * 2
+    }
+
     /// Keep one frame out of three (10 pictures a second instead of 30). Two frames taken
     /// 33 ms apart are almost the same picture: keeping both adds disk space and training
     /// time, not information.

@@ -44,7 +44,7 @@ struct MonitorUpdate {
     var completedMinute: MinuteRecord?
     /// The minute being filled.
     var currentMinute: MinuteRecord?
-    /// Stage timings over the last two seconds (for the diagnostics window).
+    /// Stage timings over the last two seconds (for the Live View window).
     var timings: StageTimings.Summary?
     /// Stage timings over the last minute (for the performance log).
     var minuteTimings: StageTimings.Summary?
@@ -54,6 +54,7 @@ struct MonitorUpdate {
 /// Everything that happens on the camera's thread, for every frame:
 ///
 ///     frame -> EyeReader (find eyes, crop, model) -> BlinkDetector -> statistics -> update
+///              └──────── process(frame) ────────┘    └──────────── count ────────────┘
 ///
 /// TWO THINGS KEEP IT CHEAP IN THE BACKGROUND:
 ///   - Frames get only the work they need: `FrameSchedule` (inside the reader) searches
@@ -75,7 +76,8 @@ final class MonitorPipeline: @unchecked Sendable {
     }
 
     private let requests = Locked(Requests())
-    private let reader: EyeReader
+    /// Nil for a pipeline that is handed readings instead of frames (the demo).
+    private let reader: EyeReader?
     private var detector = BlinkDetector()
     private var stats = BlinkStats()
     private var minutes = MinuteAggregator()
@@ -89,6 +91,11 @@ final class MonitorPipeline: @unchecked Sendable {
 
     init(classifier: EyeClassifier) {
         reader = EyeReader(classifier: classifier)
+    }
+
+    /// A pipeline with no camera and no model behind it: see `process(_:time:)` for readings.
+    init() {
+        reader = nil
     }
 
     // MARK: - Requests from the main thread
@@ -118,24 +125,13 @@ final class MonitorPipeline: @unchecked Sendable {
 
     // MARK: - Every frame
 
+    /// A frame from the camera: read the eyes in it, then count.
     func process(_ pixelBuffer: CVPixelBuffer, time: Double) {
-        frameIndex += 1
+        guard let reader else { return }
         let clock = StageTimings.now()
         recentTimings.frameDelivered(at: clock)
         minuteTimings.frameDelivered(at: clock)
-
-        // Take this frame's requests; the one-shot ones (reset, tick) are consumed.
-        let asked = requests.withLock { requests in
-            defer {
-                requests.reset = false
-                requests.tick = false
-            }
-            return requests
-        }
-        if asked.reset {
-            detector.reset()
-            stats = BlinkStats()
-        }
+        let asked = takeRequests()
 
         var update = MonitorUpdate()
         update.time = time
@@ -154,6 +150,50 @@ final class MonitorPipeline: @unchecked Sendable {
             update.error = "\(error)"
             Log.pipeline.error("Frame not read: \(String(describing: error), privacy: .public)")
         }
+
+        if clock - lastTimingsAt >= 2 {
+            update.timings = recentTimings.takeSummary(at: clock)
+            lastTimingsAt = clock
+        }
+        if clock - lastMinuteTimingsAt >= 60 {
+            update.minuteTimings = minuteTimings.takeSummary(at: clock)
+            lastMinuteTimingsAt = clock
+        }
+        if asked.liveView && frameIndex % 2 == 0 {
+            update.preview = reader.preview(pixelBuffer, maxWidth: 640)
+        }
+        count(reading, into: &update, asked: asked)
+    }
+
+    /// What a frame WOULD have said about the eyes, with no frame behind it: the demo
+    /// hands over made-up readings, and from here on they are counted by the very code
+    /// that counts real ones.
+    func process(_ reading: FrameReading, time: Double) {
+        var update = MonitorUpdate()
+        update.time = time
+        count(reading, into: &update, asked: takeRequests())
+    }
+
+    /// Takes this frame's requests; the one-shot ones (reset, tick) are consumed.
+    private func takeRequests() -> Requests {
+        frameIndex += 1
+        let asked = requests.withLock { requests in
+            defer {
+                requests.reset = false
+                requests.tick = false
+            }
+            return requests
+        }
+        if asked.reset {
+            detector.reset()
+            stats = BlinkStats()
+        }
+        return asked
+    }
+
+    /// The second half of every frame: reading -> blink detector -> statistics -> update.
+    private func count(_ reading: FrameReading, into update: inout MonitorUpdate, asked: Requests) {
+        let time = update.time
         update.live.faceFound = reading.faceFound
         update.live.eyeRects = reading.eyeRects
         update.live.probability = reading.closed
@@ -178,18 +218,6 @@ final class MonitorPipeline: @unchecked Sendable {
         asked.capture?.write(frame: frameIndex, time: time, reading: reading,
                              state: detector.state, event: update.event, tick: asked.tick)
 
-        if clock - lastTimingsAt >= 2 {
-            update.timings = recentTimings.takeSummary(at: clock)
-            lastTimingsAt = clock
-        }
-        if clock - lastMinuteTimingsAt >= 60 {
-            update.minuteTimings = minuteTimings.takeSummary(at: clock)
-            lastMinuteTimingsAt = clock
-        }
-
-        if asked.liveView && frameIndex % 2 == 0 {
-            update.preview = reader.preview(pixelBuffer, maxWidth: 640)
-        }
         if shouldSend(update, live: asked.liveView) {
             lastSent = update
             onUpdate?(update)

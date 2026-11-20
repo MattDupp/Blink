@@ -57,9 +57,7 @@ final class HistoryController: ObservableObject {
 
     /// The records of one calendar day, including the minute being filled.
     func records(on day: Date, calendar: Calendar = .current) -> [MinuteRecord] {
-        var records = minutes.filter { calendar.isDate($0.start, inSameDayAs: day) }
-        if let currentMinute, calendar.isDate(currentMinute.start, inSameDayAs: day) { records.append(currentMinute) }
-        return records
+        minutes.on(day, calendar: calendar) + [currentMinute].compactMap { $0 }.on(day, calendar: calendar)
     }
 
     func summary(of day: Date, threshold: Double) -> DaySummary {

@@ -78,14 +78,14 @@ public final class EyeFinder {
 /// What the model said about one eye in one frame.
 public struct EyeReading {
     public let side: EyeRegion.Side
-    /// The 64x64 picture the model was given.
-    public let picture: CVPixelBuffer
+    /// The 64x64 picture the model was given (nil for a reading that was made up: the demo).
+    public let picture: CVPixelBuffer?
     /// The model's answer: probability that this eye is closed.
     public let closed: Double
     /// Vision's outline height / width (`EyeRegion.openness`): a second opinion.
     public let openness: Double
 
-    public init(side: EyeRegion.Side, picture: CVPixelBuffer, closed: Double, openness: Double) {
+    public init(side: EyeRegion.Side, picture: CVPixelBuffer?, closed: Double, openness: Double) {
         self.side = side
         self.picture = picture
         self.closed = closed
