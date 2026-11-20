@@ -15,9 +15,10 @@ struct DiagnosticsView: View {
         VStack(spacing: 14) {
             HStack(alignment: .top, spacing: 18) {
                 VStack(spacing: 12) {
-                    CameraPreviewView(image: model.preview, frameSize: model.frameSize, eyeRects: model.eyeRects,
-                                      tint: model.eyesClosed ? .orange : .green,   // green = read as open
-                                      placeholder: cameraPlaceholder)
+                    CameraPreviewView(image: model.preview, frameSize: model.live.frameSize,
+                                      eyeRects: model.live.eyeRects,
+                                      tint: model.live.eyesClosed ? .orange : .green,   // green = read as open
+                                      placeholder: model.cameraNote)
                     TraceView(model: model)
                         .frame(height: 150)
                 }
@@ -29,34 +30,16 @@ struct DiagnosticsView: View {
                 Toggle("Sound at each blink", isOn: $model.soundOn)
                 Spacer()
                 Button("Record Cued Blinks (30 s)") { model.startCapture(cued: true) }
-                    .disabled(!canCapture)
+                    .disabled(!model.canCapture)
                     .help("A tick every 1.5 s, 20 times: blink once at each. Every frame is saved.")
                 Button("Record Freely (60 s)") { model.startCapture(cued: false) }
-                    .disabled(!canCapture)
+                    .disabled(!model.canCapture)
                     .help("Carry on normally for a minute. Every frame is saved.")
                 Button("Reset Counters") { model.resetCounters() }
             }
         }
         .padding(18)
         .frame(minWidth: 940, minHeight: 600)
-    }
-
-    private var canCapture: Bool {
-        model.stage == .running && !model.paused && !captures.isCapturing
-    }
-
-    private var cameraPlaceholder: String {
-        if model.isSample { return "The camera picture is left out of screenshots." }
-        switch model.stage {
-        case .denied:
-            return "Camera access was refused.\nSystem Settings > Privacy & Security > Camera > allow Blink Monitor, then open it again."
-        case .failed(let reason):
-            return reason
-        case .running where model.paused:
-            return "Paused: the camera is off."
-        default:
-            return "Starting the camera..."
-        }
     }
 }
 
@@ -96,9 +79,10 @@ private struct Counters: View {
     @ObservedObject var model: MonitorModel
 
     var body: some View {
+        let counters = model.live.counters
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(model.ratePerMinute.map { String(format: "%.0f", $0) } ?? "--")
+                Text(counters.ratePerMinute.map { String(format: "%.0f", $0) } ?? "--")
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
                 Text("blinks\na minute")
@@ -108,19 +92,20 @@ private struct Counters: View {
 
             Group {
                 SectionTitle("Since the counters were reset")
-                Row(label: "Blinks counted", value: "\(model.totalBlinks)")
-                Row(label: "In the last 60 s", value: "\(model.blinksLastMinute)")
-                Row(label: "Time watched", value: clock(model.observedSeconds))
+                Row(label: "Blinks counted", value: "\(counters.totalBlinks)")
+                Row(label: "In the last 60 s", value: "\(counters.blinksLastMinute)")
+                Row(label: "Time watched", value: clock(counters.observedSeconds))
                 Row(label: "Last blink lasted",
-                    value: model.lastBlinkSeconds.map { String(format: "%.0f ms", $0 * 1000) } ?? "--")
-                Row(label: "Long closures (not blinks)", value: "\(model.longClosures)")
+                    value: counters.lastBlinkSeconds.map { String(format: "%.0f ms", $0 * 1000) } ?? "--")
+                Row(label: "Long closures (not blinks)", value: "\(counters.longClosures)")
             }
 
             Group {
                 SectionTitle("This frame")
                     .padding(.top, 4)
                 Row(label: "Eyes", value: eyesNow)
-                Row(label: "Model's answer: closed", value: model.probability.map { String(format: "%.0f%%", $0 * 100) } ?? "--")
+                Row(label: "Model's answer: closed",
+                    value: model.live.probability.map { String(format: "%.0f%%", $0 * 100) } ?? "--")
             }
 
             // The pipeline's own cost, averaged over the last two seconds.
@@ -149,9 +134,9 @@ private struct Counters: View {
     }
 
     private var eyesNow: String {
-        if !model.faceFound { return "no face" }
-        if model.probability == nil { return "not readable" }
-        return model.eyesClosed ? "closed" : "open"
+        if !model.live.faceFound { return "no face" }
+        if model.live.probability == nil { return "not readable" }
+        return model.live.eyesClosed ? "closed" : "open"
     }
 
     private func clock(_ seconds: Double) -> String {
@@ -186,17 +171,17 @@ private struct TraceView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("The model's answer over the last \(Int(MonitorModel.traceSeconds)) seconds: top = closed, bottom = open. Green band = counted as a blink.")
+            Text("The model's answer over the last \(Int(Curve.seconds)) seconds: top = closed, bottom = open. Green band = counted as a blink.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Canvas { context, size in
-                let window = MonitorModel.traceSeconds
-                let now = model.now
+                let window = Curve.seconds
+                let now = model.curve.now
                 func x(_ time: Double) -> CGFloat { CGFloat((time - (now - window)) / window) * size.width }
                 func y(_ probability: Double) -> CGFloat { CGFloat(1 - probability) * (size.height - 12) + 6 }
 
                 // The blinks that were counted.
-                for blink in model.recentBlinks where blink.end > now - window {
+                for blink in model.curve.blinks where blink.end > now - window {
                     let band = CGRect(x: x(blink.start) - 2, y: 0,
                                       width: max(x(blink.end) - x(blink.start), 3) + 2, height: size.height)
                     context.fill(Path(band), with: .color(.green.opacity(0.3)))
@@ -216,7 +201,7 @@ private struct TraceView: View {
                 // drawing a straight stroke across it.
                 var curve = Path()
                 var previous: Double?
-                for sample in model.trace where sample.time > now - window {
+                for sample in model.curve.samples where sample.time > now - window {
                     let point = CGPoint(x: x(sample.time), y: y(sample.probability))
                     if let previous, sample.time - previous < 0.2 {
                         curve.addLine(to: point)

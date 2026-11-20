@@ -112,21 +112,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // The first time, say what the app does BEFORE macOS asks for the camera.
-        if UserDefaults.standard.bool(forKey: "welcomed") || Options.noCamera {
+        let settings = Settings()
+        if settings.welcomed || Options.noCamera {
             Task { await model.start() }
         } else {
-            var welcome: WindowController?
-            welcome = WindowController(title: "Welcome to Blink Monitor") {
-                WelcomeView {
-                    UserDefaults.standard.set(true, forKey: "welcomed")
-                    welcome?.close()
-                    Task { await model.start() }
-                }
+            let welcome = WindowController(title: "Welcome to Blink Monitor") { [weak self] in
+                WelcomeView { self?.windows.last?.close() }      // Start = close the window
             }
-            if let welcome {
-                windows.append(welcome)
-                welcome.show()
+            // Closing the window IS starting, whichever way it is closed: by the Start
+            // button or by the red one. (The first version only started on the button,
+            // and a window closed by the red one left the app waiting for the whole run.)
+            welcome.onVisibilityChange = { open in
+                guard !open else { return }
+                settings.welcomed = true
+                Task { await model.start() }
             }
+            windows.append(welcome)
+            welcome.show()
         }
         if Options.openDiagnostics { diagnostics.show() }
     }

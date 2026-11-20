@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import BlinkCore
 
 /// The app's place in the menu bar: an eye and your blinks per minute. A click opens a
 /// small panel under it.
@@ -13,9 +14,12 @@ final class StatusItemController: NSObject {
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
+    private let model: MonitorModel
     private var subscription: AnyCancellable?
+    private var shown: MonitorStatus?
 
     init(model: MonitorModel, actions: PanelActions) {
+        self.model = model
         super.init()
 
         // Each action first closes the panel, then does its work.
@@ -39,25 +43,30 @@ final class StatusItemController: NSObject {
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.setAccessibilityLabel("Blink Monitor")
         }
-        show(model.statusSummary)
+        refresh()
 
-        // `$statusSummary` is a stream of the property's values: every time the model
-        // changes it, this block runs and redraws the menu-bar item.
-        subscription = model.$statusSummary
-            .removeDuplicates()
-            .sink { [weak self] summary in self?.show(summary) }
+        // The status is derived from facts held in three places (the model, the history,
+        // the reminder settings). Each of them announces "I am about to change"; a moment
+        // later the status is asked again and the item redrawn if it differs. Nothing has
+        // to remember to "update the menu bar".
+        subscription = model.objectWillChange
+            .merge(with: model.history.objectWillChange, model.reminders.objectWillChange)
+            .throttle(for: .milliseconds(250), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] in self?.refresh() }
     }
 
-    private func show(_ summary: StatusSummary) {
-        guard let button = item.button else { return }
-        let image = NSImage(systemSymbolName: summary.symbol, accessibilityDescription: "Blink Monitor")
+    private func refresh() {
+        let status = model.status()
+        guard status != shown, let button = item.button else { return }
+        shown = status
+        let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "Blink Monitor")
             ?? NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink Monitor")
         // A "template" image is drawn by macOS in the menu bar's own colour: black on a
         // light bar, white on a dark one.
         image?.isTemplate = true
         button.image = image
-        button.title = summary.text.isEmpty ? "" : " " + summary.text
-        button.toolTip = summary.tooltip
+        button.title = status.menuBarText.isEmpty ? "" : " " + status.menuBarText
+        button.toolTip = status.tooltip
     }
 
     @objc private func togglePanel() {

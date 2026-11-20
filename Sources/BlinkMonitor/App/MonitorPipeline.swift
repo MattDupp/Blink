@@ -3,28 +3,42 @@ import CoreGraphics
 import CoreVideo
 import BlinkCore
 
-/// What the camera thread tells the rest of the app.
-struct MonitorUpdate {
-    var time = 0.0
-    var preview: CGImage?
-    var frameSize: CGSize = .zero
+/// What the pipeline knows right now, as one value: the eyes in this frame and the counters.
+///
+/// One value instead of a dozen separate ones, so that handing it from the camera's thread
+/// to the windows is one assignment, and "did anything change?" is one comparison.
+struct LiveState: Equatable {
+    var frameSize = CGSize(width: 1920, height: 1080)
+    /// The squares being read, in frame pixels.
     var eyeRects: [CGRect] = []
     var faceFound = false
     /// The model's answer for this frame (the eyes combined), nil when no eye was read.
     var probability: Double?
-    var event: BlinkDetector.Event?
     var eyesClosed = false
+    var counters = BlinkStats.Snapshot()
 
-    var totalBlinks = 0
-    var longClosures = 0
-    var observedSeconds = 0.0
-    var blinksLastMinute = 0
-    var ratePerMinute: Double?
-    var lastBlinkSeconds: Double?
+    /// The same state once the camera is switched off: nothing in view, no rate, the
+    /// counts kept.
+    var withCameraOff: LiveState {
+        var state = LiveState()
+        state.frameSize = frameSize
+        state.counters = counters
+        state.counters.ratePerMinute = nil
+        return state
+    }
+}
+
+/// What the camera thread tells the rest of the app.
+struct MonitorUpdate {
+    /// The frame's time, on the camera's clock.
+    var time = 0.0
+    var live = LiveState()
+    var preview: CGImage?
+    var event: BlinkDetector.Event?
 
     /// A minute of the clock that just ended (see MinuteAggregator).
     var completedMinute: MinuteRecord?
-    /// The minute being filled; sent about once a second.
+    /// The minute being filled.
     var currentMinute: MinuteRecord?
     /// Stage timings over the last two seconds (for the diagnostics window).
     var timings: StageTimings.Summary?
@@ -129,7 +143,7 @@ final class MonitorPipeline: @unchecked Sendable {
 
         var update = MonitorUpdate()
         update.time = time
-        update.frameSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
+        update.live.frameSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
 
         // No face for 3 s: analyse one frame in six. A capture always gets every frame.
         let idle = framesWithoutFace >= Self.idleAfterFrames && capture == nil
@@ -147,9 +161,9 @@ final class MonitorPipeline: @unchecked Sendable {
             }
             framesWithoutFace = reading.faceFound ? 0 : framesWithoutFace + 1
         }
-        update.faceFound = reading.faceFound
-        update.eyeRects = reading.eyeRects
-        update.probability = reading.closed
+        update.live.faceFound = reading.faceFound
+        update.live.eyeRects = reading.eyeRects
+        update.live.probability = reading.closed
 
         let watched = stats.frame(time: time, eyesRead: reading.closed != nil)
         var newBlinks = 0
@@ -158,7 +172,8 @@ final class MonitorPipeline: @unchecked Sendable {
             update.event = event
             if case .blink = event { newBlinks = 1 }
         }
-        if case .closed = detector.state { update.eyesClosed = true }
+        if case .closed = detector.state { update.live.eyesClosed = true }
+        update.live.counters = stats.snapshot(now: time)
 
         // The history is kept by the clock on the wall, not the camera's own clock:
         // "at 10:15 you blinked 11 times" is what will be read later.
@@ -167,13 +182,6 @@ final class MonitorPipeline: @unchecked Sendable {
 
         capture?.write(frame: frameIndex, time: time, reading: reading,
                        state: detector.state, event: update.event, tick: tick)
-
-        update.totalBlinks = stats.totalBlinks
-        update.longClosures = stats.longClosures
-        update.observedSeconds = stats.observedSeconds
-        update.blinksLastMinute = stats.blinks(inLast: 60, now: time)
-        update.ratePerMinute = stats.ratePerMinute(inLast: 60, now: time)
-        update.lastBlinkSeconds = stats.lastBlink?.duration
 
         if clock - lastTimingsAt >= 2 {
             update.timings = recentTimings.takeSummary(at: clock)
@@ -199,7 +207,7 @@ final class MonitorPipeline: @unchecked Sendable {
         if live || frameIndex % 30 == 0 { return true }
         if update.event != nil || update.completedMinute != nil || update.error != nil { return true }
         if update.minuteTimings != nil { return true }
-        if update.faceFound != lastSent.faceFound { return true }
-        return update.ratePerMinute?.rounded() != lastSent.ratePerMinute?.rounded()
+        if update.live.faceFound != lastSent.live.faceFound { return true }
+        return update.live.counters.ratePerMinute?.rounded() != lastSent.live.counters.ratePerMinute?.rounded()
     }
 }

@@ -22,7 +22,7 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            NowSection(model: model, reminders: reminders)
+            NowSection(status: model.status(now: now))
                 .padding(16)
             Divider()
             TodaySection(history: history, threshold: reminders.threshold, now: now)
@@ -41,7 +41,7 @@ struct MenuPanelView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Button(model.paused ? "Resume" : "Pause") { model.setPaused(!model.paused) }
-                .disabled(model.stage != .running)
+                .disabled(model.lifecycle != .running)
                 .help(model.paused ? "Turn the camera back on" : "Turn the camera off: its green light goes out")
             Button("History") { actions.openHistory() }
             Spacer()
@@ -71,91 +71,35 @@ enum AppInfo {
 // MARK: - Now
 
 private struct NowSection: View {
-    @ObservedObject var model: MonitorModel
-    @ObservedObject var reminders: ReminderController
-
-    private enum Status {
-        case starting, watching, low, noFace, paused, noCamera, failed
-
-        var label: String {
-            switch self {
-            case .starting: return "Starting"
-            case .watching: return "Watching"
-            case .low: return "Low"
-            case .noFace: return "No face"
-            case .paused: return "Paused"
-            case .noCamera: return "No camera"
-            case .failed: return "Problem"
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .watching: return .green
-            case .low: return .orange
-            case .noCamera, .failed: return .red
-            case .starting, .noFace, .paused: return .secondary
-            }
-        }
-    }
-
-    private var status: Status {
-        switch model.stage {
-        case .starting: return .starting
-        case .denied: return .noCamera
-        case .failed: return .failed
-        case .running:
-            if model.paused { return .paused }
-            if !model.faceFound { return .noFace }
-            return reminders.lowRate == nil ? .watching : .low
-        }
-    }
-
-    private var rateText: String {
-        guard status == .watching || status == .low else { return "--" }
-        return model.ratePerMinute.map { String(format: "%.0f", $0) } ?? "--"
-    }
-
-    private var explanation: String {
-        switch model.stage {
-        case .starting:
-            return "Starting the camera."
-        case .denied:
-            return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera, then open it again."
-        case .failed(let reason):
-            return reason
-        case .running:
-            if model.paused { return "The camera is off. Nothing is being counted." }
-            if !model.faceFound { return "Nobody in front of the camera: this time is not counted." }
-            if let lowRate = reminders.lowRate {
-                return String(format: "About %.0f a minute over the last 3 minutes. Close your eyes gently a few times.", lowRate)
-            }
-            return model.ratePerMinute == nil ? "A rate appears after 20 seconds of watching." : "Over the last minute your eyes were watched."
-        }
-    }
+    let status: MonitorStatus
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(rateText)
+                Text(status.rateText)
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(status == .low ? Color.orange : Color.primary)
+                    .foregroundStyle(isLow ? Color.orange : Color.primary)
                     .contentTransition(.numericText())
                 Text("blinks\na minute")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineSpacing(-2)
                 Spacer()
-                StatusPill(text: status.label, color: status.color)
+                StatusPill(text: status.label, color: status.tint)
             }
             .accessibilityElement(children: .combine)
 
-            Text(explanation)
+            Text(status.explanation)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var isLow: Bool {
+        if case .low = status { return true }
+        return false
     }
 }
 

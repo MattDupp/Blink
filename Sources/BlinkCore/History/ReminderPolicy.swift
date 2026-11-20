@@ -27,6 +27,13 @@ public struct ReminderPolicy {
         return Double(recent.reduce(0) { $0 + $1.blinks }) / observed * 60
     }
 
+    /// The recent rate when it is under `threshold`, else nil: "are you blinking too little
+    /// right now?". Computed from the minutes each time it is asked, never stored, so it
+    /// cannot go stale when the threshold or the minutes change.
+    public func lowRate(records: [MinuteRecord], threshold: Double, now: Date) -> Double? {
+        recentRate(records: records, now: now).flatMap { $0 < threshold ? $0 : nil }
+    }
+
     /// No reminder before `date` (nil: reminders are back at once).
     public mutating func snooze(until date: Date?) {
         snoozedUntil = date

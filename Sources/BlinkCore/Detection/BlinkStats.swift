@@ -47,6 +47,30 @@ public struct BlinkStats {
         }
     }
 
+    /// The counters at one moment, as one value: what a window shows about the counting.
+    public struct Snapshot: Equatable {
+        public var totalBlinks = 0
+        public var longClosures = 0
+        public var observedSeconds = 0.0
+        public var blinksLastMinute = 0
+        /// Blinks per minute over the last minute watched; nil before 20 s were watched.
+        public var ratePerMinute: Double?
+        public var lastBlinkSeconds: Double?
+
+        public init() {}
+    }
+
+    public func snapshot(now: Double) -> Snapshot {
+        var snapshot = Snapshot()
+        snapshot.totalBlinks = totalBlinks
+        snapshot.longClosures = longClosures
+        snapshot.observedSeconds = observedSeconds
+        snapshot.blinksLastMinute = blinks(inLast: 60, now: now)
+        snapshot.ratePerMinute = ratePerMinute(inLast: 60, now: now)
+        snapshot.lastBlinkSeconds = lastBlink?.duration
+        return snapshot
+    }
+
     public func blinks(inLast seconds: Double, now: Double) -> Int {
         blinkTimes.filter { $0 > now - seconds }.count
     }
