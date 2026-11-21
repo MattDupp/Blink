@@ -267,7 +267,7 @@ Sources/BlinkRecorder    the app that records labelled eye pictures
 Sources/BlinkMonitor     the menu-bar app, and its demo
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
 Tests/BlinkCoreTests     107 tests of the rules (Swift Testing)
-Tests/BlinkMonitorTests  19 tests of the app itself: its model, its choices, its words, its clock, the demo
+Tests/BlinkMonitorTests  20 tests of the app itself: its model, its choices, its words, its clock, the demo
 training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 25 tests
 scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
 docs/                   how it works, the research on blink rates, lessons, development notes

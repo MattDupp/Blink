@@ -238,6 +238,25 @@ struct PreferencesTests {
         }
     }
 
+    @Test("The floor can be set as low as 1, so that a limit can follow someone who blinks very little")
+    func lowestFloor() {
+        #expect(Preferences.floorChoices.lowerBound == 1)
+        #expect(Preferences.floorChoices.contains(PublishedRates.startingFloor))
+        #expect(Preferences.floorChoices.contains(Preferences.floorOfTheFirstVersion))
+
+        withStore { store in
+            // Somebody who makes 1.6 complete blinks a minute at a screen, floor at its lowest.
+            let preferences = Preferences(defaults: store)
+            preferences.reference = Reference(rate: 1.6, measuredOn: Date(timeIntervalSince1970: 1_800_000_000), minutes: 200)
+            #expect(Baseline.limitAboveUsual(reference: preferences.reference, limit: preferences.limit), "at the starting floor")
+            preferences.floor = Preferences.floorChoices.lowerBound
+            #expect(preferences.limit == 1)
+            #expect(!Baseline.limitAboveUsual(reference: preferences.reference, limit: preferences.limit))
+            // The choice is kept.
+            #expect(Preferences(defaults: store).floor == 1)
+        }
+    }
+
     @Test("A floor somebody chose is never replaced")
     func chosenFloor() {
         withStore { store in

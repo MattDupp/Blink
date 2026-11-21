@@ -135,8 +135,10 @@ that is all they do:
 One number is derived from them: the floor a new install starts with. The eye surface is
 covered while the next blink comes before the tear film breaks up. With a tear film that
 holds 10 seconds and evenly spaced blinks, that is 6 a minute. It is arithmetic, not a
-finding, and a starting point to adjust. When the limit ends up above your own usual rate,
-Settings says so, because the app would say "Low" most of the time.
+finding, and a starting point to adjust. The floor can be set from 1 to 20: some healthy
+people make 0 to 2 complete blinks a minute at a screen (Freudenthaler 2003), and a limit
+has to be able to follow them. When the limit ends up above your own usual rate, Settings
+says so, because the app would say "Low" most of the time.
 
 [What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits
 and how each was read.
