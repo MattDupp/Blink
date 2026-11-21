@@ -55,6 +55,9 @@ and shipping it inside a real app.
   because your eyes are closed.
 - **A limit that fits you, and does not follow you down.** The app measures your usual rate
   once and sets the limit at 70% of it. See [the baseline](#a-baseline-that-does-not-follow-you-down).
+- **Shows what studies report**, next to your own rate and limit: how often healthy adults
+  blink at a screen, at rest and in conversation, with the papers one click away.
+  See [what studies say](#what-studies-say-about-blink-rate).
 - **Look-away nudges** (off by default): after 20 minutes at the screen, look at something
   far away for 20 seconds.
 - **Pause** for 15 minutes, an hour, until tomorrow or until you resume. It switches the
@@ -131,6 +134,39 @@ A test feeds it four weeks of steady decline and checks that neither the referen
   <img src="docs/img/settings-reminders-measured-light.png" alt="Settings: measuring again gave a lower value, and the app warns before adopting it" width="460">
 </p>
 
+## What studies say about blink rate
+
+Before putting a "healthy range" in the app I read the studies. There is no ideal blink
+rate in them. There is a typical one, and it depends on what you are doing:
+
+| What the person is doing | Blinks a minute, averages of study groups |
+|---|---|
+| Reading, or working at a screen | 1.4 to 14.4 |
+| Looking straight ahead, in silence | 8.0 to 21.0 |
+| In conversation | 10.5 to 32.5 |
+
+These are the ranges of a review of 75 years of studies (Doughty 2001). Three more things
+the studies say shaped the app:
+
+- **No rate is shown to be enough.** So the app calls the ranges typical, never ideal, and
+  they never move your limit: it shows them next to it.
+- **Complete blinks count for more than the rate.** In a study of 453 people the share of
+  incomplete blinks predicted dry eye disease, and the rate was linked to nothing measured
+  on the eye surface (Wang 2025). Blink Monitor counts complete blinks and does not
+  measure incomplete ones yet.
+- **Healthy people at a screen average about 5 complete blinks a minute** (Freudenthaler
+  2003), from 0.4 to 18.9 from one person to the next. The app used to start with a limit
+  of 10, well above that average. A new install now starts at 6, and Settings says so
+  when a limit sits above your own usual rate.
+
+[What is a healthy blink rate?](docs/BLINK-RATE.md) has the answer in full, a table of the
+studies, what they disagree on and the 48 sources. Of those, 10 were read in full, 36 as
+abstracts and 2 only through reviews, and the page says which.
+
+<p align="center">
+  <img src="docs/img/settings-reminders-light.png" alt="Settings, Reminders tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, with the user's reference and limit marked" width="460">
+</p>
+
 ## Results
 
 Measured on one person (me), on recordings made in one morning. Read them as "it works
@@ -166,7 +202,7 @@ thing to work on. The app logs its cost once a minute to
 
 ## Privacy
 
-- The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection.
+- The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection. (The Sources tab opens a paper in your browser when you press its button.)
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`. Settings shows the file and can erase it.
 - Pictures are written to disk only by the recorder and by the capture buttons of the Live View window, when you press them, to build your own training data.
 - A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
@@ -230,11 +266,11 @@ Sources/BlinkUI          the SwiftUI views both apps share, and the screenshot r
 Sources/BlinkRecorder    the app that records labelled eye pictures
 Sources/BlinkMonitor     the menu-bar app, and its demo
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
-Tests/BlinkCoreTests     97 tests of the rules (Swift Testing)
-Tests/BlinkMonitorTests  12 tests of the app itself: its model, its clock, the demo
+Tests/BlinkCoreTests     107 tests of the rules (Swift Testing)
+Tests/BlinkMonitorTests  19 tests of the app itself: its model, its choices, its words, its clock, the demo
 training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 25 tests
 scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
-docs/                   how it works, lessons, development notes
+docs/                   how it works, the research on blink rates, lessons, development notes
 ```
 
 ## Limits and roadmap
@@ -245,14 +281,16 @@ docs/                   how it works, lessons, development notes
 - **The Mac's own camera has to face you.** If you work on an external display with the MacBook to one side, it sees you in profile or not at all, and the panel says "No face". There is no camera picker yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.
 - **Looking down** at the keyboard looks like closed eyes from the camera's angle. A closure longer than 0.6 s is not counted as a blink, which covers most of it.
-- **Incomplete blinks** (the lid comes down part of the way) matter for dry eyes and are not measured yet.
+- **Incomplete blinks** (the lid comes down part of the way) are not measured yet. Studies link them to dry eye more than they link the rate ([the research](docs/BLINK-RATE.md)).
 - **30 frames a second** is all the built-in camera gives. A very fast blink is closed on a single frame.
 
 ## Not a medical device
 
 Blink Monitor is a personal project and a learning exercise. Its numbers are not a
-diagnosis, and its limits (10 blinks a minute to start with, then 70% of your own usual
-rate) are starting points, not medical ones. If your eyes hurt, see an eye-care professional.
+diagnosis, and its limits (6 blinks a minute to start with, then 70% of your own usual
+rate) are starting points, not medical ones. The ranges it shows are what studies report
+as typical, not targets, and nobody with clinical training reviewed that reading. If your
+eyes hurt, see an eye-care professional.
 
 ## Licence
 

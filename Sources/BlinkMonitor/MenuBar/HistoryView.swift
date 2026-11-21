@@ -73,7 +73,7 @@ struct HistoryView: View {
                             limit: limit, selected: selected)
                 }
 
-                let findings = self.findings(days: days, weekRecords: weekRecords)
+                let findings = self.findings(days: days, weekRecords: weekRecords, week: week)
                 if !findings.isEmpty {
                     VStack(alignment: .leading, spacing: 7) {
                         SectionTitle("What stands out")
@@ -101,9 +101,9 @@ struct HistoryView: View {
     }
 
     /// The few sentences the numbers support: your lowest hours, how you compare with your
-    /// reference, your best and lowest day.
-    private func findings(days: [(day: Date, summary: DaySummary)],
-                          weekRecords: [MinuteRecord]) -> [(symbol: String, text: String, tint: Color)] {
+    /// reference, your best and lowest day, and where your week sits against published studies.
+    private func findings(days: [(day: Date, summary: DaySummary)], weekRecords: [MinuteRecord],
+                          week: DaySummary) -> [(symbol: String, text: String, tint: Color)] {
         var findings: [(String, String, Color)] = []
 
         let lowest = Insights.lowestHours(records: weekRecords)
@@ -129,6 +129,14 @@ struct HistoryView: View {
             findings.append(("calendar", String(format: "Best day: %@ (%.1f a minute). Lowest: %@ (%.1f).",
                                                 best.day.formatted(.dateTime.weekday(.wide)), best.rate,
                                                 worst.day.formatted(.dateTime.weekday(.wide)), worst.rate), .primary))
+        }
+
+        // Said in the same quiet colour wherever the week falls: a range from studies is
+        // neither good nor bad, and only your own limit turns anything orange. (The picture
+        // of the three ranges is in Settings: here it made this window taller than a
+        // 14-inch screen.)
+        if let comparison = PublishedRates.comparison(of: week) {
+            findings.append(("book", comparison.sentence + " " + PublishedRates.whereTheSourcesAre, .primary))
         }
         return findings
     }

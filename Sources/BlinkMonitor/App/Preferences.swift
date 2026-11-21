@@ -45,10 +45,17 @@ final class Preferences: ObservableObject {
     @Published var automaticLimit: Bool { didSet { defaults.set(automaticLimit, forKey: Key.automaticLimit) } }
 
     /// The limit you set by hand, in blinks a minute. With an automatic limit it is the
-    /// floor: the limit never goes under it. People at rest blink roughly 15 to 20 times a
-    /// minute, and far less when staring at a screen; 10 is a starting point for you to
-    /// adjust, not a medical limit.
+    /// floor: the limit never goes under it. Where it starts is `PublishedRates.startingFloor`:
+    /// a starting point for you to adjust, not a medical limit.
     @Published var floor: Int { didSet { defaults.set(floor, forKey: Key.floor) } }
+
+    /// The floors the Settings window offers, in blinks a minute.
+    static let floorChoices = 4...20
+
+    /// Where the floor started in the first version, before the studies were read
+    /// (`docs/BLINK-RATE.md`, 2026-11-21). An install that was already in use keeps it:
+    /// the app does not move somebody's limit behind their back.
+    static let floorOfTheFirstVersion = 10
 
     /// Your usual rate, measured once and kept (nil until calibration is complete).
     @Published var reference: Reference? {
@@ -96,7 +103,18 @@ final class Preferences: ObservableObject {
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
-        floor = defaults.object(forKey: Key.floor) as? Int ?? 10
+        if let chosen = defaults.object(forKey: Key.floor) as? Int {
+            floor = chosen
+        } else {
+            // Never set: a new install starts where the studies point, and one that has
+            // already been used (it was welcomed, or has a reference) keeps the 10 it has
+            // been living with. Written down at once, because "new" is only true today:
+            // tomorrow this install is welcomed too.
+            let inUse = defaults.bool(forKey: Key.welcomed) || defaults.object(forKey: Key.reference) != nil
+            let start = inUse ? Self.floorOfTheFirstVersion : PublishedRates.startingFloor
+            floor = start
+            defaults.set(start, forKey: Key.floor)
+        }
         breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
         breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? Self.breakChoices[0]
 

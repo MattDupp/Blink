@@ -17,6 +17,7 @@ final class SettingsState: ObservableObject {
         case reminders = "Reminders"
         case breaks = "Breaks"
         case data = "Your Data"
+        case sources = "Sources"
     }
 
     /// The outcome of "Measure Again", waiting for your decision.
@@ -63,6 +64,7 @@ struct SettingsView: View {
             case .reminders: remindersTab
             case .breaks: breaks
             case .data: data
+            case .sources: sources
             }
         }
         .padding(20)
@@ -132,19 +134,40 @@ struct SettingsView: View {
                 Row(preferences.automaticLimit ? "Never under" : "Too little is under",
                     detail: preferences.automaticLimit
                         ? "The automatic limit cannot go under this, whatever your reference."
-                        : "People at rest blink 15 to 20 times a minute, and far less at a screen.") {
+                        : "A limit you choose. The picture below shows what studies report.") {
                     HStack(spacing: 6) {
                         Text("\(preferences.floor) a minute").monospacedDigit()
-                        Stepper("Blinks a minute", value: $preferences.floor, in: 4...20)
+                        Stepper("Blinks a minute", value: $preferences.floor, in: Preferences.floorChoices)
                     }
                 }
             }
+            studiesCard
             if reminders.notificationsRefused && (preferences.remindersOn || preferences.breakNudgesOn) {
                 Label("Notifications are off for Blink Monitor in System Settings. A sound plays instead.",
                       systemImage: "bell.slash")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// What studies report, next to the limit it helps to choose. It is shown, and that is
+    /// all: the limit comes from your own reference and your floor (see `PublishedRates`).
+    private var studiesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("What studies report")
+                    Spacer(minLength: 12)
+                    Button("Sources") { state.tab = .sources }
+                        .controlSize(.small)
+                }
+                StudyRangesSection(yours: preferences.reference.map {
+                    .init(label: String(format: "your reference %.1f", $0.rate), rate: $0.rate)
+                }, limit: preferences.limit)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
         }
     }
 
@@ -166,6 +189,14 @@ struct SettingsView: View {
                     if state.measurement == nil {
                         Button("Measure Again...") { measureAgain() }
                     }
+                }
+                if Baseline.limitAboveUsual(reference: reference, limit: preferences.limit) {
+                    // A floor to lower, not a person to warn: said with the way out.
+                    Label(PublishedRates.limitAboveUsual(reference: reference, limit: preferences.limit,
+                                                         canLower: preferences.floor > Preferences.floorChoices.lowerBound),
+                          systemImage: "info.circle")
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if state.measurement == nil {
                     Text("It stays where it was measured. If you blink less over the months, the limit does not go down with you: the History window shows the gap instead.")
@@ -306,6 +337,28 @@ struct SettingsView: View {
                         Button("Erase...") { state.confirmingErase = true }
                             .disabled(history.minutes.isEmpty && preferences.reference == nil)
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: Sources
+
+    /// Where the app's figures come from. A list that scrolls: eight papers with what each
+    /// found do not fit a window that small screens can show whole.
+    private var sources: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("What the app says about blink rates comes from these studies. They describe what is typical, not what is ideal, and none of it is a diagnosis. Each one opens in your browser.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                Card { SourcesList() }
+            }
+            .frame(height: 380)
+            Card {
+                Row("The whole review", detail: "Every study in one table, what they disagree on, and the limits of this reading.") {
+                    Button("Open") { NSWorkspace.shared.open(PublishedRates.review) }
                 }
             }
         }

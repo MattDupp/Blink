@@ -94,6 +94,16 @@ public enum Baseline {
         return max(floor, Int((reference.rate * shareOfReference).rounded()))
     }
 
+    /// The limit sits ABOVE your own usual rate, so the app would say "Low" most of the
+    /// time. It happens when the floor, not your reference, sets the limit and you usually
+    /// blink less than the floor. Blinking 5 to 10 times a minute at a screen is ordinary
+    /// (`PublishedRates`), so this is a floor to lower, not a person to warn: the Settings
+    /// window says so.
+    public static func limitAboveUsual(reference: Reference?, limit: Int) -> Bool {
+        guard let reference else { return false }
+        return Double(limit) > reference.rate
+    }
+
     /// How far the recent minutes are under the reference, as a share of it
     /// (0.22 = 22% less; negative = more than the reference). Nil when the recent minutes
     /// are too few to say.

@@ -74,8 +74,23 @@ enum Snapshots {
                 state.measurement = Baseline.proposal(current: model.preferences.reference, records: model.history.minutes,
                                                       now: now).map { .proposed($0) }
             }),
+            ("settings-reminders-limit-above", settings(.reminders) { _, model in
+                // A floor above the user's own usual rate: the app says what will happen.
+                model.preferences.floor = 16
+            }),
+            // A usual rate under, and above, what studies report at a screen: the marker
+            // sits outside the bar, and nothing takes a colour.
+            ("settings-reminders-reference-under", settings(.reminders) { _, model in
+                model.preferences.reference = Reference(rate: 0.9, measuredOn: now.addingTimeInterval(-17 * 86_400), minutes: 214)
+            }),
+            ("settings-reminders-reference-above", settings(.reminders) { _, model in
+                model.preferences.reference = Reference(rate: 21.3, measuredOn: now.addingTimeInterval(-17 * 86_400), minutes: 214)
+            }),
             ("settings-breaks", settings(.breaks, scene: .learning)),
             ("settings-data", settings(.data)),
+            ("settings-sources", settings(.sources)),
+            // The list scrolls in the window: here it is whole, to be read.
+            ("sources-list", AnyView(SourcesList().frame(width: 480))),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
             ("welcome", AnyView(WelcomeView(start: {}))),

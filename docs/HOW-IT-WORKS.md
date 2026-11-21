@@ -111,13 +111,35 @@ A reminder needs evidence and restraint: a rate under your limit over the last t
 minutes, with at least two of them watched, and never more than one reminder in five
 minutes.
 
-**The limit.** It starts at 10 blinks a minute. Once three hours have been watched over at
+**The limit.** It starts at 6 blinks a minute. (The first version started at 10, and an
+install that was already in use keeps that.) Once three hours have been watched over at
 least two days, the app takes the median of those minutes as your reference and sets the
 limit at 70% of it, never under the floor you chose. The reference is then kept: nothing
 recomputes it. If you blink less as the weeks go by, the gap to the reference is reported
 ("23% less than your reference") and the limit stays where it was. A baseline that followed
 you would lower the bar as you declined, and hide the very thing it is for. Measuring again
 is a button in Settings, with a warning when the new value is lower.
+
+**What studies report.** `PublishedRates` (in `BlinkCore/History`) is the one place a
+number from a study lives: three ranges of blink rates, each with its source, and the
+papers the Settings window lists. Healthy adults average 1.4 to 14.4 blinks a minute while
+reading or at a screen, 8.0 to 21.0 looking straight ahead, and 10.5 to 32.5 in
+conversation (Doughty 2001). The app shows these next to your own rate and limit, and
+that is all they do:
+
+- They are typical ranges, not ideal ones. No study gives a rate that is enough, so the
+  words never say "ideal", "healthy" or "normal", and a test checks the sentences.
+- They never set the limit. That stays your own reference and your floor.
+- Nothing takes a colour because of them. Only your own limit turns a bar orange.
+
+One number is derived from them: the floor a new install starts with. The eye surface is
+covered while the next blink comes before the tear film breaks up. With a tear film that
+holds 10 seconds and evenly spaced blinks, that is 6 a minute. It is arithmetic, not a
+finding, and a starting point to adjust. When the limit ends up above your own usual rate,
+Settings says so, because the app would say "Low" most of the time.
+
+[What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits
+and how each was read.
 
 ## 7. Breaks and pauses
 

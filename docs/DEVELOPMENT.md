@@ -50,7 +50,9 @@ Sources/BlinkCore/
     Monitoring/  MonitorStatus (what the monitor is doing, decided in one place),
                  PauseState, PresenceTracker (time at the screen), BlinkBreak
     History/     minute records, the CSV stores, the reminder policy, Baseline (your
-                 reference and the limit), Insights (rates by hour)
+                 reference and the limit), Insights (rates by hour), PublishedRates
+                 (what studies report, with its sources: the only place such a
+                 number is typed)
     Recording/   SessionWriter and CaptureWriter: the on-disk formats; WholeFrames (a
                  capture's frames as a movie), CaptureReplay (those frames through the
                  pipeline again), RecordedCapture (a capture read back)
