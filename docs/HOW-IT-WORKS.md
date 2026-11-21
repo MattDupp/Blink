@@ -210,8 +210,9 @@ The app runs all day, so its cost matters as much as its accuracy.
 
 - Eye pictures reach the model as pixel buffers in its own format. The first version
   passed images and paid 9 ms per picture for it ([Lessons](LESSONS.md), number 3).
-- A model trained in the app costs 0.24 ms per eye picture, a Core ML one 0.10 ms. Both
-  are small beside the 12 ms a frame takes.
+- A model trained in the app costs 0.24 ms per eye picture on its own, a Core ML one
+  0.10 ms. In the app's log the model stage went from 0.8 to 1.9 ms a frame (one minute
+  logged so far), small beside the 11 ms a frame takes, but worth tuning.
 - The eyes are searched for every other frame; the frame in between reads the same squares.
   This saved 15% of a frame's cost, not the 40% expected: each search got slower. The README has the numbers.
 - After 3 s without a face, one frame in six is analysed. (Both rules are one tested type, `FrameSchedule`.)

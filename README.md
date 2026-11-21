@@ -205,7 +205,10 @@ Their code is in the history of this repository (commit `e2cb8a9`).
 
 A model trained in the app is run by the network written out in Swift: 0.24 ms per eye
 picture, against 0.10 ms for the Core ML model of the Python route (908 real pictures,
-one at a time). A frame has two eyes and about 12 ms of other work.
+one at a time). Inside the app the gap is wider: its log gave 1.9 ms a frame for the model
+with the first model trained in the app, against 0.8 ms with the Core ML one, while the
+whole frame stayed at 11 ms. That is one minute of log so far, and the Swift network has
+not been tuned.
 
 **One optimisation did not pay.** Finding the eyes (Apple Vision) is three quarters of a
 frame's cost, so searching on every other frame, and reading the same squares in between,
@@ -334,7 +337,7 @@ docs/                    how it works, lessons, development notes
 ## Limits and roadmap
 
 - **One person, one morning.** The model has only seen its author, in daylight. Other light is untested.
-- **The setup has been through its tests, not through a first user.** Its pages, its failures and its whole run on painted eyes are tested; nobody but its author has sat through it with a camera.
+- **The setup has been through its tests and one real run.** Its pages, its failures and its whole run on painted eyes are tested. Its author went through it once with a camera: two sessions, a training of 9 seconds, 9 of 10 blinks in the test, under seven minutes from launch to counting. Nobody else has.
 - **Training in the app was measured on one Mac** (M5 Pro, macOS 27). The app shows the time left as it measures it; how long an older Mac takes is not known.
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.
 - **Processor use.** About 37% of one core while it watches you (see Results).
