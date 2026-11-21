@@ -46,6 +46,7 @@ enum SampleData {
                                  history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
         demoRoutine(in: model, now: now)
         demoWeek(in: model, now: now)
+        demoOwn(in: model, now: now)
         return model
     }
 
@@ -215,6 +216,69 @@ enum SampleData {
                                              until: at(16, 50)))
             }
         }
+    }
+
+    /// What the screenshots show of routines the user made.
+    enum OwnScene {
+        /// One routine "at the screen", counting.
+        case counting
+        /// The same, its minutes reached: waiting.
+        case waiting
+        /// Five routines in all, one of them waiting: the panel folds.
+        case many
+        /// The same five, all shown.
+        case manyShown
+        /// The same five, with "Quiet for Today" chosen.
+        case quiet
+    }
+
+    /// Adds made-up routines of the user's own to `model`. The names are everyday ones,
+    /// chosen for the pictures; none is advice.
+    static func own(in model: MonitorModel, now: Date, scene: OwnScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let morning = calendar.startOfDay(for: now)
+        var water = Routine.made(from: RoutineTemplate.all[0], now: morning, id: "user-sample01")
+        water.schedule = .everyMinutesAtScreen(minutes: 60)
+        routines.add(water)
+        /// A count that watched `minutes` at the screen, one look a minute, ending now.
+        func count(_ minutes: Int, every: Int) -> ScreenCount {
+            var count = ScreenCount()
+            for back in stride(from: minutes, through: 0, by: -1) {
+                count.advance(to: now.addingTimeInterval(Double(-back) * 60), present: true, minutes: every, calendar: calendar)
+            }
+            return count
+        }
+        switch scene {
+        case .counting:
+            routines.show(count: count(35, every: 60), of: water.id)
+        case .waiting:
+            routines.show(count: count(72, every: 60), of: water.id)
+        case .many, .manyShown, .quiet:
+            self.routines(in: model, now: now, scene: .kept)
+            week(in: model, now: now, scene: .toCome)
+            routines.show(count: count(72, every: 60), of: water.id)
+            var stand = Routine.made(from: RoutineTemplate.all[1], now: morning, id: "user-sample02")
+            stand.schedule = .everyMinutesAtScreen(minutes: 45)
+            routines.add(stand)
+            routines.show(count: count(20, every: 45), of: stand.id)
+            var call = Routine.made(from: RoutineTemplate.all[2], now: morning, id: "user-sample03")
+            call.name = "Water the plants"
+            call.symbol = "leaf"
+            call.schedule = .timesOfDay(times: [TimeOfDay(hour: 18, minute: 30)], weekdays: nil)
+            call.sessionMinutes = 5
+            routines.add(call)
+            routines.showsAll = scene == .manyShown
+            if scene == .quiet { routines.setQuiet(true, now: now) }
+        }
+    }
+
+    /// The demo's routine of the user's own: "every 2 minutes at the screen", so that it
+    /// can be seen falling due without waiting an hour. (Settings does not go under 15
+    /// minutes; the demo sets it directly.) The made-up eyes count as somebody there.
+    static func demoOwn(in model: MonitorModel, now: Date) {
+        var water = Routine.made(from: RoutineTemplate.all[0], now: now, id: "user-demo0001")
+        water.schedule = .everyMinutesAtScreen(minutes: 2)
+        model.routines.add(water)
     }
 
     /// What the screenshots show of a routine counted by the week.

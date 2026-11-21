@@ -69,6 +69,14 @@ enum Snapshots {
                                          preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
                                          actions: PanelActions()))
         }
+        /// The panel with routines the user made.
+        func ownPanel(_ scene: SampleData.OwnScene) -> AnyView {
+            let model = SampleData.model(now: now, scene: .watching)
+            SampleData.own(in: model, now: now, scene: scene)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
+                                         actions: PanelActions()))
+        }
         func routineTimer(_ scene: SampleData.WeekScene) -> AnyView {
             let model = SampleData.model(now: now, scene: .watching)
             SampleData.week(in: model, now: now, scene: scene)
@@ -113,6 +121,17 @@ enum Snapshots {
             ("panel-week-with-times", weekPanel(.toCome, withDrops: true)),
             ("settings-routines-week", settings(.routines) { _, model in
                 SampleData.week(in: model, now: now, scene: .toCome)
+            }),
+            ("panel-own", ownPanel(.counting)),
+            ("panel-own-waiting", ownPanel(.waiting)),
+            ("panel-many", ownPanel(.many)),
+            ("panel-many-all", ownPanel(.manyShown)),
+            ("panel-many-quiet", ownPanel(.quiet)),
+            ("settings-routines-own", settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .counting)
+            }),
+            ("settings-routines-many", settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .many)
             }),
             ("routine-timer", routineTimer(.timer)),
             ("routine-timer-done", routineTimer(.timerDone)),

@@ -26,6 +26,10 @@ struct RoutineBanner: Equatable {
 final class RoutineController: ObservableObject {
 
     private static let key = "routines"
+    private static let quietKey = "routinesQuietDay"
+    /// How many routines of your own can be kept. Enough for a day's habits; few enough
+    /// that the Settings tab stays a list one can read.
+    static let mostOwn = 8
     /// How far back the record is kept in memory: the whole of this week for the routines
     /// counted by the week, and yesterday when yesterday was last week's Sunday.
     private static let daysKept = 9.0
@@ -55,6 +59,14 @@ final class RoutineController: ObservableObject {
     private let defaults: UserDefaults
     private var timer: Timer?
     private var dueShown: [String] = []
+    /// The count of each routine "at the screen", by routine id (see `ScreenCount`).
+    /// In memory only: a relaunch starts them from zero.
+    private var counts: [String: ScreenCount] = [:]
+    /// "Quiet for today" was chosen on this day (`RoutineWeek.key`). Stored, so that a
+    /// relaunch does not undo it; it ends by itself when the day's name changes.
+    @Published private var quietDay: String?
+    /// The panel shows every routine, not only what waits and what is next.
+    @Published var showsAll = false
     /// Keeps `RoutineBanners` alive for as long as this is.
     private var banners: AnyObject?
 
@@ -64,6 +76,7 @@ final class RoutineController: ObservableObject {
         let stored = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode([Routine].self, from: $0) }
         routines = Routine.merged(stored: stored ?? [])
         events = store.load(since: now.addingTimeInterval(-Self.daysKept * 86_400))
+        quietDay = defaults.string(forKey: Self.quietKey)
         // A timer that runs to its end marks the routine done, at the moment it ended.
         session.onDone = { [weak self] in self?.didIt($0.routine, now: $0.end) }
     }
@@ -80,8 +93,9 @@ final class RoutineController: ObservableObject {
     /// through the app's one `Notifier`.
     func connect(to model: MonitorModel) {
         // Under a timer nobody is looking: the other reminders are kept until it is over.
+        // During a blink break you are busy blinking: a banner would cover the exercise.
         someoneThere = { [weak model, weak self] in
-            (model?.someoneAtScreen() ?? true) && self?.session.session == nil
+            (model?.someoneAtScreen() ?? true) && self?.session.session == nil && model?.blinkBreak.exercise == nil
         }
         // The timer pauses the camera for its length: covered eyes must not be read as a
         // low blink rate. A pause you chose yourself is left exactly as it is.
@@ -114,8 +128,23 @@ final class RoutineController: ObservableObject {
     /// Today for each routine that is on and has something to show: times today, or a
     /// week being counted (which is shown on its quiet days too).
     func days(now: Date) -> [RoutineDay] {
-        routines.filter(\.isOn).map { RoutineDay(routine: $0, record: events, now: now, calendar: calendar) }
-            .filter { !$0.slots.isEmpty || $0.week != nil }
+        routines.filter(\.isOn).map {
+            RoutineDay(routine: $0, record: events, now: now, calendar: calendar, screen: counts[$0.id])
+        }
+        .filter { !$0.slots.isEmpty || $0.week != nil || $0.screen != nil }
+    }
+
+    /// No routine banner until midnight: chosen in the panel.
+    func isQuiet(now: Date = Date()) -> Bool {
+        quietDay == RoutineWeek.key(of: now, calendar: calendar)
+    }
+
+    /// "Quiet for today", and back. Quiet silences the banners only: the mark in the menu
+    /// bar and the panel go on showing what waits.
+    func setQuiet(_ quiet: Bool, now: Date = Date()) {
+        quietDay = quiet ? RoutineWeek.key(of: now, calendar: calendar) : nil
+        defaults.set(quietDay, forKey: Self.quietKey)
+        if quiet { routines.forEach(onSettled) }       // the banners on screen can go
     }
 
     /// The routines with a time waiting right now.
@@ -135,13 +164,25 @@ final class RoutineController: ObservableObject {
         let oldest = now.addingTimeInterval(-Self.daysKept * 86_400)
         if let first = events.first, first.at < oldest { events.removeAll { $0.at < oldest } }
 
-        let due = self.due(now: now)
         let present = someoneThere()
-        for day in due {
-            guard let slot = day.due,
-                  policy.bannerDue(for: slot, record: events, now: now, someoneThere: present) else { continue }
+        // The routines "at the screen" are told what this look saw. Under a timer the
+        // count stands still: eyes covered is neither at the screen nor away.
+        for routine in routines where routine.isOn {
+            guard let minutes = routine.screenMinutes else { continue }
+            counts[routine.id, default: ScreenCount()].advance(to: now, present: present, holding: session.session != nil,
+                                                               minutes: minutes, calendar: calendar)
+        }
+
+        let due = self.due(now: now)
+        // ONE banner a look at most, and only when there is room (`RoutinePolicy.mayShow`):
+        // with several routines due together they come one by one, never as a burst.
+        if !isQuiet(now: now), policy.mayShow(record: events, now: now),
+           let day = policy.order(due, record: events).first(where: {
+               guard let slot = $0.due else { return false }
+               return policy.bannerDue(for: slot, record: events, now: now, someoneThere: present, repeats: $0.screen == nil)
+           }), let slot = day.due {
             record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .shown))
-            // More than a tick late: it was kept for you (asleep, away, or the app was closed).
+            // More than a tick late: it was kept for you (asleep, away, held back, or the app was closed).
             onBanner(RoutineBanner(routine: day.routine, slot: slot,
                                    kept: now.timeIntervalSince(slot.due) > Self.tickSeconds * 3, week: day.week))
         }
@@ -150,6 +191,8 @@ final class RoutineController: ObservableObject {
         let keys = due.compactMap { $0.due?.id }
         if keys != dueShown {
             dueShown = keys
+            // Ids only: a routine's name is the user's own words, and stays out of the log.
+            Log.app.notice("Routines waiting: \(due.map(\.routine.id).joined(separator: " "), privacy: .public)")
             objectWillChange.send()
         }
     }
@@ -158,6 +201,7 @@ final class RoutineController: ObservableObject {
 
     func done(_ slot: RoutineSlot, now: Date = Date()) {
         record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .done))
+        counts[slot.routine]?.restart()     // "at the screen": the count starts again from here
         settled(slot.routine, now: now)
     }
 
@@ -168,9 +212,15 @@ final class RoutineController: ObservableObject {
 
     /// "I did it", at any moment, for a routine counted by the week: it counts for the
     /// week whether or not today asked, and before the time as well as after it.
-    /// (A routine with times of day is marked through its waiting time: `done(_:)`.)
+    /// For the other kinds (this is how a timer that ran to its end marks them): the time
+    /// that waits, or was put off, is done; with none, a count "at the screen" starts again.
     func didIt(_ id: String, now: Date = Date()) {
-        guard let routine = routines.first(where: { $0.id == id }), case .timesPerWeek = routine.schedule else { return }
+        guard let routine = routines.first(where: { $0.id == id }) else { return }
+        guard case .timesPerWeek = routine.schedule else {
+            let day = RoutineDay(routine: routine, record: events, now: now, calendar: calendar, screen: counts[id])
+            if let slot = day.due ?? day.putOff { done(slot, now: now) } else { counts[id]?.restart() }
+            return
+        }
         record(RoutineEvent(at: now, routine: id, slot: RoutineWeek.key(of: now, calendar: calendar), action: .done))
         settled(id, now: now)
     }
@@ -194,7 +244,7 @@ final class RoutineController: ObservableObject {
     /// answered late: only a time that is still waiting is touched.
     func answer(routine id: String, slot key: String, done: Bool, now: Date = Date()) {
         guard let routine = routines.first(where: { $0.id == id }) else { return }
-        let slots = RoutineDay(routine: routine, record: events, now: now, calendar: calendar).slots
+        let slots = RoutineDay(routine: routine, record: events, now: now, calendar: calendar, screen: counts[id]).slots
         guard let slot = slots.first(where: { $0.key == key }), slot.status == .due else { return }
         if done { self.done(slot, now: now) } else { later(slot, now: now) }
     }
@@ -218,6 +268,7 @@ final class RoutineController: ObservableObject {
             // The times already past today are not asked for (see `Routine.onSince`).
             $0.onSince = isOn ? now : nil
         }
+        counts[id] = nil        // "at the screen": switched on again, it counts from zero
         if !isOn, let routine = routines.first(where: { $0.id == id }) {
             onSettled(routine)
             if session.session?.routine == id { session.stop() }
@@ -241,6 +292,88 @@ final class RoutineController: ObservableObject {
 
     func setWeekTime(_ id: String, _ time: TimeOfDay) {
         changeWeek(id) { count, weekdays, _ in (count, weekdays, time) }
+    }
+
+    // MARK: Routines of your own
+
+    private var ownCount: Int { routines.filter { !$0.isBuiltIn }.count }
+    var canAdd: Bool { ownCount < Self.mostOwn }
+
+    /// Adds a routine of your own from a starting point, switched on. Answers its id.
+    @discardableResult
+    func add(_ template: RoutineTemplate, now: Date = Date()) -> String? {
+        var routine = Routine.made(from: template, now: now)
+        while routines.contains(where: { $0.id == routine.id }) { routine = Routine.made(from: template, now: now) }
+        return add(routine) ? routine.id : nil
+    }
+
+    /// Adds this routine as it is. False when its id is taken, or the list is full.
+    @discardableResult
+    func add(_ routine: Routine) -> Bool {
+        guard canAdd, !routines.contains(where: { $0.id == routine.id }) else { return false }
+        var routine = routine
+        routine.name = Routine.typedName(routine.name)
+        routines.append(routine)
+        save()
+        return true
+    }
+
+    /// Puts a count in place, as if that time at the screen had been watched: for the
+    /// screenshots, which have no minutes to wait.
+    func show(count: ScreenCount, of id: String) {
+        counts[id] = count
+        objectWillChange.send()
+    }
+
+    /// Deletes a routine of your own. A built-in one can only be switched off.
+    ///
+    /// ITS LINES STAY IN THE RECORD. `routines.csv` only ever grows: no line is rewritten
+    /// or removed, here as elsewhere. The lines name an id that is never given again, so
+    /// they disturb nothing; they are what was done, and stay yours to read.
+    func remove(_ id: String) {
+        guard let routine = routines.first(where: { $0.id == id }), !routine.isBuiltIn else { return }
+        onSettled(routine)
+        if session.session?.routine == id { session.stop() }
+        routines.removeAll { $0.id == id }
+        counts[id] = nil
+        save()
+    }
+
+    /// Renames a routine of your own. Only the name changes: the record knows it by its id.
+    func rename(_ id: String, _ name: String) {
+        change(id) { if !$0.isBuiltIn { $0.name = Routine.typedName(name) } }
+    }
+
+    func setSymbol(_ id: String, _ symbol: String) {
+        change(id) { if !$0.isBuiltIn, Routine.symbols.contains(symbol) { $0.symbol = symbol } }
+    }
+
+    /// Gives a routine of your own another kind of schedule, at that kind's starting
+    /// point. What waited under the old kind no longer waits: its banner goes, and the
+    /// new schedule asks from now on (as when a routine is switched on).
+    func setKind(_ id: String, _ kind: RoutineSchedule.Kind, now: Date = Date()) {
+        guard let routine = routines.first(where: { $0.id == id }), !routine.isBuiltIn, routine.schedule.kind != kind else { return }
+        onSettled(routine)
+        counts[id] = nil
+        change(id) {
+            $0.schedule = RoutineSchedule.starting(kind)
+            if $0.isOn { $0.onSince = now }
+        }
+    }
+
+    /// "Every so many minutes at the screen": how many.
+    func setScreenMinutes(_ id: String, _ minutes: Int) {
+        change(id) { routine in
+            guard routine.screenMinutes != nil else { return }
+            let range = RoutineSchedule.screenMinutes
+            routine.schedule = .everyMinutesAtScreen(minutes: min(max(minutes, range.lowerBound), range.upperBound))
+        }
+    }
+
+    /// Gives a routine a timer (of ten minutes, to be set), or takes it away.
+    func setTimer(_ id: String, _ hasTimer: Bool) {
+        if !hasTimer, session.session?.routine == id { session.stop() }
+        change(id) { $0.sessionMinutes = hasTimer ? ($0.sessionMinutes ?? 10) : nil }
     }
 
     /// The length of the routine's timer, for a routine that has one.
@@ -298,6 +431,10 @@ final class RoutineController: ObservableObject {
     private func change(_ id: String, _ change: (inout Routine) -> Void) {
         guard let index = routines.firstIndex(where: { $0.id == id }) else { return }
         change(&routines[index])
+        save()
+    }
+
+    private func save() {
         if let data = try? JSONEncoder().encode(routines) { defaults.set(data, forKey: Self.key) }
     }
 }

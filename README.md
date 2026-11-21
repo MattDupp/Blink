@@ -61,6 +61,12 @@ and shipping it inside a real app.
   example 08:00, 13:00 and 17:00. It is silent, waits until you are at the screen, and has
   two buttons: Done, or Later. The panel shows today's times and which are done. The app
   reminds you of a routine you chose; it gives no advice on what to use or how often.
+- **Routines of your own**: add a reminder in Settings, name it, and choose how it comes:
+  at times of day, a number of times a week, or every so many minutes at the screen, such
+  as drinking water every 60 minutes. The minutes are counted while you are at the screen,
+  not on the clock. Several routines stay gentle: banners come one at a time, at least 5
+  minutes apart and at most 4 in an hour, and "Quiet for Today" in the panel silences them
+  until midnight.
 - **A routine counted by the week** (off by default): a heated eye mask three times a
   week, for example. It asks on the days you prefer until the week's count is reached, and
   asks the next day when one is missed. "I Did It" in the panel counts at any time, and the
@@ -178,7 +184,7 @@ thing to work on. The app logs its cost once a minute to
 
 - The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection.
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`. Settings shows the file and can erase it.
-- With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder.
+- With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Pictures are written to disk only by the recorder and by the capture buttons of the Live View window, when you press them, to build your own training data.
 - A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
@@ -241,8 +247,8 @@ Sources/BlinkUI          the SwiftUI views both apps share, and the screenshot r
 Sources/BlinkRecorder    the app that records labelled eye pictures
 Sources/BlinkMonitor     the menu-bar app, and its demo
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
-Tests/BlinkCoreTests     97 tests of the rules (Swift Testing)
-Tests/BlinkMonitorTests  12 tests of the app itself: its model, its clock, the demo
+Tests/BlinkCoreTests     159 tests of the rules (Swift Testing)
+Tests/BlinkMonitorTests  56 tests of the app itself: its model, its clock, the demo
 training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 25 tests
 scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
 docs/                   how it works, lessons, development notes

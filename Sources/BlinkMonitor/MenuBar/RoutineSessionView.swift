@@ -55,7 +55,7 @@ struct RoutineSessionView: View {
             .accessibilityLabel(running.map { "\($0.clock(at: now)) left" } ?? "Done")
 
             VStack(spacing: 6) {
-                Text(running != nil ? (routine?.name ?? "Timer") : shown != nil ? "Done" : "No timer is running")
+                Text(running != nil ? (routine?.title ?? "Timer") : shown != nil ? "Done" : "No timer is running")
                     .font(.system(size: 17, weight: .semibold))
                 Text(note(running: running != nil, finished: shown != nil, week: week))
                     .font(.callout)

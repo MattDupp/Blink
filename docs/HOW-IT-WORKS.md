@@ -162,14 +162,63 @@ well a routine was kept, both come from that file.
 - If you touch nothing, it comes back once, ten minutes later. After that there are no
   more banners: a dot in the menu bar and a line in the panel wait until the time is done
   or its next time comes.
+- One at a time, over all routines. Two banners are at least 5 minutes apart, and no more
+  than 4 are shown in an hour. When several are due together, one that has had no banner
+  goes before the repeat of another, and a time of day goes before a routine "at the
+  screen". A reminder held back is not lost: the dot and the panel show it at once.
+- Nothing is shown while a routine's timer runs, or during a blink break.
+- "Quiet for Today" in the panel stops the banners until midnight. The dot and the panel
+  still show what waits.
+- The panel stays small. With one or two routines each is drawn in full. With more, only
+  what waits is drawn in full, then one line says what comes next, and the rest is one
+  click away.
 
 What this cannot do: remind you while the app is not running. macOS could show a banner at
 a fixed time by itself, but it would not know whether you are there, or that you already
 pressed Done.
 
 The schedule has three kinds: times of day, a number of times a week, and every so many
-minutes at the screen. The first two are planned. The third is in the type so that the
-settings and the record do not have to change when it arrives.
+minutes at the screen.
+
+### Every so many minutes at the screen
+
+"Every 60 minutes at the screen" counts time with somebody there, not time on the clock.
+`ScreenCount` (in `BlinkCore/Routines`) holds the rule. It has no clock and no camera of
+its own: every 20 seconds the app tells it the time and whether somebody is there. So the
+tests play whole days on timelines written by hand.
+
+| Rule | Why |
+|---|---|
+| While somebody is there, the time since the last look is added | An hour of work, lunch, then twenty minutes of work is eighty minutes, not two hours and more |
+| When the count reaches the minutes, the reminder is due and the count starts again at once | The next one is that many minutes of screen later, whatever you answer |
+| A reminder left unanswered is replaced by the next one | Two never pile up |
+| It gets one banner, with no repeat after ten minutes | It comes back by itself |
+| Done starts the count again. Later (15 minutes) does not touch it | Done means "just now"; Later only moves the banner |
+| Five minutes away in a row start the count again, and close a reminder left open | You got up. Nothing from before your break waits for you |
+| A shorter absence only stops the count | Turning to the phone is not a break |
+| A look that comes long after the last one is time away | The Mac slept, whatever the camera said last |
+| While a routine's timer runs, the count stands still | Covered eyes are neither at the screen nor away |
+| A new day starts at zero | Yesterday's last half hour is not owed today |
+
+While the camera is paused, an awake screen counts as somebody there, as for the other
+routines. What this cannot do: the count is kept in memory only. After a relaunch it
+starts from zero, so that one reminder comes later. And anybody in front of the camera
+counts as you.
+
+### Routines of your own
+
+The Routines tab of Settings adds a routine from a few starting points, each described by
+what it does. Its name, symbol, kind of schedule and timer can be changed afterwards, and
+it can be deleted. The two built-in routines can be switched off, not deleted.
+
+| Rule | Why |
+|---|---|
+| A routine has an id drawn at random when it is made (`user-3f9a12c4`), apart from its name | Renaming loses no record: `routines.csv` names the routine by its id |
+| The name is never written to `routines.csv` | Nothing typed can break the file |
+| A typed name is kept to one line of 40 characters, with no control characters; an empty one is shown as "Reminder" | It appears in a banner, the panel and the menu bar |
+| Deleting a routine leaves its lines in `routines.csv` | The file is only ever added to, and the id is never given again |
+| Changing the kind starts the routine afresh from now | What waited under the old schedule has no meaning in the new one |
+| At most 8 routines of your own | Reminders are only gentle while they are few |
 
 ### So many times a week
 

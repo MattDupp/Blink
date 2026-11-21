@@ -41,7 +41,8 @@ public struct RoutineSlot: Equatable, Identifiable {
 /// what is due.
 ///
 /// It is a pure function of four things: the routine, the record, the clock and the
-/// calendar. Nothing here is stored, so nothing can go stale: the Mac can sleep through a
+/// calendar (and, for a routine "at the screen", the count of time at the screen, which
+/// is handed in: see `ScreenCount`). Nothing here is stored, so nothing can go stale: the Mac can sleep through a
 /// time, the app can start after it, the time zone can change, and the answer is simply
 /// worked out again from the record.
 ///
@@ -67,10 +68,14 @@ public struct RoutineDay: Equatable {
     /// For a routine counted by the week: where the week stands. It is there on every day
     /// of the week, also on the days with no slot (nothing is asked, or the count is reached).
     public let week: RoutineWeek?
+    /// For a routine "at the screen": its count. Nil for the other kinds, and while it is off.
+    public let screen: ScreenCount?
 
-    public init(routine: Routine, record: [RoutineEvent], now: Date, calendar: Calendar = .current) {
+    public init(routine: Routine, record: [RoutineEvent], now: Date, calendar: Calendar = .current,
+                screen: ScreenCount? = nil) {
         self.routine = routine
-        slots = Self.slots(of: routine, on: now, record: record, now: now, calendar: calendar)
+        slots = Self.slots(of: routine, on: now, record: record, now: now, calendar: calendar, screen: screen)
+        self.screen = routine.isOn && routine.screenMinutes != nil ? (screen ?? ScreenCount()) : nil
         week = routine.isOn ? RoutineWeek(routine: routine, record: record, on: now, calendar: calendar) : nil
     }
 
@@ -89,9 +94,17 @@ public struct RoutineDay: Equatable {
         slots.first { if case .later = $0.status { return true } else { return false } }
     }
 
+    /// For a routine "at the screen": whole minutes at the screen before it asks again.
+    public var minutesLeft: Int? {
+        guard let screen, let minutes = routine.screenMinutes else { return nil }
+        return screen.minutesLeft(of: minutes)
+    }
+
     /// The planned times of `routine` on the day that holds `day`, judged at `now`.
+    /// `screen` is only read for a routine "at the screen", and only says something
+    /// about today.
     public static func slots(of routine: Routine, on day: Date, record: [RoutineEvent], now: Date,
-                             calendar: Calendar = .current) -> [RoutineSlot] {
+                             calendar: Calendar = .current, screen: ScreenCount? = nil) -> [RoutineSlot] {
         guard routine.isOn else { return [] }
         switch routine.schedule {
         case .timesOfDay(_, let weekdays):
@@ -99,8 +112,23 @@ public struct RoutineDay: Equatable {
         case .timesPerWeek(_, _, let time):
             return weekSlot(of: routine, time: time, on: day, record: record, now: now, calendar: calendar)
         case .everyMinutesAtScreen:
-            return []       // not planned yet: see the type's comment
+            return screenSlot(of: routine, screen: screen, on: day, record: record, now: now, calendar: calendar)
         }
+    }
+
+    /// The one slot of a routine "at the screen": the occasion its count last opened
+    /// today, if any. It waits until midnight, or until the count opens the next one or
+    /// closes it (see `ScreenCount`). It leaves no `missed` line: it is simply replaced.
+    private static func screenSlot(of routine: Routine, screen: ScreenCount?, on day: Date, record: [RoutineEvent],
+                                   now: Date, calendar: Calendar) -> [RoutineSlot] {
+        guard let occasion = screen?.open, calendar.isDate(day, inSameDayAs: now),
+              calendar.isDate(occasion.due, inSameDayAs: day),
+              let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: day)) else { return [] }
+        let events = record.filter { $0.routine == routine.id && $0.slot == occasion.key }
+        let time = TimeOfDay(hour: calendar.component(.hour, from: occasion.due),
+                             minute: calendar.component(.minute, from: occasion.due))
+        return [RoutineSlot(routine: routine.id, key: occasion.key, time: time, due: occasion.due, end: midnight,
+                            status: status(due: occasion.due, end: midnight, events: events, onSince: nil, now: now))]
     }
 
     /// The one slot of a day that asks, for a routine counted by the week; none on a day
@@ -198,8 +226,18 @@ public struct RoutineDay: Equatable {
 ///     so it is kept until you are back;
 ///   - once, and once more ten minutes later if you touched nothing. Then no more banners:
 ///     the mark in the menu bar and the line in the panel stay until it is done;
-///   - after "Later", the same again from the moment you chose.
+///   - after "Later", the same again from the moment you chose;
+///   - a routine "at the screen" is not repeated: it comes back by itself;
+///   - ONE AT A TIME, over all routines: two banners are at least five minutes apart, and
+///     no more than four are shown in an hour. A reminder held back by this is not lost:
+///     the mark in the menu bar and the panel show it at once, and its banner comes when
+///     there is room (`mayShow`, `order`).
 public struct RoutinePolicy {
+
+    /// The least time between two routine banners, whatever the routines.
+    public var gapMinutes = 5
+    /// The most routine banners in any hour, over all routines.
+    public var bannersPerHour = 4
 
     /// How long "Later" puts a reminder off.
     public var laterMinutes = 15
@@ -214,13 +252,37 @@ public struct RoutinePolicy {
     }
 
     /// True when a banner for `slot` should be shown now.
-    public func bannerDue(for slot: RoutineSlot, record: [RoutineEvent], now: Date, someoneThere: Bool) -> Bool {
+    /// `repeats` false: one banner only (a routine "at the screen").
+    public func bannerDue(for slot: RoutineSlot, record: [RoutineEvent], now: Date, someoneThere: Bool,
+                          repeats: Bool = true) -> Bool {
         guard slot.status == .due, someoneThere else { return false }
         var events = record.filter { $0.routine == slot.routine && $0.slot == slot.key }
         // Banners shown before a "Later" do not count against the ones after it.
         if let later = events.lastIndex(where: { $0.action == .later }) { events.removeSubrange(...later) }
         let shown = events.filter { $0.action == .shown }
         guard let last = shown.last else { return true }
-        return shown.count < bannersPerSlot && now.timeIntervalSince(last.at) >= Double(repeatAfterMinutes) * 60
+        return repeats && shown.count < bannersPerSlot && now.timeIntervalSince(last.at) >= Double(repeatAfterMinutes) * 60
+    }
+
+    /// True when there is room for one more routine banner now: the last one, of any
+    /// routine, is far enough back, and the hour is not full.
+    public func mayShow(record: [RoutineEvent], now: Date) -> Bool {
+        let shown = record.filter { $0.action == .shown && $0.at <= now }
+        if let last = shown.last, now.timeIntervalSince(last.at) < Double(gapMinutes) * 60 { return false }
+        return shown.filter { now.timeIntervalSince($0.at) < 3600 }.count < bannersPerHour
+    }
+
+    /// Who goes first when several are due: one that has had no banner yet before the
+    /// repeat of another, then a time of day or of the week before a routine "at the
+    /// screen" (which comes back anyway), then the one waiting longest.
+    public func order(_ days: [RoutineDay], record: [RoutineEvent] = []) -> [RoutineDay] {
+        let shown = Set(record.filter { $0.action == .shown }.map { $0.routine + " " + $0.slot })
+        return days.sorted { left, right in
+            let (seenLeft, seenRight) = (shown.contains(left.due?.id ?? ""), shown.contains(right.due?.id ?? ""))
+            if seenLeft != seenRight { return !seenLeft }
+            let (a, b) = (left.screen != nil, right.screen != nil)
+            if a != b { return !a }
+            return (left.due?.due ?? .distantFuture) < (right.due?.due ?? .distantFuture)
+        }
     }
 }

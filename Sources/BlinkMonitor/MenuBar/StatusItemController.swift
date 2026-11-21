@@ -103,7 +103,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let status = model.status()
         let withRate = model.preferences.showRateInMenuBar
         // A routine waiting to be done: a dot after the rate, until it is done.
-        let routines = model.routines.due().map(\.routine.name)
+        let routines = model.routines.due().map(\.routine.title)
         guard status != shown?.status || withRate != shown?.withRate || routines != shown?.routines,
               let button = item.button else { return }
         shown = (status, withRate, routines)

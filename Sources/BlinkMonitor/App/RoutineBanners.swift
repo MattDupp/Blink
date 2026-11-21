@@ -72,11 +72,17 @@ final class RoutineBanners {
         let content = UNMutableNotificationContent()
         content.categoryIdentifier = banner.routine.sessionMinutes == nil ? Identifier.category : Identifier.timedCategory
         content.sound = nil
-        content.title = banner.routine.name
+        // `title`, not `name`: the name is typed by the user, and is cleaned once more here.
+        content.title = banner.routine.title
         if let slot = banner.slot {
             let time = Format.time(slot.due)
-            content.body = banner.kept ? "Your \(time) reminder, kept until you were back."
-                                       : "Your \(time) reminder."
+            if let minutes = banner.routine.screenMinutes {
+                // "At the screen": it has no time of its own to name.
+                content.body = "\(minutes) minutes at the screen."
+            } else {
+                content.body = banner.kept ? "Your \(time) reminder, kept until you were back."
+                                           : "Your \(time) reminder."
+            }
             if let week = banner.week { content.body += " \(week.done) of \(week.target) done this week." }
             content.userInfo = ["routine": slot.routine, "slot": slot.key]
         } else {
