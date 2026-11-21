@@ -148,8 +148,11 @@ rate in them. There is a typical one, and it depends on what you are doing:
 These are the ranges of a review of 75 years of studies (Doughty 2001). Three more things
 the studies say shaped the app:
 
-- **No rate is shown to be enough.** So the app calls the ranges typical, never ideal, and
-  they never move your limit: it shows them next to it.
+- **No rate is established as enough.** So the app calls the ranges typical, never ideal,
+  and they never move your limit: it shows them next to it. One experiment points further:
+  in 45 young adults with dry eye symptoms, half an hour at 10 blinks a minute left the
+  tear film worse than 20 a minute or their own rate (Chai 2025). It is small, tested two
+  rates and has not been repeated.
 - **Complete blinks count for more than the rate.** In a study of 453 people the share of
   incomplete blinks predicted dry eye disease, and the rate was linked to nothing measured
   on the eye surface (Wang 2025). Blink Monitor counts complete blinks and does not
@@ -160,8 +163,8 @@ the studies say shaped the app:
   when a limit sits above your own usual rate.
 
 [What is a healthy blink rate?](docs/BLINK-RATE.md) has the answer in full, a table of the
-studies, what they disagree on and the 48 sources. Of those, 10 were read in full, 36 as
-abstracts and 2 only through reviews, and the page says which.
+studies, what they disagree on and the 56 sources. Of those, 16 were read in full, 39 as
+abstracts and 1 only through a review, and the page says which.
 
 <p align="center">
   <img src="docs/img/settings-reminders-light.png" alt="Settings, Reminders tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, with the user's reference and limit marked" width="460">

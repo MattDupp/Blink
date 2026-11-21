@@ -53,10 +53,10 @@ public struct StudyRange: Equatable {
 /// What published studies say about how often healthy adults blink: the ONE place the app
 /// keeps a number that comes from a study. Every window reads it from here; a test fails if
 /// a view types one of these numbers itself. `docs/BLINK-RATE.md` is the research behind it
-/// (48 sources, read on 2026-11-21).
+/// (56 sources, read on 2026-11-21).
 ///
 /// WHAT THE NUMBERS ARE, AND ARE NOT:
-///   - They are TYPICAL ranges, not ideal ones. No study gives a rate that is "enough" for
+///   - They are TYPICAL ranges, not ideal ones. No rate is established as "enough" for
 ///     the eye surface, so nothing here is a target and the app never words it as one.
 ///   - They are ranges of the AVERAGES of groups. One healthy person can sit well outside
 ///     them: at a screen, 51 volunteers ranged from 0.4 to 18.9 (Freudenthaler 2003).
@@ -136,7 +136,7 @@ public enum PublishedRates {
 
     /// The papers behind what the app says, in the order the Sources tab lists them.
     public static let sources = [doughty2001, bentivoglio1997, freudenthaler2003, chidiEgboka2023,
-                                 wang2025, ousler2008, kim2021, tfos2023]
+                                 wang2025, chai2025, ousler2008, kim2021, tfos2023]
 
     static let doughty2001 = Citation(
         id: "doughty-2001", name: "Doughty 2001",
@@ -172,6 +172,13 @@ public enum PublishedRates {
         journal: "Contact Lens and Anterior Eye 48(3)",
         link: doi("10.1016/j.clae.2025.102369"), reading: .abstract,
         finding: "453 people. The share of incomplete blinks predicted dry eye disease. The blink rate was linked to nothing measured on the eye surface. This app counts complete blinks and does not measure incomplete ones.")
+
+    static let chai2025 = Citation(
+        id: "chai-2025", name: "Chai 2025",
+        title: "Identification of a blink frequency threshold for maintaining tear film stability in young adults with dry eye symptoms",
+        journal: "Scientific Reports 15",
+        link: doi("10.1038/s41598-025-26424-z"), reading: .fullText,
+        finding: "45 young adults with dry eye symptoms. After 30 minutes of blinking at 10 a minute, paced by a sound, their tear film was less stable and their symptoms worse than after 20 a minute or their own rate. It tested those two rates only, away from a screen, and says nothing about eyes without symptoms.")
 
     static let ousler2008 = Citation(
         id: "ousler-2008", name: "Ousler 2008",

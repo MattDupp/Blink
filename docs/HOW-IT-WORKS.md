@@ -127,7 +127,7 @@ reading or at a screen, 8.0 to 21.0 looking straight ahead, and 10.5 to 32.5 in
 conversation (Doughty 2001). The app shows these next to your own rate and limit, and
 that is all they do:
 
-- They are typical ranges, not ideal ones. No study gives a rate that is enough, so the
+- They are typical ranges, not ideal ones. No rate is established as enough, so the
   words never say "ideal", "healthy" or "normal", and a test checks the sentences.
 - They never set the limit. That stays your own reference and your floor.
 - Nothing takes a colour because of them. Only your own limit turns a bar orange.

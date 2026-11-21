@@ -344,7 +344,7 @@ struct SettingsView: View {
 
     // MARK: Sources
 
-    /// Where the app's figures come from. A list that scrolls: eight papers with what each
+    /// Where the app's figures come from. A list that scrolls: nine papers with what each
     /// found do not fit a window that small screens can show whole.
     private var sources: some View {
         VStack(alignment: .leading, spacing: 12) {

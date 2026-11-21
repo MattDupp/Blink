@@ -5,7 +5,7 @@ import BlinkCore
 /// and their sources; this is the only place that turns them into sentences.
 ///
 /// THE RULE OF THESE WORDS: the ranges are what is TYPICAL, never what is ideal, healthy or
-/// normal, and never a target. No study gives a rate that is enough (`docs/BLINK-RATE.md`),
+/// normal, and never a target. No rate is established as enough (`docs/BLINK-RATE.md`),
 /// and the app is not a medical device: it reports what studies found and stops there.
 extension StudyRange {
 
@@ -33,7 +33,7 @@ extension PublishedRates {
 
     /// Said under the strip, wherever it is shown.
     static var caption: String {
-        "Averages of groups of healthy adults (\(atScreen.source.name)). People differ a lot, and no study gives a rate that is enough: these are typical ranges, not targets."
+        "Averages of groups of healthy adults (\(atScreen.source.name)). People differ a lot, and no rate is established as enough: these are typical ranges, not targets."
     }
 
     /// Said after a comparison in the History window, which has no room for the list.

@@ -1,7 +1,8 @@
 # What is a healthy blink rate?
 
 This page is the research behind the range Blink Monitor shows. It was written on
-21 November 2026 from the published studies themselves. Each number below comes from a
+21 November 2026 from the published studies themselves, and extended the same day with
+studies from 2024 to 2026. Each number below comes from a
 source that was opened, and each source says how it was read:
 
 - **Full text**: the article itself was open, and its methods and results were read. For
@@ -48,13 +49,20 @@ what you are doing.**
    An active computer task cuts the rate by 69% compared with watching a film on the same
    screen (Skotte 2007).
 
-5. **No study gives a rate below which the eye surface suffers.** The idea is sound: the
-   tear film breaks up some seconds after a blink, and if the next blink comes later than
-   that, the surface is exposed (Ousler 2008). But the break-up time differs between
-   people, from 3.4 to 22.9 seconds in one group of healthy students (Chidi-Egboka 2023).
-   And when studies look for a link between a person's blink rate and the state of their
-   eye surface, they do not find one (Freudenthaler 2003, Schlote 2004, Wang 2018,
-   Wang 2025).
+5. **No rate is established below which the eye surface suffers, but one experiment now
+   points to one for people with symptoms.** The idea is sound: the tear film breaks up
+   some seconds after a blink, and if the next blink comes later than that, the surface is
+   exposed (Ousler 2008). But the break-up time differs between people, from 3.4 to 22.9
+   seconds in one group of healthy students (Chidi-Egboka 2023). And when studies compare
+   people, they find no link between a person's blink rate and the state of their eye
+   surface (Freudenthaler 2003, Schlote 2004, Wang 2018, Wang 2025).
+
+   The one study that changed the rate and measured the result is Chai 2025. In 45 young
+   adults with dry eye symptoms, 30 minutes of blinking at 10 a minute, paced by a sound,
+   left the tear film less stable, the eyes redder and the symptoms worse than 30 minutes
+   at 20 a minute or at their own rate. Its authors call 20 a minute a threshold. It
+   tested two rates only, in people who knew they were watched and were not working at a
+   screen, and it has not been repeated. It says nothing about healthy eyes.
 
 6. **Complete blinks matter at least as much as the rate.** In a study of 453 people, the
    share of incomplete blinks predicted dry eye disease, and the blink rate was linked to
@@ -81,7 +89,7 @@ How sure is this?
 | The rate falls while reading or working at a screen, compared with rest or conversation | Strong. Found by every study here that compared them, from 1991 to 2023, with several ways of counting. |
 | The cause is the task, not the screen | Good. Four comparisons with paper find no real difference (Chu 2014, Argilés 2015, Rosenfield 2015, Chidi-Egboka 2023). Abusharha 2017 found a lower rate with a book than with a tablet. |
 | The numbers of the typical range | Moderate. The ways of counting differ, the groups are small and mostly young, and the tasks last 2.5 to 20 minutes in a laboratory. |
-| A rate that is "enough" for the eye surface | Not established. A mechanism and a formula exist. No study confirms a threshold. |
+| A rate that is "enough" for the eye surface | Not established. A mechanism and a formula exist. One small experiment (Chai 2025) found 10 a minute worse than 20 for people with dry eye symptoms. Nothing for healthy eyes. |
 | Incomplete blinks are linked to dry eye signs | Good. Two studies of 154 and 453 people, and several smaller ones. They show a link, not a cause. |
 | Reminders to blink more reduce symptoms | Mixed. Five studies all raised the rate. Three of them improved symptoms, and only in the short term (TFOS 2023). |
 
@@ -96,9 +104,12 @@ How sure is this?
   6.1 full closures a minute during a video (Ousler 2014).
 - **30 frames a second.** A blink lasts about 0.2 seconds (Tsubota 1996), so six frames.
   The studies that describe lid movement use 120 to 250 frames a second. The app can miss
-  a very fast blink.
+  a very fast blink. One study counted blinks by eye from a webcam at 30 frames a second,
+  as this app's camera gives (Argilés 2015).
 - **All day, every task.** A study measures one task for a few minutes. The app mixes
   reading, typing, video calls and films. A video call is conversation, so the rate goes up.
+  The one study in a real office found 13 to 17 a minute over a shift of answering the
+  public (Marelli 2026).
 - **One person's model.** Its accuracy was measured on its author (see the README).
 - **Nobody is being watched by an experimenter.** People who know their blinks are counted
   may blink differently. Several studies hid the purpose for that reason.
@@ -126,7 +137,7 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 | Study | Who and how | What they found | Limits | Read as |
 |---|---|---|---|---|
 | Freudenthaler 2003 | 51 healthy volunteers. Video analysed by computer. **Complete blinks only.** 10 minutes of conversation, then 10 minutes at a screen. | Conversation 15.5 ± 13.7. At the screen 5.3 ± 4.5. Individuals at the screen: 0.4 to 18.9. Three patterns at the screen: very low (0 to 2 a minute), moderate (1.2 to 8.5) and high (6.8 to 18.9). No link between rate and tear break-up time. | A screen of 2003. The closest study to what Blink Monitor counts. | Abstract |
-| Argilés 2015 | 50 adults aged 18 to 74 without dry eye symptoms. Face filmed for 6 minutes in each of seven conditions. | Looking at a picture 2 m away: median 15.5. Reading on a computer: 6.5. On a tablet: 6. A book: 5. The computer text enlarged: 11.5. Incomplete blinks: 9% to 14.5% on screens, 0% to 5% on paper. | The spread is wide: the middle half of people covers 9 to 16 blinks a minute, depending on the condition. | Abstract, and the table through Sheppard 2018 |
+| Argilés 2015 | 50 adults aged 18 to 74 (34 ± 16) without dry eye symptoms, not told that blinks were counted. Face filmed at 60 frames a second, or by a webcam at 30. Two examiners counted. A blink was complete when none of the cornea stayed visible. | Looking at a picture 2 m away: median 15.5. Reading on a computer: 6.5. On a tablet: 6. A book: 5. The computer text enlarged: 11.5. Incomplete blinks: 9% to 14.5% on screens, 0% to 5% on paper. Women blinked more than men in almost every condition. | The spread is wide. The authors say 80 people were needed to be sure about incomplete blinks. | Full text |
 | Talens-Estarelles 2022 | 32 healthy adults aged 20 to 26. Infrared camera at 250 frames a second. 150 seconds per condition. | Looking at a cross 3 m away: 20.4 (95% interval 16.2 to 24.5). Laptop 9.8 (6.9 to 12.8). Tablet 10.2. E-reader 9.7. Phone 11.1. Incomplete blinks: 56% on the laptop, 38% looking at the cross. | Very short recordings. A chin rest. | Full text |
 | Portello 2013 | 21 people reading on a desktop computer for 15 minutes, filmed. | 11.6 ± 7.8. Incomplete blinks 16.1% ± 15.7, from 0.9% to 56.5%. More incomplete blinks went with more symptoms. A sound that raised the rate to 23.5 did not change symptoms. | Small. | Abstract |
 | Chu 2014 | 25 people reading the same text for 20 minutes on a computer and on paper, matched for size and contrast. | Computer 14.9, paper 13.6: no difference. Incomplete blinks 7.0% on the computer, 4.3% on paper. | Small. | Abstract |
@@ -135,7 +146,13 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 | Ousler 2014 | 10 healthy people and 11 with dry eye, watching a 10 minute video. A camera on a headset, blinks sorted by hand. | Healthy: 13.2 blinks in all, of which 6.1 full closures. Dry eye: 28.6 in all, 14.1 full closures. About half of all blinks were partial in both groups. | Small. | Full text |
 | Johnston 2013 | 10 healthy people and 10 with dry eye, watching a 10 minute documentary. | Time between blinks: 5.97 s healthy, 2.56 s dry eye. | Small. The groups differ in age. | Full text |
 | Patel 1991 | Healthy people before and during work at a display. | 18.4 before, 3.6 during. Tear stability unchanged. The time between blinks was related to tear stability. | A display of 1991. | Abstract. The two figures through TFOS 2023 and Sheppard 2018 |
-| Tsubota and Nakamori 1993 | Office workers. | Relaxed 22. Reading a book 10. At a display 7. | A display of 1993. | Not opened. Through TFOS 2023 and Sheppard 2018 |
+| Tsubota and Nakamori 1993 | 104 healthy office workers aged 20 to 69, none with eye fatigue. | Relaxed 22 ± 9. Reading a book at table level 10 ± 6. Reading text at a display 7 ± 7. The eye is open twice as wide at a display as over a book (2.3 against 1.2 cm²), and tears evaporate faster from a wider surface. | A letter: how blinks were counted is not said. A display of 1993. | Full text |
+| Marelli 2026 | 38 clerks of a hospital booking centre, aged 37 ± 11, during a real shift. An eye-tracking headset. | 13.1 ± 8.3 at the start of the shift, 17.0 ± 12.3 at the end. Their eyes were on the screen about 60% of the time. No link between time looking at the screen and eye findings. | Not all healthy: the tear film broke up too soon in 47%. The work is talking to the public as much as reading. | Full text |
+| Nagarajan 2024 | 30 adults aged 27 ± 4 reading on a screen, three times 3 minutes. An eye tracker, checked against a count by eye. | Median 11.7 (middle half 6.8 to 15.5). The tracker and the count by eye agree. | Short. | Abstract |
+| Dandumahanti 2025 | 30 young adults on a phone for an hour: a book, videos, short clips. An eye-activity device. | Averages of 12.4 to 13.6 over the hour. The rate fell by 54% to 61% from the first quarter of an hour to the last. | Phones. No tear film measured. | Full text |
+| Argilés 2026 | 20 casual players aged 26 ± 5, three video games. A headset at 200 frames a second, complete blinks counted. | Before playing 12.8 ± 8.4. Watching a game: about 5 fewer. Playing an action game: about 9 fewer. Fewer blinks in fast scenes. No change in incomplete blinks. | Small. Two minutes per condition. | Full text |
+| Khezrzade 2024 | 30 young adults with healthy eyes reading the same text for 30 minutes on paper and on a laptop. | Tear break-up time fell from 13 s to 10 s after paper and to 7 s after the laptop. | Blinks were not counted. | Abstract |
+| Lin 2026 | 30 young adults reading on a phone for 30 minutes in four lightings. Infrared camera. | Incomplete blinks rose over time in every lighting, most with a bright screen in a dark room, and went with more visual fatigue. | Phones. | Abstract |
 | Rosenfield 2015 | 16 teenagers reading easy and hard text on a tablet and on paper. | Easy text: tablet 8.3, paper 9.1. Hard text: tablet 7.4, paper 6.7. The difficulty mattered more than the screen. | Teenagers. | Not opened. Through Sheppard 2018 |
 | Golebiowski 2020 | 12 adults aged 18 to 23 reading on a phone for 60 minutes. | Incomplete blinks rose from 6 to 15 a minute. The total rate did not change significantly. More incomplete blinks went with worse symptoms. | Small. | Abstract |
 | Hirota 2013 | 11 healthy adults playing a computer game for 60 minutes, filmed by a webcam on the display. | The total rate changed little. The tear break-up time fell from 8.6 s to 4.3 s at 30 minutes, then recovered as incomplete blinks became fewer. The authors conclude that the tear film stays stable while almost all blinks are complete. | Small. | Abstract |
@@ -154,6 +171,7 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 | Schlote 2004 | 30 dry eye patients. Video analysed by computer, complete blinks only. | Conversation 16.8 ± 16.8. At a screen 6.6 ± 4.8. After 30 minutes 5.9 ± 4.6. No link between rate and tear measurements. | Patients, not healthy adults. | Abstract |
 | Wang 2018 | 154 people, half with incomplete blinking, matched for age, sex and ethnicity. | Incomplete blinking: 2.2 times the odds of dry eye disease (1.2 to 4.2). The blink rate was linked to nothing measured on the eye surface. | One visit. A link, not a cause. | Abstract |
 | Wang 2025 | 453 community residents aged 37 ± 19. Blinks judged by an observer who did not know the other results. | Each 10% more incomplete blinks: 1.12 times the odds of dry eye disease (1.05 to 1.19). The best cut was 40% incomplete. The blink rate was linked to nothing. | One visit. A link, not a cause. | Abstract |
+| Chai 2025 | 45 adults aged 19 to 28 with dry eye symptoms. First their own rate while talking (27.4 ± 13.4, from 8 to 66), by an eye-tracking headset. Then three sessions of 30 minutes in random order: their own rate, 10 a minute and 20 a minute, paced by a sound. | After 10 a minute: a lower tear meniscus, a shorter break-up time, redder eyes and worse symptoms than after their own rate. No difference between 20 a minute and their own rate. The authors propose 20 a minute as a threshold. | Two paced rates only, so the threshold lies somewhere between 10 and 20. People with symptoms, not healthy eyes. They knew they were watched. Not at a screen. Not repeated. | Full text |
 | Jie 2019 | 58 eyes of dry eye patients. | Incomplete blinks went with a shorter break-up time, more symptoms and more gland loss. Complete blinks went with break-up time only. | Patients only. Looked back at records. | Abstract |
 | McMonnies 2007, 2021 | Two reviews of incomplete blinking. | For the lower part of the cornea, an incomplete blink about doubles the time between blinks. Measuring the total blink rate alone is "of reduced usefulness". | The opinion of one author. | Abstract |
 | Ong 2026 | A review of 42 studies of devices and apps that analyse blinks. | Partial blinks go with a damaged eye surface. The methods differ from one tool to the next, and their accuracy is not validated well enough. | Covers clinical devices more than webcams. | Abstract |
@@ -168,6 +186,7 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 | Ashwini 2021 | 46 computer users with dry eye, randomised. The same kind of software with 8 reminders a minute, against 1 a minute, for 15 days. | Symptom score and blink rate both better in the reminder group. | Small. | Abstract |
 | Kim 2021 | 54 people with dry eye symptoms. Ten seconds of blinking exercises every 20 minutes, for four weeks. 41 finished. | Symptom score from 36 to 22. Break-up time from 6.5 to 8.1 s. Incomplete blinks from 54% to 34%. | No control group. A quarter dropped out. | Abstract |
 | Wolffsohn 2025 | 98 people with dry eye, then 28, using an app that teaches blinking exercises. | Fewer symptoms and fewer incomplete blinks. No change in the blink rate or the break-up time. The gain was gone two weeks after stopping. | Two weeks of use. | Abstract |
+| Xu 2025 | 40 young adults with dry eye, randomised: a phone app that trains blinking for 30 days, or nothing. | With the app: a higher blink rate, fewer incomplete blinks, a more stable tear film and fewer symptoms. No real change without it. The symptom score was still better 30 days after stopping. | Small. The control group did nothing, so there was no placebo. | Abstract |
 | Talens-Estarelles 2023 | 29 computer users with symptoms. Software that watches through the webcam and reminds them to take breaks. | Fewer symptoms while the reminders ran. Not kept one week after. No change in what was measured on the eye. | Small. Two weeks. | Abstract |
 
 ### What the clinical bodies say
@@ -184,10 +203,14 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
   Tsubota 1993). Controlled comparisons say no (Chu 2014, Rosenfield 2015,
   Chidi-Egboka 2023). One found the opposite (Abusharha 2017), and the TFOS report cites
   two in which a tablet lowered the rate more than a printed page. The best reading is
-  that the task matters most, and that the old displays were harder to read.
+  that the task matters most, and that the old displays were harder to read. The tear
+  film may still fare worse at a screen for the same rate: it broke up sooner after a
+  laptop than after paper (Khezrzade 2024), and the eye is open wider (Tsubota 1993).
 - **Does the rate predict symptoms or signs?** Portello 2013 found a weak link with
   symptoms. Chidi-Egboka 2023, Freudenthaler 2003, Schlote 2004, Wang 2018 and Wang 2025
-  found none with symptoms or signs.
+  found none with symptoms or signs. All of these compare people with each other. Chai
+  2025 changed the rate within each person, and there a low rate did harm. The two can
+  both be true: people may each blink as often as their own eyes need.
 - **How many blinks are incomplete?** From 7% to 56% at a computer. Each study draws the
   line between complete and incomplete differently, and faster cameras see more.
 - **Do men and women differ?** Sforza 2008 found women at 19 and men at 11. Doughty 2002
@@ -200,14 +223,17 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 
 - Nobody with clinical training reviewed it. It is a careful reading, not a systematic
   review: there was no fixed search protocol and no formal grading of the studies.
-- Of 48 sources, 10 were read in full, 36 as abstracts and 2 only through reviews. An
+- Of 56 sources, 16 were read in full, 39 as abstracts and 1 only through a review. An
   abstract can leave out limits that the article states.
-- Four articles could not be opened in full although they matter here: Doughty 2001
-  (the source of the three ranges), Argilés 2015, Tsubota and Nakamori 1993 and
-  Rosenfield 2015. Their figures come from abstracts or from the two reviews named.
+- Two articles could not be opened in full although they matter here. Doughty 2001, the
+  source of the three ranges, is behind a paywall: its figures come from its abstract.
+  Two later papers repeat its average for reading, 7.9 ± 3.3, and the range for reading
+  is that average with twice its spread on each side. Rosenfield 2015 is given through a
+  review.
 - The three ranges describe the **averages of groups**. One person can sit well outside
   them and be healthy.
-- Almost all studies last minutes, in a laboratory, with young adults. Nobody has measured
+- Almost all studies last minutes, in a laboratory, with young adults. One measured office
+  workers at the start and the end of a real shift (Marelli 2026). Nobody has measured
   healthy adults at a screen for whole working days.
 - One number in this page is arithmetic, not a finding: with a tear break-up time of 10
   seconds and evenly spaced blinks, the Ocular Protection Index falls under 1 below 6
@@ -223,17 +249,22 @@ Each link is the article's permanent address.
 - Abusharha AA. Changes in blink rate and ocular symptoms during different reading tasks. *Clin Optom.* 2017;9:133-138. <https://doi.org/10.2147/OPTO.S142718>
 - American Academy of Ophthalmology. Computers, Digital Devices, and Eye Strain. Published 27 June 2024. <https://www.aao.org/eye-health/tips-prevention/computer-usage>
 - American Optometric Association. Computer vision syndrome. <https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome>
+- Argilés M, Cardona G, Pérez-Cabré E, Rodríguez M. Blink rate and incomplete blinks in six different controlled hard-copy and electronic reading conditions. *Invest Ophthalmol Vis Sci.* 2015;56(11):6679-6685. <https://doi.org/10.1167/iovs.15-16967>
+- Argilés M, Cardona G, Valentino M. Characterization of eye blink parameters during high and low-dynamic scenes in different video game genres. *J Optom.* 2026;19(1):100584. <https://doi.org/10.1016/j.optom.2025.100584>
+- Chai Y, Cheng M, Liu X, et al. Identification of a blink frequency threshold for maintaining tear film stability in young adults with dry eye symptoms. *Sci Rep.* 2025;15:42321. <https://doi.org/10.1038/s41598-025-26424-z>
 - Chidi-Egboka NC, Jalbert I, Chen J, Briggs NE, Golebiowski B. Blink rate measured in situ decreases while reading from printed text or digital devices, regardless of task duration, difficulty, or viewing distance. *Invest Ophthalmol Vis Sci.* 2023;64(2):14. <https://doi.org/10.1167/iovs.64.2.14>
+- Dandumahanti BP, Chittoor PK, Subramaniyam M. Digital eye strain monitoring for one-hour smartphone engagement through eye activity measurement system. *J Eye Mov Res.* 2025;18(4):34. <https://doi.org/10.3390/jemr18040034>
 - Doughty MJ. Effect of distance vision and refractive error on the spontaneous eye blink activity in human subjects in primary eye gaze. *J Optom.* 2019;12(2):111-119. <https://doi.org/10.1016/j.optom.2018.03.004>
 - Johnston PR, Rodriguez J, Lane KJ, Ousler G, Abelson MB. The interblink interval in normal and dry eye subjects. *Clin Ophthalmol.* 2013;7:253-259. <https://doi.org/10.2147/OPTH.S39104>
+- Marelli E, Ruongo D, Beschi G, et al. Objective assessment of visual workload in video display terminal workers using a non-invasive monitoring system. *Med Lav.* 2026;117(3):18795. <https://doi.org/10.23749/mdl.2026.18795>
 - Ousler GW, Abelson MB, Johnston PR, Rodriguez J, Lane K, Smith LM. Blink patterns and lid-contact times in dry-eye and normal subjects. *Clin Ophthalmol.* 2014;8:869-874. <https://doi.org/10.2147/OPTH.S56783>
 - Sheppard AL, Wolffsohn JS. Digital eye strain: prevalence, measurement and amelioration. *BMJ Open Ophthalmol.* 2018;3:e000146. <https://doi.org/10.1136/bmjophth-2018-000146>
+- Tsubota K, Nakamori K. Dry eyes and video display terminals. *N Engl J Med.* 1993;328(8):584. <https://doi.org/10.1056/NEJM199302253280817>
 - Talens-Estarelles C, Esteve-Taboada JJ, Sanchis-Jurado V, Pons ÁM, García-Lázaro S. Blinking kinematics characterization during digital displays use. *Graefes Arch Clin Exp Ophthalmol.* 2022;260(4):1183-1193. <https://doi.org/10.1007/s00417-021-05490-9>
 - Wolffsohn JS, Lingham G, Downie LE, et al. TFOS Lifestyle: Impact of the digital environment on the ocular surface. *Ocul Surf.* 2023;28:213-252. <https://doi.org/10.1016/j.jtos.2023.04.004>. Read as the accepted manuscript: <https://openaccess.city.ac.uk/id/eprint/31838/>
 
 **Read as abstracts**
 
-- Argilés M, Cardona G, Pérez-Cabré E, Rodríguez M. Blink rate and incomplete blinks in six different controlled hard-copy and electronic reading conditions. *Invest Ophthalmol Vis Sci.* 2015;56(11):6679-6685. <https://doi.org/10.1167/iovs.15-16967>
 - Ashwini DL, Ve RS, Nosch D, Wilmot N. Efficacy of blink software in improving the blink rate and dry eye symptoms in visual display terminal users. *Indian J Ophthalmol.* 2021;69:2643-2648. <https://doi.org/10.4103/ijo.IJO_3405_20>
 - Bentivoglio AR, Bressman SB, Cassetta E, Carretta D, Tonali P, Albanese A. Analysis of blink rate patterns in normal subjects. *Mov Disord.* 1997;12(6):1028-1034. <https://doi.org/10.1002/mds.870120629>
 - Cardona G, García C, Serés C, Vilaseca M, Gispets J. Blink rate, blink amplitude, and tear film integrity during dynamic visual display terminal tasks. *Curr Eye Res.* 2011;36(3):190-197. <https://doi.org/10.3109/02713683.2010.544442>
@@ -249,9 +280,12 @@ Each link is the article's permanent address.
 - Inomata T, Iwagami M, Hiratsuka Y, et al. Maximum blink interval is associated with tear film breakup time. *Sci Rep.* 2018;8:13443. <https://doi.org/10.1038/s41598-018-31814-7>
 - Jie Y, Sella R, Feng J, Gomez ML, Afshari NA. Evaluation of incomplete blinking as a measurement of dry eye disease. *Ocul Surf.* 2019;17(3):440-446. <https://doi.org/10.1016/j.jtos.2019.05.007>
 - Jones L, Craig JP, Markoulli M, et al. TFOS DEWS III: Management and Therapy. *Am J Ophthalmol.* 2025;279:289-386. <https://doi.org/10.1016/j.ajo.2025.05.039>
+- Khezrzade S, Ehsaei A, Momeni-Moghaddam H, Wolffsohn JS, Oladi Abbas Abadi S. After-effect on tear film quality and quantity of reading on laptop computer screen versus hardcopy. *Clin Exp Optom.* 2024;107(5):499-503. <https://doi.org/10.1080/08164622.2023.2241053>
 - Kim AD, Muntz A, Lee J, Wang MTM, Craig JP. Therapeutic benefits of blinking exercises in dry eye disease. *Cont Lens Anterior Eye.* 2021;44(3):101329. <https://doi.org/10.1016/j.clae.2020.04.014>
+- Lin M, Zheng X, He C, Li M, Lu F, Hu L. Effects of ambient illuminance and mobile phone screen brightness on tear film stability, visual fatigue, and blink patterns during reading. *Cont Lens Anterior Eye.* 2026;49(1):102515. <https://doi.org/10.1016/j.clae.2025.102515>
 - McMonnies CW. Incomplete blinking: exposure keratopathy, lid wiper epitheliopathy, dry eye, refractive surgery, and dry contact lenses. *Cont Lens Anterior Eye.* 2007;30(1):37-51. <https://doi.org/10.1016/j.clae.2006.12.002>
 - McMonnies CW. Diagnosis and remediation of blink inefficiency. *Cont Lens Anterior Eye.* 2021;44(3):101331. <https://doi.org/10.1016/j.clae.2020.04.015>
+- Nagarajan K, Ravi K, Periakaruppan SP, Satgunam P. When noise becomes signal: a study of blink rate using an eye tracker. *Ocul Surf.* 2024;34:516-520. <https://doi.org/10.1016/j.jtos.2024.11.002>
 - Nakamori K, Odawara M, Nakajima T, Mizutani T, Tsubota K. Blinking is controlled primarily by ocular surface conditions. *Am J Ophthalmol.* 1997;124(1):24-30. <https://doi.org/10.1016/s0002-9394(14)71639-3>
 - Nielsen PK, Søgaard K, Skotte J, Wolkoff P. Ocular surface area and human eye blink frequency during VDU work: the effect of monitor position and task. *Eur J Appl Physiol.* 2008;103(1):1-7. <https://doi.org/10.1007/s00421-007-0661-y>
 - Nosch DS, Foppa C, Tóth M, Joos RE. Blink animation software to improve blinking and dry eye symptoms. *Optom Vis Sci.* 2015;92(9):e310-e315. <https://doi.org/10.1097/OPX.0000000000000654>
@@ -268,9 +302,9 @@ Each link is the article's permanent address.
 - Wang MTM, Tien L, Han A, et al. Impact of blinking on ocular surface and tear film parameters. *Ocul Surf.* 2018;16(4):424-429. <https://doi.org/10.1016/j.jtos.2018.06.001>
 - Wang MTM, Power B, Xue AL, Craig JP. Blink completeness and rate in dry eye disease: an investigator-masked, prospective registry-based, cross-sectional, prognostic study. *Cont Lens Anterior Eye.* 2025;48(3):102369. <https://doi.org/10.1016/j.clae.2025.102369>
 - Wolffsohn JS, Travé-Huarte S, Bahra I, et al. Optimisation of blinking exercises for dry eye disease. *Cont Lens Anterior Eye.* 2025;48(5):102453. <https://doi.org/10.1016/j.clae.2025.102453>
+- Xu Z, Shen J, Jiang M, et al. A smartphone-based blink training application for alleviating dry eye signs and symptoms. *NPJ Digit Med.* 2025;8:703. <https://doi.org/10.1038/s41746-025-02053-8>
 - Zaman ML, Doughty MJ. Some methodological issues in the assessment of the spontaneous eyeblink frequency in man. *Ophthalmic Physiol Opt.* 1997;17(5):421-432. <https://doi.org/10.1046/j.1475-1313.1997.97000252.x>
 
-**Not opened: figures through the reviews named**
+**Not opened: figures through the review named**
 
 - Rosenfield M, Jahan S, Nunez K, Chan K. Cognitive demand, digital screens and blink rate. *Comput Human Behav.* 2015;51:403-406. <https://doi.org/10.1016/j.chb.2015.04.073>. Through Sheppard and Wolffsohn 2018.
-- Tsubota K, Nakamori K. Dry eyes and video display terminals. *N Engl J Med.* 1993;328(8):584. <https://doi.org/10.1056/NEJM199302253280817>. Through TFOS Lifestyle 2023 and Sheppard and Wolffsohn 2018.
