@@ -122,7 +122,9 @@ monitor: monitor-app  ## Install the menu-bar app in ~/Applications and start it
 	@# Which model it uses: the one trained in the app when there is one, else the one built in.
 	@if [ -f "$(HOME)/Library/Application Support/BlinkMonitor/model/eyenet.weights" ] && [ -d "$(MODEL)" ]; then \
 		echo "Note: a model trained in the app is in use, not $(MODEL). Settings > Your Model deletes it."; fi
-	@$(if $(WHOLE_FRAMES),echo "WHOLE FRAMES: the captures of the Live View window also keep the whole camera picture, in $(DATA)/replay.")
+	@# (No comma in this sentence: inside make's "if" function a comma starts the "else"
+	@# part, which make then ran as a command whenever WHOLE_FRAMES was not set.)
+	@$(if $(WHOLE_FRAMES),echo "WHOLE FRAMES: the captures of the Live View window also keep the whole camera picture in $(DATA)/replay.")
 
 # PACE=1: hand the frames over at the camera's pace, and report what each stage costs.
 replay: $(MODEL)  ## Judge the eye finding: run the captures that kept whole frames through it again, and count
