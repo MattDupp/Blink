@@ -9,7 +9,10 @@ import Testing
 ///
 /// No real eye is needed: the trainer is given painted eyes (`PaintedEye`), a task whose
 /// right answer is known and that it must learn in seconds.
-@Suite("Training in the app")
+///
+/// The suite runs its tests one after the other: two of them train on the graphics
+/// processor, and trainings are never run side by side (docs/LESSONS.md, number 8).
+@Suite("Training in the app", .serialized)
 struct TrainingTests {
 
     /// Weights that make the network answer one known number: every detector is zero, so

@@ -86,7 +86,9 @@ evaluate:  ## Measure blink counting on your captures (models that never saw the
 	@scripts/doctor.sh uv
 	cd training && uv run python evaluate.py
 
-# COMPARE_SEEDS=7,8,9 (the default) takes about 20 minutes; each seed more adds three trainings a side.
+# A long job on the graphics processor: run it alone, never beside another training
+# (docs/LESSONS.md, number 8). COMPARE_SEEDS=7,8,9 is the default; each seed more adds
+# three trainings a side.
 compare:  ## Measure the app's own trainer against the Python route: same pictures, same splits
 	@scripts/doctor.sh mac swift uv
 	swift build -c release --product BlinkTrain $(QUIET)

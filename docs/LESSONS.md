@@ -5,7 +5,7 @@ my own recordings: one person, one morning.
 
 ## 1. The labels were wrong before the model was
 
-The recorder labels pictures by instruction: a voice says "eyes open", and everything
+A recording labels pictures by instruction: a voice says "eyes open", and everything
 filmed during the next three seconds is saved as "open". But people blink, including
 during an "eyes open" pose.
 
@@ -185,10 +185,20 @@ aborted, restarted and aborted again, twelve times in two minutes. One minute ea
 comparison had printed a line that said the same thing in other words: 11,441 of 11,833
 pictures "could not be read", because macOS was already refusing graphics memory to it.
 
-The likely cause is in the remedy itself. The new version receives fifty arrays from the
+The cause was in the remedy itself. The new version receives fifty arrays from the
 graphics processor at every step. Such objects are freed when a "pool" is emptied, and a
-program that only loops never empties one, so every step's arrays stayed. This was
-reasoned from the reports afterwards. It was not reproduced, on purpose.
+program that only loops never empties one, so every step's arrays stayed.
+
+That was first reasoned from the reports, then measured, this time with the owner's
+agreement, one program at a time, under a guard that reads the memory every three seconds
+and stops the program above a limit:
+
+| One training of 4,450 pictures, 20 s | Memory during the training |
+|---|---|
+| No pool emptied at each step | 880 MB rising to 2,134 MB in 15 s: about 65 MB a second |
+| A pool emptied at each step | 1,131 to 1,137 MB: flat |
+
+Three such programs had been running at once, two of them with no end.
 
 Three mistakes, in the order they were made:
 
@@ -201,9 +211,10 @@ Three mistakes, in the order they were made:
   the comparison was started again on top of it.
 
 What changed: every step now empties its pool, the loader no longer asks for graphics
-memory to read a file, a training refuses to start when many pictures are missing, and
-the soak test is gone. Whether keeping the weights outside the graph ends the original
-assertion is not known: the measurement that would say so is the one that was stopped.
+memory to read a file, a training refuses to start when many pictures are missing, the
+tests that train never run two at a time, and the soak test is gone. Whether keeping the
+weights outside the graph ends the original assertion is not known: the measurement that
+would say so is the one that was stopped.
 
 **What I keep from it:** a test that pushes a machine to find a rare failure is itself a
 dangerous program. It gets a memory ceiling, a time limit, one job at a time, and the

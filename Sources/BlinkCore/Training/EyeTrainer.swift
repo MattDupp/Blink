@@ -12,18 +12,20 @@ import MetalPerformanceShadersGraph
 /// ReLU and 2x2 max pool, then an average, dropout and one weighted sum. Same training:
 /// AdamW, a one-cycle learning rate, binary cross-entropy, 128 pictures a step, 30 passes.
 ///
-/// MEASURED against the Python route (2026-11-20, the same pictures and the same splits,
-/// scored by training/evaluate.py's own functions; M5 Pro):
+/// MEASURED against the Python route (2026-11-21, `make compare`: the same pictures and
+/// the same splits, scored by training/evaluate.py's own functions; M5 Pro, each side
+/// running alone):
 ///
 ///                         pictures right, session never seen    blinks found / false, 13 seeds    one training
-///     Python (PyTorch)    99.68%                                936 of 936 / 6                    11 s
-///     this trainer        99.62%                                936 of 936 / 7                    19 s
-///     Core ML's own       98.39%                                211 of 216 / 7 (3 seeds)          37 s
+///     Python (PyTorch)    99.68% (15 wrong of 4,713)            936 of 936 / 6                    11 s
+///     this trainer        99.58% (20 wrong)                     936 of 936 / 7                    17 s
 ///
-/// Core ML's on-device training (MLUpdateTask) can only train convolutions and
-/// fully-connected layers: batch normalisation, dropout and the learning-rate schedule are
-/// lost, and it falls under the bar of 72 of 72 blinks. `make compare` runs the comparison
-/// again (docs/DEVELOPMENT.md).
+/// Every seed of both found all 72 marked blinks with at most 1 false one.
+///
+/// Core ML's own on-device training (MLUpdateTask) was measured the same way before this
+/// was written (2026-11-20, commit e2cb8a9): it can only train convolutions and
+/// fully-connected layers, so batch normalisation, dropout and the learning-rate schedule
+/// are lost, and it found 211 of 216 blinks on three seeds, in 37 s a training.
 public final class EyeTrainer {
 
     static let channels = EyeNetWeights.channels
@@ -230,12 +232,14 @@ public final class EyeTrainer {
     /// THE POOL IS NOT A DETAIL. What the graph returns is handed over "autoreleased": it
     /// is only freed when the surrounding pool is emptied, and a program that just loops
     /// never empties one. Each step returns fifty arrays that live on the graphics
-    /// processor. The first run of this version had no pool here, in three trainings side
-    /// by side: within three minutes macOS could no longer create a graphics surface, the
-    /// window server aborted twelve times in a row, and the Mac had to be forced off
-    /// (2026-11-21, docs/LESSONS.md number 8). Arrays kept from every step are the likely
-    /// cause; it was reasoned from the crash reports, not reproduced.
-    /// With the pool, a step's arrays are freed as soon as the next step has replaced them.
+    /// processor.
+    ///
+    /// MEASURED (2026-11-21, one training of 4,450 pictures, memory read every 3 s):
+    /// without a pool here the program's memory went from 880 to 2,134 MB in 15 s, about
+    /// 65 MB a second; with it, it stayed between 1,131 and 1,137 MB. The first run of
+    /// this version had no pool, in three trainings side by side: within three minutes
+    /// macOS could no longer create a graphics surface, the window server aborted twelve
+    /// times in a row, and the Mac had to be forced off (docs/LESSONS.md, number 8).
     private func advance(_ feeds: [MPSGraphTensor: MPSGraphTensorData]) -> Float {
         autoreleasepool {
             var value: Float = 0

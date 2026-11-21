@@ -59,11 +59,12 @@ public enum SessionScript {
 
     /// Sessions to record before the first training.
     ///
-    /// MEASURED (2026-11-20, the in-app trainer on recorder sessions only, counting the 72
-    /// marked blinks of three captures, over every choice of sessions): one session found
-    /// 54 to 70 of them, two found 66 to 72, three 67 to 71, four 71. One session is a
-    /// gamble; two are as good as four on this data. One person, one morning: a third
-    /// session in another light is still worth its two minutes.
+    /// MEASURED (2026-11-21, `make compare`: the app's trainer on recorded sessions only,
+    /// counting the 72 marked blinks of three captures, over every choice of sessions):
+    /// one session found 55 to 70 of them (63 on average), two found 60 to 72 (69), three
+    /// 67 to 71 (70), four 71. One session is a gamble; two are close to four on average.
+    /// One person, one morning: a third session in another light is still worth its two
+    /// minutes, and the test at the end of setup is what decides.
     public static let sessionsBeforeTraining = 2
 
     public static let phases: [Phase] = [
