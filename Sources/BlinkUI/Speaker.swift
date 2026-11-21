@@ -3,19 +3,19 @@ import AVFoundation
 /// Says the instructions aloud. Half of every session is spent with your eyes closed,
 /// so the screen alone cannot guide you.
 @MainActor
-final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
+public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
 
     private let synthesizer = AVSpeechSynthesizer()
     private var waiting: CheckedContinuation<Void, Never>?
     private var generation = 0
 
-    override init() {
+    public override init() {
         super.init()
         synthesizer.delegate = self
     }
 
     /// Speaks, and returns when the sentence is finished.
-    func say(_ text: String) async {
+    public func say(_ text: String) async {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         generation += 1
@@ -34,7 +34,7 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
-    func stop() {
+    public func stop() {
         synthesizer.stopSpeaking(at: .immediate)
         finish()
     }
@@ -44,11 +44,11 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         waiting = nil
     }
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+    public nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in self.finish() }
     }
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+    public nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor in self.finish() }
     }
 }

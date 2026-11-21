@@ -20,9 +20,13 @@ struct ModelTests {
         let closed: Double
     }
 
-    static let modelURL = Fixture.projectRoot.appendingPathComponent("models/EyeNet.mlmodelc", isDirectory: true)
-    static let referenceURL = Fixture.projectRoot.appendingPathComponent("models/eyenet_reference.json")
+    static let modelURL = Fixture.models.appendingPathComponent("EyeNet.mlmodelc", isDirectory: true)
+    static let referenceURL = Fixture.models.appendingPathComponent("eyenet_reference.json")
+    /// The same model in the app's own format (training/convert.py writes both).
+    static let weightsURL = Fixture.models.appendingPathComponent("eyenet.weights")
     static let available = FileManager.default.fileExists(atPath: modelURL.path)
+        && FileManager.default.fileExists(atPath: referenceURL.path)
+    static let weightsAvailable = FileManager.default.fileExists(atPath: weightsURL.path)
         && FileManager.default.fileExists(atPath: referenceURL.path)
 
     @Test("Swift gives Python's answers on real pictures", .enabled(if: available, "no trained model on this machine"))
@@ -33,7 +37,7 @@ struct ModelTests {
         var compared = 0, worst = 0.0, wrongLabel = 0
         for reference in references {
             // A picture may have been cleaned out of the dataset since the file was written.
-            guard let picture = PNGFile.read(Fixture.projectRoot.appendingPathComponent(reference.file)) else { continue }
+            guard let picture = PNGFile.read(Fixture.dataHome.appendingPathComponent(reference.file)) else { continue }
             let answer = try classifier.closedProbability(of: picture)
             compared += 1
             worst = max(worst, abs(answer - reference.closed))
@@ -41,6 +45,29 @@ struct ModelTests {
         }
         #expect(compared >= 10, "only \(compared) reference pictures were found")
         #expect(worst < 0.01, "largest difference \(worst)")
+        #expect(wrongLabel == 0)
+    }
+
+    /// The models trained in the app are run by `EyeNetwork`, the network written out in
+    /// Swift. Given the Python model's weights it must give the Python model's answers:
+    /// that is what says its arithmetic is the network's, and not something close to it.
+    @Test("The network written in Swift gives Python's answers on real pictures",
+          .enabled(if: weightsAvailable, "no model in the app's format on this machine (make train writes it)"))
+    func networkInSwiftMatchesPython() throws {
+        let network = EyeNetwork(weights: try EyeNetWeights(contentsOf: Self.weightsURL))
+        let references = try JSONDecoder().decode([Reference].self, from: Data(contentsOf: Self.referenceURL))
+
+        var compared = 0, worst = 0.0, wrongLabel = 0
+        for reference in references {
+            guard let picture = PNGFile.read(Fixture.dataHome.appendingPathComponent(reference.file)),
+                  let buffer = EyeCropper.buffer(from: picture) else { continue }
+            let answer = try network.closedProbability(of: buffer)
+            compared += 1
+            worst = max(worst, abs(answer - reference.closed))
+            if (answer > 0.5) != (reference.label == "closed") { wrongLabel += 1 }
+        }
+        #expect(compared >= 10, "only \(compared) reference pictures were found")
+        #expect(worst < 0.001, "largest difference \(worst)")
         #expect(wrongLabel == 0)
     }
 

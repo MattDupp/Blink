@@ -1,4 +1,4 @@
-# Seven things this project taught me
+# Eight things this project taught me
 
 Each of these looked fine until something was measured or looked at. The numbers are from
 my own recordings: one person, one morning.
@@ -166,3 +166,46 @@ that its windows can be exercised without a face.
 bug, and the tests built on it will never show it. And the first plausible explanation
 of a symptom is a hypothesis: the chart was "explained" and decorated before anyone
 checked what it was drawing.
+
+## 8. The test that took the Mac down
+
+Training moved into the app, written in Swift on Apple's MPSGraph. Twice in about 280
+trainings, the framework ended the program with an assertion of its own, deep in the way
+it stores weights between steps ("variables"). The remedy looked clean: keep the weights
+outside the graph, hand them in at each step and take the new ones back, as PyTorch does.
+
+To know whether the remedy worked, a "soak" test was written: both versions, training in
+a loop as fast as they could, side by side, for 45 minutes, while a third program ran the
+full comparison with Python. It was started in the background and left alone.
+
+Three minutes later the Mac's screen went black and it had to be forced off.
+
+What the reports say: the window server tried to create a graphics surface, was refused,
+aborted, restarted and aborted again, twelve times in two minutes. One minute earlier, the
+comparison had printed a line that said the same thing in other words: 11,441 of 11,833
+pictures "could not be read", because macOS was already refusing graphics memory to it.
+
+The likely cause is in the remedy itself. The new version receives fifty arrays from the
+graphics processor at every step. Such objects are freed when a "pool" is emptied, and a
+program that only loops never empties one, so every step's arrays stayed. This was
+reasoned from the reports afterwards. It was not reproduced, on purpose.
+
+Three mistakes, in the order they were made:
+
+- **A new design went straight into a stress test.** It had run once, for twenty seconds.
+  Nobody had watched its memory.
+- **The stress test had no limit.** No ceiling on memory, no "stop if the machine
+  struggles", three heavy jobs at once, on the Mac someone was working on.
+- **The warning was read as a bug to fix.** "Pictures could not be read" was treated as a
+  fragile loader (it was one, and it was fixed) instead of as a machine in distress, and
+  the comparison was started again on top of it.
+
+What changed: every step now empties its pool, the loader no longer asks for graphics
+memory to read a file, a training refuses to start when many pictures are missing, and
+the soak test is gone. Whether keeping the weights outside the graph ends the original
+assertion is not known: the measurement that would say so is the one that was stopped.
+
+**What I keep from it:** a test that pushes a machine to find a rare failure is itself a
+dangerous program. It gets a memory ceiling, a time limit, one job at a time, and the
+owner's agreement before it runs, or it does not run. And a strange error from a healthy
+program is sometimes the machine speaking.

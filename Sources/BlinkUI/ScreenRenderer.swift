@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import BlinkCore
 
-/// Draws a window's content to a PNG without showing it: how both apps make their own
+/// Draws a window's content to a PNG without showing it: how the app makes its own
 /// screenshots (`--snapshots=<folder>`), with made-up data and the camera never opened.
 ///
 /// Two uses. While designing: a screen can be looked at, changed and looked at again

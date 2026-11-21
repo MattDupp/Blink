@@ -7,8 +7,7 @@ import BlinkUI
 ///
 ///     BlinkMonitor --snapshots=<folder>          (or: make snapshots)
 ///
-/// The drawing is `ScreenRenderer` (shared with the recorder); the made-up data is
-/// `SampleData`. The app's own types know nothing about screenshots: they are simply
+/// The drawing is `ScreenRenderer`; the made-up data is `SampleData`. The app's own types know nothing about screenshots: they are simply
 /// started from a state instead of from the camera.
 @MainActor
 enum Snapshots {
@@ -36,10 +35,21 @@ enum Snapshots {
             let state = SettingsState()
             state.tab = tab
             configure(state, model)
+            // A folder that does not exist: the screenshots state what is on disk instead.
+            let nowhere = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-setup", isDirectory: true)
             return AnyView(SettingsView(model: model, preferences: model.preferences, history: model.history,
                                         reminders: model.reminders, loginItem: model.loginItem, state: state,
-                                        moment: Moment(frozen: now), actions: SettingsActions()))
+                                        moment: Moment(frozen: now),
+                                        files: SettingsFiles(store: ModelStore(base: nowhere), sessionsRoot: nowhere),
+                                        actions: SettingsActions()))
         }
+        func setup(_ scene: SampleData.SetupScene) -> AnyView {
+            let model = SampleData.setup(scene, now: now)
+            // The demo is not offered from inside the demo.
+            return AnyView(SetupView(model: model, cameraNote: "The camera picture is left out of screenshots.",
+                                     actions: SetupActions(tryDemo: model.isDemo ? nil : {})))
+        }
+        let recorded = SettingsState.OnDisk(sessions: 2, pictures: 1912, megabytes: 19)
         func history(_ scene: SampleData.Scene, daysBack: Int = 0) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)
             let state = HistoryState()
@@ -63,6 +73,28 @@ enum Snapshots {
             ("panel-first-minute", panel(.firstMinute)),
             ("panel-no-picture", panel(.noPicture)),
             ("panel-demo", panel(.demo)),
+            ("panel-needs-setup", panel(.needsSetup)),
+            ("panel-setting-up", panel(.settingUp)),
+            ("setup-welcome", setup(.welcome)),
+            ("setup-welcome-demo", setup(.demoWelcome)),
+            ("setup-camera", setup(.camera)),
+            ("setup-camera-no-face", setup(.cameraNoFace)),
+            ("setup-camera-dark", setup(.cameraDark)),
+            ("setup-camera-refused", setup(.cameraRefused)),
+            ("setup-record", setup(.recordFirst)),
+            ("setup-record-session", setup(.recording)),
+            ("setup-record-short", setup(.recordShort)),
+            ("setup-record-next", setup(.recordNext)),
+            ("setup-record-enough", setup(.recordEnough)),
+            ("setup-train", setup(.training)),
+            ("setup-train-failed", setup(.trainingFailed)),
+            ("setup-train-failed-again", setup(.trainingFailedAgain)),
+            ("setup-trained", setup(.trained)),
+            ("setup-test", setup(.testReady)),
+            ("setup-test-running", setup(.testRunning)),
+            ("setup-test-passed", setup(.testPassed)),
+            ("setup-test-failed", setup(.testFailed)),
+            ("setup-done", setup(.done)),
             ("history", history(.watching)),
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
@@ -75,6 +107,12 @@ enum Snapshots {
                                                       now: now).map { .proposed($0) }
             }),
             ("settings-breaks", settings(.breaks, scene: .learning)),
+            ("settings-model", settings(.model) { state, _ in (state.onDisk, state.onDiskIsStated) = (recorded, true) }),
+            ("settings-model-delete", settings(.model) { state, _ in
+                (state.onDisk, state.onDiskIsStated) = (recorded, true)
+                state.confirmingDelete = true
+            }),
+            ("settings-model-none", settings(.model, scene: .needsSetup)),
             ("settings-data", settings(.data)),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),

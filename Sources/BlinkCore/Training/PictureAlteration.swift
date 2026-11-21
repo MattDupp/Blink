@@ -2,12 +2,12 @@ import Foundation
 
 /// A small seeded random generator (SplitMix64): the same seed gives the same run again,
 /// and each picture can have its own, so the work can be spread over all cores.
-struct Random {
+public struct SeededRandom {
     private var state: UInt64
 
-    init(seed: UInt64) { state = seed }
+    public init(seed: UInt64) { state = seed }
 
-    mutating func next() -> UInt64 {
+    public mutating func next() -> UInt64 {
         state &+= 0x9E37_79B9_7F4A_7C15
         var z = state
         z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
@@ -16,9 +16,9 @@ struct Random {
     }
 
     /// A number in 0..<1.
-    mutating func uniform() -> Float { Float(next() >> 40) * (1.0 / 16_777_216.0) }
-    mutating func uniform(_ low: Float, _ high: Float) -> Float { low + (high - low) * uniform() }
-    mutating func below(_ count: Int) -> Int { Int(next() % UInt64(count)) }
+    public mutating func uniform() -> Float { Float(next() >> 40) * (1.0 / 16_777_216.0) }
+    public mutating func uniform(_ low: Float, _ high: Float) -> Float { low + (high - low) * uniform() }
+    public mutating func below(_ count: Int) -> Int { Int(next() % UInt64(count)) }
 
     /// Two numbers from the bell curve (Box-Muller).
     mutating func normalPair() -> (Float, Float) {
@@ -28,17 +28,25 @@ struct Random {
     }
 }
 
-/// The alterations `training/learning.py` applies to a picture each time it is shown:
-/// mirror, rotate / zoom / shift, lose detail, bend the brightness curve, add noise.
-/// Same ranges, same order. Two differences, both on purpose and both measured by the
-/// spike as a whole: it works on the grey picture (Python alters the three colours, then
-/// the model makes them grey), and the size used to lose detail is drawn per picture
-/// (Python draws one per batch).
-enum Augment {
-    static let side = Pictures.side
+/// What training does to a picture each time it shows it ("augmentation"): mirror it,
+/// turn / zoom / shift it, lose some detail, bend its brightness, add a little noise.
+///
+/// WHY. A few thousand pictures taken in two sittings all look alike: same light, same
+/// distance, the head upright. Shown as they are, the network would learn those accidents.
+/// Altered another way at every pass, the only thing that stays the same is the eyelid.
+///
+/// The ranges and the order are those of `training/learning.py`. Two differences, both
+/// measured as part of the whole (2026-11-20: 936 of 936 blinks, like Python): it works on
+/// the grey picture (Python alters the three colours, then the model makes them grey), and
+/// the size used to lose detail is drawn per picture (Python draws one per batch).
+public enum PictureAlteration {
+
+    static let side = EyeNetwork.side
     static let maxRotation: Float = 35 * .pi / 180
 
-    static func apply(_ source: UnsafePointer<Float>, into target: UnsafeMutablePointer<Float>, random: inout Random) {
+    /// Writes an altered copy of `source` (4,096 brightness values, 0...1) into `target`.
+    public static func apply(_ source: UnsafePointer<Float>, into target: UnsafeMutablePointer<Float>,
+                             random: inout SeededRandom) {
         let n = side, last = Float(n - 1)
 
         // 1 + 2. Mirror half of the pictures, then rotate, zoom and shift: one pass that
@@ -54,7 +62,7 @@ enum Augment {
                 let xo = (2 * Float(x) + 1) / Float(n) - 1
                 let xs = c * xo - s * yo + shiftX
                 let ys = s * xo + c * yo + shiftY
-                // Outside the picture, repeat its edge ("border" in PyTorch).
+                // Outside the picture, repeat its edge.
                 let px = min(max(((xs + 1) * Float(n) - 1) / 2, 0), last)
                 let py = min(max(((ys + 1) * Float(n) - 1) / 2, 0), last)
                 let x0 = Int(px), y0 = Int(py)
@@ -67,7 +75,8 @@ enum Augment {
             }
         }
 
-        // 3. Lose detail in a third of the pictures: shrink to 24..48 pixels, enlarge back.
+        // 3. Lose detail in a third of the pictures: shrink to 24...48 pixels, enlarge back.
+        // (A face far from the camera gives exactly such a picture.)
         if random.uniform() < 0.33 {
             let small = 24 + random.below(25)
             var reduced = [Float](repeating: 0, count: small * small)
@@ -87,8 +96,7 @@ enum Augment {
         }
     }
 
-    /// Bilinear resize of a square picture, pixel centres aligned (PyTorch's
-    /// `interpolate(mode="bilinear", align_corners=False)`).
+    /// Resizes a square picture, each new pixel a mix of the four nearest old ones.
     private static func resize(_ source: UnsafePointer<Float>, _ from: Int, into target: UnsafeMutablePointer<Float>, _ to: Int) {
         let scale = Float(from) / Float(to)
         for y in 0..<to {
@@ -105,4 +113,11 @@ enum Augment {
             }
         }
     }
+}
+
+/// A pointer several threads read or write through, each its own part.
+struct SharedPointer<Pointee>: @unchecked Sendable {
+    let pointer: UnsafeMutablePointer<Pointee>
+    init(_ pointer: UnsafeMutablePointer<Pointee>) { self.pointer = pointer }
+    init(_ pointer: UnsafePointer<Pointee>) { self.pointer = UnsafeMutablePointer(mutating: pointer) }
 }

@@ -7,7 +7,7 @@ import CoreVideo
 //     frame -> find the eyes (Vision) -> cut 64x64 pictures -> model: closed?
 //              └────────── EyeFinder ──────────┘                └ EyeReader
 //
-// The recorder stops after EyeFinder (it saves the pictures); the monitor goes on with
+// Recording a session stops after EyeFinder (it saves the pictures); counting goes on with
 // EyeReader. Both go through the SAME EyeFinder, which is what guarantees the model is
 // asked about pictures made exactly like the ones it learned from.
 

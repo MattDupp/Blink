@@ -10,6 +10,11 @@ struct PanelActions {
     var openSettings: () -> Void = {}
     var openLiveView: () -> Void = {}
     var openCameraSettings: () -> Void = {}
+    /// Opens the setup window, where it stands.
+    var openSetup: () -> Void = {}
+    /// Leaves a demo that was entered from the setup window. Nil when there is no way
+    /// back: the app that `make demo` builds is a demo for good.
+    var leaveDemo: (() -> Void)?
     var quit: () -> Void = {}
 }
 
@@ -47,9 +52,9 @@ struct MenuPanelView: View {
     private func panel(now: Date) -> some View {
         let status = model.status(now: now)
         return VStack(alignment: .leading, spacing: 0) {
-            if model.isDemo { DemoBanner() }
+            if model.isDemo { DemoBanner(actions: actions) }
             VStack(alignment: .leading, spacing: 10) {
-                NowSection(status: status, blinks: model.live.counters.totalBlinks, actions: actions)
+                NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed, actions: actions)
                 Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
             }
             .padding(16)
@@ -76,15 +81,29 @@ enum AppInfo {
 
 /// Said at the top of the panel for as long as the app runs on made-up eyes.
 private struct DemoBanner: View {
+    let actions: PanelActions
+
     var body: some View {
-        Label("Demo: the blinks are made up and the camera is off. To use it on your own eyes, see the README.",
-              systemImage: "sparkles")
-            .font(.caption)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 9)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.accentColor.opacity(0.16))
+        VStack(alignment: .leading, spacing: 7) {
+            Label(actions.leaveDemo == nil
+                    ? "Demo: the blinks are made up and the camera is off. To use it on your own eyes, open Blink Monitor itself."
+                    : "Demo: the blinks are made up and the camera is off.",
+                  systemImage: "sparkles")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button("See the Setup") { actions.openSetup() }
+                    .help("The whole setup on painted eyes: recorded, trained and tested for real")
+                if let leaveDemo = actions.leaveDemo {
+                    Button("Set Up on My Eyes") { leaveDemo() }
+                }
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.16))
     }
 }
 
@@ -92,6 +111,8 @@ private struct NowSection: View {
     let status: MonitorStatus
     /// Blinks counted so far: when it changes, the status dot pulses.
     let blinks: Int
+    /// The setup has been started before (its welcome page was passed).
+    let begun: Bool
     let actions: PanelActions
 
     var body: some View {
@@ -107,6 +128,15 @@ private struct NowSection: View {
                 .fixedSize(horizontal: false, vertical: true)
             if status == .cameraRefused {
                 Button("Open Camera Settings") { actions.openCameraSettings() }
+                    .padding(.top, 2)
+            }
+            // An app that cannot count yet says what to do about it, here where you look.
+            if status == .needsSetup {
+                Button(begun ? "Continue Setup..." : "Set Up Blink Monitor...") { actions.openSetup() }
+                    .keyboardShortcut(.defaultAction)
+                    .padding(.top, 2)
+            } else if case .settingUp = status {
+                Button("Show Setup") { actions.openSetup() }
                     .padding(.top, 2)
             }
         }
@@ -164,6 +194,9 @@ private struct Notes: View {
 
     private var lines: [(symbol: String, text: String, tint: Color)] {
         var lines: [(String, String, Color)] = []
+        // Before the app can count, there is no rate to learn and nothing to compare.
+        if status == .needsSetup { return lines }
+        if case .settingUp = status { return lines }
         if preferences.breakNudgesOn, status.isCameraOn, reminders.screenMinutes >= 1 {
             lines.append(("clock", "At the screen for \(reminders.screenMinutes) min without a break", .secondary))
         }

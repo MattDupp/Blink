@@ -19,6 +19,10 @@ It writes:
     models/EyeNet.mlmodelc         the same, compiled: the form the app loads
     models/eyenet_reference.json   pictures with the answer the model must give - the
                                    Swift code checks itself against it in its self-test
+    models/eyenet.weights          the same weights in the app's OWN format: the app also
+                                   runs the network written out in Swift (EyeNetwork), for
+                                   the models it trains itself, and that code is checked
+                                   against this model's answers too
 """
 
 import json
@@ -34,7 +38,7 @@ from PIL import Image
 
 from data import load
 from model import EyeNet
-from paths import MODEL_FILE, MODELS, PROJECT
+from paths import DATA, MODEL_FILE, MODELS
 
 
 class Exported(torch.nn.Module):
@@ -51,6 +55,25 @@ class Exported(torch.nn.Module):
 
     def forward(self, eye: torch.Tensor) -> torch.Tensor:
         return torch.sigmoid(self.network(eye))
+
+
+def write_weights(network: EyeNet, target: Path) -> None:
+    """Writes the weights as BlinkCore's EyeNetWeights reads them: eight bytes "EYENET01",
+    then 60,289 32-bit numbers.
+
+    Once training is over, a batch normalisation is a fixed scale and shift, so each one is
+    "folded" into the convolution before it: per stage, one set of weights and one bias.
+    """
+    parts = []
+    for stage in network.features:
+        convolution, normalisation = stage[0], stage[1]
+        scale = normalisation.weight / torch.sqrt(normalisation.running_var + normalisation.eps)
+        parts.append((convolution.weight * scale[:, None, None, None]).flatten())
+        parts.append(normalisation.bias - normalisation.running_mean * scale)
+    linear = network.head[3]
+    parts += [linear.weight.flatten(), linear.bias.flatten()]
+    numbers = torch.cat(parts).detach().numpy().astype("<f4")
+    target.write_bytes(b"EYENET01" + numbers.tobytes())
 
 
 def main() -> None:
@@ -99,6 +122,9 @@ def main() -> None:
     ct.utils.compile_model(str(package), str(compiled))
     print(f"Compiled {compiled}")
 
+    write_weights(network, MODELS / "eyenet.weights")
+    print(f"Wrote {MODELS / 'eyenet.weights'}")
+
     # 3. Verify on real pictures: every 12th picture of the dataset, from every session.
     data = load()
     chosen = list(range(0, len(data), 12))
@@ -114,7 +140,8 @@ def main() -> None:
         if position % 8 == 0:
             reference.append(
                 {
-                    "file": str(Path(data.rows[i]["path"]).relative_to(PROJECT)),
+                    # From the folder that holds data/: "data/raw/<session>/open/....png".
+                    "file": str(Path(data.rows[i]["path"]).relative_to(DATA.parent)),
                     "label": data.rows[i]["label"],
                     "closed": round(expected[position], 6),
                 }

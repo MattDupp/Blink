@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Combine
+import CoreVideo
 import BlinkCore
 import BlinkUI
 
@@ -56,6 +57,8 @@ final class MonitorModel: ObservableObject {
         var screenMinutes = 0
         var blinkBreak: BlinkBreak?
         var cameraSilent = false
+        var modelSource = ModelSource.none
+        var setupStage: MonitorStatus.SetupStage?
     }
 
     // MARK: Facts
@@ -72,6 +75,12 @@ final class MonitorModel: ObservableObject {
     @Published private(set) var curve = Curve()
     @Published private(set) var timings: StageTimings.Summary?
     @Published private(set) var problem: String?
+    /// Which model reads the eyes: decided at start, and again when setup installs one or
+    /// Settings deletes one.
+    @Published private(set) var modelSource = ModelSource.none
+    /// What the setup window is doing; nil when it is not at work. While it is, nothing is
+    /// counted: the poses of a recording are not how you blink.
+    @Published private(set) var setupStage: MonitorStatus.SetupStage?
 
     /// A short sound at every counted blink (while the Live View window is open).
     @Published var soundOn = true
@@ -87,11 +96,26 @@ final class MonitorModel: ObservableObject {
     let blinkBreak: BlinkBreakController
     let loginItem: LoginItem
     let captures = CaptureController()
+    /// Where the model trained in this app is kept.
+    let modelStore: ModelStore
 
     /// No picture for this long, with the camera meant to be on, is said in the windows.
     static let silenceSeconds = 5.0
 
+    /// Who the camera's frames go to.
+    private enum FrameRoute {
+        case nobody
+        case monitor(MonitorPipeline)
+        /// The setup window has borrowed the camera.
+        case setup((CVPixelBuffer, Double) -> Void)
+    }
+
     private let camera = CameraCapture()
+    private let frames = Locked(FrameRoute.nobody)
+    /// The camera has been started once: from then on it is resumed and stopped.
+    private var cameraBuilt = false
+    /// The setup window is using the camera.
+    private var cameraLent = false
     /// Set in the demo: made-up eyes instead of the camera and the model.
     private let demoCamera: DemoCamera?
     private var source: FrameSource { demoCamera ?? camera }
@@ -106,8 +130,10 @@ final class MonitorModel: ObservableObject {
     private var resumeTimer: Timer?
 
     /// `demo`: run on made-up eyes, without the camera or the model (see `DemoCamera`).
-    init(preferences: Preferences, history: HistoryController? = nil, initial: InitialState? = nil, demo: Bool = false) {
+    init(preferences: Preferences, history: HistoryController? = nil, initial: InitialState? = nil, demo: Bool = false,
+         modelStore: ModelStore = .standard) {
         self.preferences = preferences
+        self.modelStore = modelStore
         self.history = history ?? HistoryController()
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
         blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
@@ -121,6 +147,8 @@ final class MonitorModel: ObservableObject {
             curve = initial.curve
             timings = initial.timings
             cameraSilent = initial.cameraSilent
+            modelSource = initial.modelSource
+            setupStage = initial.setupStage
         } else {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
@@ -135,7 +163,7 @@ final class MonitorModel: ObservableObject {
 
     /// The situation, decided from the facts at the moment it is asked.
     func status(now: Date = Date()) -> MonitorStatus {
-        MonitorStatus(lifecycle: lifecycle, pause: pause.resolved(at: now), asleep: asleep,
+        MonitorStatus(lifecycle: lifecycle, setup: setupStage, pause: pause.resolved(at: now), asleep: asleep,
                       cameraSilent: cameraSilent, faceFound: live.faceFound, rate: live.counters.ratePerMinute,
                       recentLowRate: reminders.lowRate(in: history.minutes, now: now))
     }
@@ -144,6 +172,7 @@ final class MonitorModel: ObservableObject {
     var cameraNote: String {
         if let cameraNoteOverride { return cameraNoteOverride }
         if isDemo { return "Demo: the camera is off, and the blinks are made up." }
+        if setupStage != nil { return "Setup is at work: nothing is counted meanwhile." }
         if lifecycle == .running && (isPaused || asleep) { return "Paused: the camera is off." }
         if lifecycle == .running && cameraSilent { return "The camera is not sending pictures." }
         return CameraNote.text(for: lifecycle, appName: "Blink Monitor")
@@ -159,24 +188,35 @@ final class MonitorModel: ObservableObject {
             return
         }
         history.load()
+        await startCounting()
+    }
 
-        let classifier: EyeClassifier
+    /// Loads the model there is and starts counting with it. With none, the app waits
+    /// for its setup (`Lifecycle.needsSetup`), the camera off.
+    private func startCounting() async {
+        modelSource = ModelSource.resolve(store: modelStore)
+        let judge: EyeJudging
         do {
-            classifier = try EyeClassifier(compiledModel: Options.modelURL)
+            guard let loaded = try modelSource.judge(store: modelStore) else {
+                Log.app.notice("No model of the eyes yet: waiting for setup")
+                lifecycle = .needsSetup
+                return
+            }
+            judge = loaded
         } catch {
-            fail("The eye model could not be loaded from \(Options.modelURL.path).\n"
-                 + "Make it with: make train\n\(error)")
+            fail("The eye model could not be loaded.\n\(modelSource.remedy)\n\(error)")
             return
         }
-        let pipeline = MonitorPipeline(classifier: classifier)
+        let pipeline = MonitorPipeline(classifier: judge)
         connect(pipeline)
+        if !cameraLent { frames.withLock { $0 = .monitor(pipeline) } }
 
         if Options.noCamera {
             fail("The camera is off (--no-camera). The model loaded correctly.")
             return
         }
         do {
-            try await camera.start { pixelBuffer, time in pipeline.process(pixelBuffer, time: time) }
+            try await startCamera()
             began()
             reminders.prepare()
         } catch CameraCapture.CameraError.refused {
@@ -184,6 +224,128 @@ final class MonitorModel: ObservableObject {
         } catch {
             fail("\(error)")
         }
+    }
+
+    /// Starts the camera the first time (macOS asks for it then), and resumes it afterwards.
+    /// Its frames go to whoever `frames` names at that moment.
+    private func startCamera() async throws {
+        guard !cameraBuilt else {
+            let camera = self.camera
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    camera.resume()
+                    continuation.resume()
+                }
+            }
+            return
+        }
+        let frames = self.frames
+        try await camera.start { pixelBuffer, time in
+            switch frames.withLock({ $0 }) {
+            case .nobody: break
+            case .monitor(let pipeline): pipeline.process(pixelBuffer, time: time)
+            case .setup(let handler): handler(pixelBuffer, time)
+            }
+        }
+        cameraBuilt = true
+    }
+
+    // MARK: - Setup
+
+    /// The setup window goes to work on something that needs no camera (training, or
+    /// painted eyes): the camera is switched off. Nothing is counted until `leaveSetup`.
+    func enterSetup(_ stage: MonitorStatus.SetupStage) {
+        setupStage = stage
+        live = live.withCameraOff
+        preview = nil
+        cameraLent = false
+        if !isDemo { frames.withLock { $0 = .nobody } }
+        applyCameraState()
+    }
+
+    /// The setup window borrows the camera: every frame is handed to it. macOS asks for
+    /// the camera the first time; a refusal is thrown as `CameraCapture.CameraError.refused`.
+    /// Nothing is counted until `leaveSetup`.
+    func enterSetup(_ stage: MonitorStatus.SetupStage, frames handler: @escaping (CVPixelBuffer, Double) -> Void) async throws {
+        if Options.noCamera {
+            throw CameraCapture.CameraError.cannotConfigure("it was left off at launch (--no-camera)")
+        }
+        setupStage = stage
+        live = live.withCameraOff
+        preview = nil
+        frames.withLock { $0 = .setup(handler) }
+        cameraLent = true
+        try await startCamera()
+        applyCameraState()
+    }
+
+    /// The setup window is done with the camera, or was closed: counting goes on if there
+    /// is a model, and the camera goes off if there is none.
+    func leaveSetup() {
+        guard setupStage != nil || cameraLent else { return }
+        setupStage = nil
+        cameraLent = false
+        if !isDemo { frames.withLock { [pipeline] in $0 = pipeline.map { .monitor($0) } ?? .nobody } }
+        applyCameraState()
+    }
+
+    /// The models on disk have changed: setup installed one, or Settings deleted one.
+    /// Whatever is there now is used from the next frame on, without a restart.
+    func modelChanged() async {
+        guard !isDemo else { return }
+        let source = ModelSource.resolve(store: modelStore)
+        switch lifecycle {
+        case .needsSetup:
+            // The first model: this is where counting begins.
+            lifecycle = .starting
+            await startCounting()
+        case .running:
+            modelSource = source
+            guard let judge = try? source.judge(store: modelStore) else {
+                stopCounting()
+                return
+            }
+            pipeline?.setJudge(judge)
+        case .starting, .cameraRefused, .failed:
+            modelSource = source
+        }
+    }
+
+    /// No model is left: back to waiting for setup, the camera off.
+    private func stopCounting() {
+        watchdog?.invalidate()
+        watchdog = nil
+        pipeline = nil
+        lifecycle = .needsSetup
+        live = LiveState()
+        preview = nil
+        curve = Curve()
+        if cameraSilent { cameraSilent = false }
+        if !cameraLent {
+            frames.withLock { $0 = .nobody }
+            let camera = self.camera
+            DispatchQueue.global(qos: .userInitiated).async { camera.stop() }
+        }
+    }
+
+    /// Stops everything, before the app replaces this model by another (entering or
+    /// leaving the demo from the setup window).
+    func shutDown() {
+        watchdog?.invalidate()
+        resumeTimer?.invalidate()
+        paceOfDemo = nil
+        frames.withLock { $0 = .nobody }
+        let source = self.source
+        let built = cameraBuilt || isDemo
+        if built { DispatchQueue.global(qos: .userInitiated).async { source.stop() } }
+    }
+
+    /// Deletes what setup made: the model trained here and, unless their folder was named
+    /// at launch (a developer's own data), the recordings it learned from. For good.
+    func deleteModelAndRecordings(sessions root: URL, own: Bool) async throws {
+        try modelStore.delete()
+        if own, FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
+        await modelChanged()
     }
 
     /// The demo: the same pipeline from the blink detector on, fed by made-up eyes.
@@ -226,7 +388,7 @@ final class MonitorModel: ObservableObject {
     /// the last number stayed on screen - with the lid closed on an external display,
     /// for hours. Called every two seconds while the camera is meant to run.
     func checkCamera(now: Date = Date()) {
-        let expected = lifecycle == .running && !isPaused && !asleep
+        let expected = lifecycle == .running && !isPaused && !asleep && setupStage == nil
         let silent = expected && now.timeIntervalSince(lastFrame ?? now) > Self.silenceSeconds
         if silent != cameraSilent { cameraSilent = silent }
         guard silent else { return }
@@ -278,8 +440,11 @@ final class MonitorModel: ObservableObject {
     }
 
     private func applyCameraState(now: Date = Date()) {
-        guard lifecycle == .running else { return }
-        let run = !isPaused && !asleep
+        // Before the camera has ever been started there is nothing to switch.
+        guard isDemo ? lifecycle == .running : cameraBuilt else { return }
+        // On for the setup window when it borrowed it; else on while counting.
+        let counting = lifecycle == .running && !isPaused && setupStage == nil
+        let run = !asleep && (cameraLent || counting)
         let source = self.source
         DispatchQueue.global(qos: .userInitiated).async {
             if run { source.resume() } else { source.stop() }
@@ -307,7 +472,7 @@ final class MonitorModel: ObservableObject {
     // MARK: - Frames
 
     func apply(_ update: MonitorUpdate, now: Date = Date()) {
-        guard !isPaused, !asleep else { return }   // a last frame can arrive after Pause
+        guard !isPaused, !asleep, setupStage == nil else { return }   // a last frame can arrive after Pause
         lastFrame = now
         if cameraSilent { cameraSilent = false }
         if live != update.live { live = update.live }

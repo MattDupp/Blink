@@ -4,7 +4,7 @@
     uv run python label_captures.py            label the captures that are not labelled yet
     uv run python label_captures.py --redo     label every capture again
 
-THE PROBLEM IT SOLVES. The recorder's pictures are eyes HELD open or HELD closed. A real
+THE PROBLEM IT SOLVES. A recorded session's pictures are eyes HELD open or HELD closed. A real
 blink is caught half-way and blurred, and on the darker side of the face the model
 answered "open" on eyes that were plainly closed (first live test, 2026-11-20: the
 image-right eye said 100% closed, the image-left eye 6% - same frame, same blink).
@@ -28,7 +28,7 @@ THE RULES, per eye and per frame:
             would hesitate. A wrong label teaches more harm than a missing one.
 
 The pictures are COPIED to data/blinks/<capture>/open|closed with a manifest.csv, in the
-recorder's format, so they are trained on, checked and cleaned like any session.
+format of a recorded session, so they are trained on, checked and cleaned like one.
 
 A CAPTURE ALREADY LABELLED IS LEFT ALONE. You may have cleaned its pictures by hand;
 labelling it again would bring every removed picture back. `--redo` says you mean it.

@@ -25,7 +25,7 @@ import sheets
 from data import EyeData, load
 from learning import device, predict, train
 from model import EyeNet, count_weights
-from paths import MODEL_FILE, OUT, PROJECT
+from paths import DATA, MODEL_FILE, OUT
 
 
 def cross_validate(data: EyeData, on: torch.device, epochs: int, seed: int) -> torch.Tensor:
@@ -116,7 +116,7 @@ def save_review(data: EyeData, probabilities: torch.Tensor, worst: list[int]) ->
         for i in worst:
             row = data.rows[i]
             handle.write(
-                f"{Path(row['path']).relative_to(PROJECT)}\tlabel={row['label']}\t"
+                f"{Path(row['path']).relative_to(DATA.parent)}\tlabel={row['label']}\t"
                 f"model_p_closed={probabilities[i]:.2f}\tpose={row['variant']}\n"
             )
 
