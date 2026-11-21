@@ -145,8 +145,17 @@ private struct Notes: View {
 
     var body: some View {
         let lines = self.lines
-        if !lines.isEmpty || reminders.snoozedUntil != nil {
+        if !lines.isEmpty || reminders.snoozedUntil != nil || reminders.breaks.current != nil {
             VStack(alignment: .leading, spacing: 6) {
+                if let current = reminders.breaks.current {
+                    // A look-away break is running. Its banner has the same button.
+                    HStack(spacing: 6) {
+                        NoteLine(symbol: "eye", text: BreakWords.running(current), tint: .primary)
+                        Spacer(minLength: 4)
+                        Button("Skip") { reminders.breaks.skip() }
+                            .controlSize(.small)
+                    }
+                }
                 if let until = reminders.snoozedUntil {
                     HStack(spacing: 6) {
                         NoteLine(symbol: "bell.slash", text: "Reminders snoozed until \(Format.time(until))")
@@ -164,8 +173,12 @@ private struct Notes: View {
 
     private var lines: [(symbol: String, text: String, tint: Color)] {
         var lines: [(String, String, Color)] = []
-        if preferences.breakNudgesOn, status.isCameraOn, reminders.screenMinutes >= 1 {
-            lines.append(("clock", "At the screen for \(reminders.screenMinutes) min without a break", .secondary))
+        if preferences.breakNudgesOn, status.isCameraOn, reminders.breaks.current == nil, reminders.screenMinutes >= 1 {
+            lines.append(("clock", BreakWords.atTheScreen(minutes: reminders.screenMinutes,
+                                                          nextIsLong: reminders.breaks.nextIsLong), .secondary))
+        }
+        if preferences.breakNudgesOn, let tally = BreakWords.tally(reminders.breaks.tally(now: now)) {
+            lines.append(("checkmark.circle", tally, .secondary))
         }
         guard preferences.automaticLimit else { return lines }
         if let reference = preferences.reference {

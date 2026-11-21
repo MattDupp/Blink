@@ -19,13 +19,15 @@ final class Preferences: ObservableObject {
         static let reference = "reference"
         static let breakNudgesOn = "breakNudgesOn"
         static let breakMinutes = "breakMinutes"
+        static let breakSeconds = "breakSeconds"
+        static let longBreakOn = "longBreakOn"
+        static let longBreakEvery = "longBreakEvery"
+        static let longBreakMinutes = "longBreakMinutes"
+        static let breakTally = "breakTally"
         static let welcomed = "welcomed"
         static let paused = "paused"
         static let pausedUntil = "pausedUntil"
     }
-
-    /// The choices offered for "nudge me after ... at the screen".
-    static let breakChoices = [20, 30, 45, 60]
 
     private let defaults: UserDefaults
 
@@ -70,6 +72,30 @@ final class Preferences: ObservableObject {
     /// Nudge to look away after `breakMinutes` at the screen. Off unless you ask for it.
     @Published var breakNudgesOn: Bool { didSet { defaults.set(breakNudgesOn, forKey: Key.breakNudgesOn) } }
     @Published var breakMinutes: Int { didSet { defaults.set(breakMinutes, forKey: Key.breakMinutes) } }
+    /// The length of a look-away break.
+    @Published var breakSeconds: Int { didSet { defaults.set(breakSeconds, forKey: Key.breakSeconds) } }
+    /// After `longBreakEvery` short breaks, one of `longBreakMinutes` away from the screen.
+    @Published var longBreakOn: Bool { didSet { defaults.set(longBreakOn, forKey: Key.longBreakOn) } }
+    @Published var longBreakEvery: Int { didSet { defaults.set(longBreakEvery, forKey: Key.longBreakEvery) } }
+    @Published var longBreakMinutes: Int { didSet { defaults.set(longBreakMinutes, forKey: Key.longBreakMinutes) } }
+
+    /// The four numbers above as the rules read them (see `BreakPlan`, which also keeps
+    /// each one inside its range). Switching the long break off keeps its numbers.
+    var breakPlan: BreakPlan {
+        get {
+            BreakPlan(workMinutes: breakMinutes, breakSeconds: breakSeconds,
+                      longEvery: longBreakOn ? longBreakEvery : nil, longMinutes: longBreakMinutes)
+        }
+        set {
+            breakMinutes = newValue.workMinutes
+            breakSeconds = newValue.breakSeconds
+            longBreakOn = newValue.longEvery != nil
+            if let every = newValue.longEvery {
+                longBreakEvery = every
+                longBreakMinutes = newValue.longMinutes
+            }
+        }
+    }
 
     // MARK: Remembered without being settings
 
@@ -77,6 +103,12 @@ final class Preferences: ObservableObject {
     var welcomed: Bool {
         get { defaults.bool(forKey: Key.welcomed) }
         set { defaults.set(newValue, forKey: Key.welcomed) }
+    }
+
+    /// Today's look-away breaks, counted: they survive a relaunch.
+    var breakTally: BreakTally? {
+        get { defaults.data(forKey: Key.breakTally).flatMap { try? JSONDecoder().decode(BreakTally.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.breakTally) }
     }
 
     /// The pause in force when the app was last running: a pause survives a relaunch.
@@ -98,7 +130,13 @@ final class Preferences: ObservableObject {
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
         floor = defaults.object(forKey: Key.floor) as? Int ?? 10
         breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
-        breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? Self.breakChoices[0]
+        // Whoever chose a time before the other numbers existed keeps it, with the classic
+        // 20 seconds and no long break: what the app did until then.
+        breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? 20
+        breakSeconds = defaults.object(forKey: Key.breakSeconds) as? Int ?? 20
+        longBreakOn = defaults.bool(forKey: Key.longBreakOn)
+        longBreakEvery = defaults.object(forKey: Key.longBreakEvery) as? Int ?? 3
+        longBreakMinutes = defaults.object(forKey: Key.longBreakMinutes) as? Int ?? 5
 
         let stored = defaults.dictionary(forKey: Key.reference)
         if let rate = stored?["rate"] as? Double, let measuredOn = stored?["measuredOn"] as? Date,

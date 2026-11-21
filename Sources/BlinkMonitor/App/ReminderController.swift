@@ -13,29 +13,40 @@ final class ReminderController: ObservableObject {
 
     @Published private(set) var notificationsRefused = false
     @Published private(set) var snoozedUntil: Date?
-    /// Whole minutes at the screen since your last break (see `PresenceTracker`).
-    @Published private(set) var screenMinutes: Int
+    /// The look-away breaks. Its changes are passed on, so a view that watches the
+    /// reminders is redrawn by them too.
+    let breaks: ScreenBreakController
+    /// Whole minutes at the screen since your last break.
+    var screenMinutes: Int { breaks.screenMinutes }
 
     /// The banner's "Start Blink Break" button was pressed.
     var onBlinkBreak: () -> Void = {}
 
     private let preferences: Preferences
     private var policy = ReminderPolicy()
-    private var presence = PresenceTracker()
     private let notifier = Notifier()
     private var wanted: AnyCancellable?
+    private var breaksChanged: AnyCancellable?
     private var prepared = false
 
     /// `screenMinutes`: what the screenshots start from.
     init(preferences: Preferences, screenMinutes: Int = 0) {
         self.preferences = preferences
-        self.screenMinutes = screenMinutes
+        breaks = ScreenBreakController(preferences: preferences, screenMinutes: screenMinutes)
         notifier.onAction = { [weak self] action in
             switch action {
             case .blinkBreak: self?.onBlinkBreak()
             case .snooze: self?.snooze(minutes: 60)
+            case .postponeBreak: self?.breaks.postpone()
+            case .skipBreak: self?.breaks.skip()
             }
         }
+        breaks.announce = { [weak self] title, body, canPostpone in
+            self?.notifier.show(.screenBreak(title: title, body: body, canPostpone: canPostpone))
+        }
+        breaks.withdraw = { [weak self] in self?.notifier.withdrawScreenBreak() }
+        breaks.isSnoozed = { [weak self] now in self?.policy.isSnoozed(at: now) ?? false }
+        breaksChanged = breaks.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         // Switching a nudge on in Settings is the moment to ask macOS for notifications.
         wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn)
             .dropFirst()
@@ -86,17 +97,8 @@ final class ReminderController: ObservableObject {
         notifier.show(.lowRate(recent: low))
     }
 
-    /// Every update from the camera (`time`: the camera's clock): follows how long you
-    /// have been at the screen, and nudges you to look away when it has been long enough.
-    func frame(time: Double, faceFound: Bool, now: Date = Date()) {
-        presence.frame(time: time, faceFound: faceFound)
-        if preferences.breakNudgesOn,
-           presence.continuousSeconds(at: time) >= Double(preferences.breakMinutes) * 60 {
-            if !policy.isSnoozed(at: now) { notifier.show(.screenBreak(minutes: preferences.breakMinutes)) }
-            // The camera cannot see where you look: once told, the count starts again.
-            presence.restart(at: time)
-        }
-        let minutes = Int(presence.continuousSeconds(at: time) / 60)
-        if minutes != screenMinutes { screenMinutes = minutes }
+    /// Every update from the camera: the look-away breaks follow who is at the screen.
+    func frame(faceFound: Bool, now: Date = Date()) {
+        breaks.frame(faceFound: faceFound, now: now)
     }
 }

@@ -30,6 +30,9 @@ struct DemoEyes {
     /// Changing the pace forgets the blink that was planned: the new pace starts at once.
     var pace = Pace.usual { didSet { if pace != oldValue { planned = nil } } }
 
+    /// Looking away, as in a look-away break: the camera finds no face.
+    var away = false
+
     private var planned: (start: Double, end: Double)?
     private var seed: UInt64
 
@@ -45,6 +48,7 @@ struct DemoEyes {
 
     /// What the frame at `time` says. Call it with times that only increase.
     mutating func reading(at time: Double) -> FrameReading {
+        if away { return FrameReading() }
         if planned.map({ time > $0.end + 0.1 }) ?? true {
             let (wait, length) = pace == .usual
                 ? (2.6 + random() * 3.8, 0.10 + random() * 0.07)
@@ -112,6 +116,10 @@ final class DemoCamera: FrameSource, @unchecked Sendable {
 
     /// Made-up eyes do not fail.
     func recover() {}
+
+    func setAway(_ away: Bool) {
+        eyes.withLock { $0.away = away }
+    }
 
     func setPace(_ pace: DemoEyes.Pace) {
         eyes.withLock { $0.pace = pace }

@@ -99,6 +99,7 @@ final class MonitorModel: ObservableObject {
     private var lastFrame: Date?
     private var watchdog: Timer?
     private var paceOfDemo: AnyCancellable?
+    private var lookOfDemo: AnyCancellable?
     private let performanceLog = PerformanceLog()
     private let blinkSound = NSSound(named: "Pop")
     private var liveViewOpen = false
@@ -195,6 +196,8 @@ final class MonitorModel: ObservableObject {
         paceOfDemo = blinkBreak.$exercise.sink { exercise in
             demoCamera.setPace(exercise.map { !$0.isDone } ?? false ? .exercise : .usual)
         }
+        // During a look-away break the made-up person looks away: no face in view.
+        lookOfDemo = reminders.breaks.$current.sink { current in demoCamera.setAway(current != nil) }
         began()
     }
 
@@ -326,7 +329,7 @@ final class MonitorModel: ObservableObject {
         }
 
         if let event = update.event { blinkBreak.record(event) }
-        reminders.frame(time: update.time, faceFound: update.live.faceFound)
+        reminders.frame(faceFound: update.live.faceFound, now: now)
 
         if let timings = update.timings { self.timings = timings }
         if let minuteTimings = update.minuteTimings, !isDemo { performanceLog.append(minuteTimings) }

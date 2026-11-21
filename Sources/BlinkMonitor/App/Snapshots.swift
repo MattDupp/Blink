@@ -63,6 +63,8 @@ enum Snapshots {
             ("panel-first-minute", panel(.firstMinute)),
             ("panel-no-picture", panel(.noPicture)),
             ("panel-demo", panel(.demo)),
+            ("panel-looking-away", panel(.lookingAway)),
+            ("panel-long-break", panel(.longBreak)),
             ("history", history(.watching)),
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
@@ -75,6 +77,8 @@ enum Snapshots {
                                                       now: now).map { .proposed($0) }
             }),
             ("settings-breaks", settings(.breaks, scene: .learning)),
+            ("settings-breaks-long", settings(.breaks, scene: .lookingAway)),
+            ("settings-breaks-off", settings(.breaks)),
             ("settings-data", settings(.data)),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
