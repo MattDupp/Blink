@@ -16,6 +16,9 @@ final class RoutineBanners {
 
     private enum Identifier {
         static let category = "routine"
+        /// A routine with a timer: the same banner, with one more button.
+        static let timedCategory = "routine-timed"
+        static let start = "routine-start"
         static let done = "routine-done"
         static let later = "routine-later"
         /// One banner per routine: a new one replaces the previous one.
@@ -28,14 +31,20 @@ final class RoutineBanners {
     init(notifier: Notifier, routines: RoutineController) {
         self.notifier = notifier
         self.routines = routines
-        notifier.extraCategories = [UNNotificationCategory(identifier: Identifier.category, actions: [
-            UNNotificationAction(identifier: Identifier.done, title: "Done", options: []),
-            UNNotificationAction(identifier: Identifier.later, title: "Later (\(routines.policy.laterMinutes) min)", options: []),
-        ], intentIdentifiers: [])]
+        let done = UNNotificationAction(identifier: Identifier.done, title: "Done", options: [])
+        let later = UNNotificationAction(identifier: Identifier.later, title: "Later (\(routines.policy.laterMinutes) min)", options: [])
+        // `.foreground`: pressing it brings the app forward, to show the timer's window.
+        let start = UNNotificationAction(identifier: Identifier.start, title: "Start Timer", options: [.foreground])
+        notifier.extraCategories = [
+            UNNotificationCategory(identifier: Identifier.category, actions: [done, later], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Identifier.timedCategory, actions: [start, later, done], intentIdentifiers: []),
+        ]
         notifier.onOtherResponse = { [weak routines] response in
-            guard response.category == Identifier.category, let id = response.info["routine"],
+            guard [Identifier.category, Identifier.timedCategory].contains(response.category),
+                  let id = response.info["routine"],
                   let slot = response.info["slot"], !slot.isEmpty else { return }      // empty: the test reminder
             switch response.action {
+            case Identifier.start: routines?.startSession(id)
             case Identifier.done: routines?.answer(routine: id, slot: slot, done: true)
             case Identifier.later: routines?.answer(routine: id, slot: slot, done: false)
             default: break      // a click on the banner itself: it stays due, the panel shows it
@@ -61,13 +70,14 @@ final class RoutineBanners {
     /// What the banner says. No advice in it: the routine and its times are the user's.
     static func content(for banner: RoutineBanner, later minutes: Int = RoutinePolicy().laterMinutes) -> UNNotificationContent {
         let content = UNMutableNotificationContent()
-        content.categoryIdentifier = Identifier.category
+        content.categoryIdentifier = banner.routine.sessionMinutes == nil ? Identifier.category : Identifier.timedCategory
         content.sound = nil
         content.title = banner.routine.name
         if let slot = banner.slot {
             let time = Format.time(slot.due)
             content.body = banner.kept ? "Your \(time) reminder, kept until you were back."
                                        : "Your \(time) reminder."
+            if let week = banner.week { content.body += " \(week.done) of \(week.target) done this week." }
             content.userInfo = ["routine": slot.routine, "slot": slot.key]
         } else {
             content.body = "This is a test. A real reminder looks like this, and its buttons mark it done or put it off \(minutes) minutes."

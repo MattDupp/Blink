@@ -64,7 +64,7 @@ struct RoutineControllerTests {
     func offAtFirst() {
         let desk = Desk()
         let controller = controller(desk)
-        #expect(controller.routines.map(\.id) == [id])
+        #expect(controller.routines.map(\.id) == Routine.builtIn.map(\.id))
         controller.tick(now: at(9))
         #expect(desk.banners.isEmpty && controller.events.isEmpty && controller.days(now: at(9)).isEmpty)
     }

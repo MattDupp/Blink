@@ -45,6 +45,7 @@ enum SampleData {
         let model = MonitorModel(preferences: preferences,
                                  history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
         demoRoutine(in: model, now: now)
+        demoWeek(in: model, now: now)
         return model
     }
 
@@ -214,6 +215,78 @@ enum SampleData {
                                              until: at(16, 50)))
             }
         }
+    }
+
+    /// What the screenshots show of a routine counted by the week.
+    enum WeekScene {
+        /// Two of three done, today's time still to come.
+        case toCome
+        /// One of three, a day missed, today's time waiting.
+        case waiting
+        /// The week's count reached, the last one today.
+        case reached
+        /// The timer running.
+        case timer
+        /// The timer just ended: done, and counted.
+        case timerDone
+    }
+
+    /// Switches the routine counted by the week on in `model`, and gives it a made-up week.
+    static func week(in model: MonitorModel, now: Date, scene: WeekScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let id = Routine.heatedMask.id
+        let today = calendar.startOfDay(for: now)
+        /// Done so many days ago, at 17:10. (The screenshots' "now" is a Friday.)
+        func done(daysAgo: Int, hour: Int = 17, minute: Int = 10) {
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: today) ?? today
+            let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+            routines.record(RoutineEvent(at: at, routine: id, slot: RoutineWeek.key(of: at, calendar: calendar), action: .done))
+        }
+        // Switched on weeks ago: an ordinary week, not a first one.
+        routines.setOn(id, true, now: today.addingTimeInterval(-21 * 86_400))
+        done(daysAgo: 4)                                    // Monday
+        switch scene {
+        case .toCome:
+            done(daysAgo: 2)                                // Wednesday
+        case .waiting:
+            routines.setWeekTime(id, TimeOfDay(hour: 16, minute: 30))
+        case .reached:
+            done(daysAgo: 2)
+            done(daysAgo: 0, hour: 12, minute: 15)
+        case .timer, .timerDone:
+            done(daysAgo: 2)
+            // Started three minutes ago. On a model whose camera is shown paused, the timer
+            // is made to end when that pause does: it is the timer that paused it.
+            let length = Double(Routine.heatedMask.sessionMinutes ?? 10) * 60
+            let start = model.pause.end.map { $0.addingTimeInterval(-length) } ?? now.addingTimeInterval(-175)
+            guard let routine = routines.routines.first(where: { $0.id == id }),
+                  let session = RoutineSession(routine: routine, start: start) else { return }
+            if case .timer = scene {
+                routines.session.show(running: session)
+            } else {
+                done(daysAgo: 0, hour: 16, minute: 42)
+                routines.session.show(finished: session)
+            }
+        }
+    }
+
+    /// The demo's week: a routine three times a week, done once two days ago, asked today
+    /// four minutes after the demo opens, with a timer of one minute so that a whole
+    /// session can be watched. Nothing here needs a face.
+    static func demoWeek(in model: MonitorModel, now: Date, calendar: Calendar = .current) {
+        let id = Routine.heatedMask.id
+        let soon = now.addingTimeInterval(240)
+        guard calendar.isDate(soon, inSameDayAs: now) else { return }
+        let weekday = calendar.component(.weekday, from: now)
+        model.routines.setWeekTime(id, TimeOfDay(hour: calendar.component(.hour, from: soon),
+                                                 minute: calendar.component(.minute, from: soon)))
+        for day in 1...7 { model.routines.setWeekday(id, day, preferred: true) }
+        for day in 1...7 where ![0, 2, 4].contains((day - weekday + 7) % 7) { model.routines.setWeekday(id, day, preferred: false) }
+        model.routines.setSessionMinutes(id, 1)
+        model.routines.setOn(id, true, now: calendar.startOfDay(for: now))
+        let before = now.addingTimeInterval(-2 * 86_400)
+        model.routines.record(RoutineEvent(at: before, routine: id, slot: RoutineWeek.key(of: before, calendar: calendar),
+                                           action: .done))
     }
 
     /// The demo's routine: one time done three hours ago, one that falls due two minutes

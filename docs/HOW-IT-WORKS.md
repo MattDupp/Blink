@@ -158,6 +158,7 @@ well a routine was kept, both come from that file.
   at the screen: one that falls due while you are away is kept until you are back. While
   the camera is paused the app cannot see you, so an awake screen counts as somebody there.
 - The banner makes no sound. It has two buttons, Done and Later (15 minutes).
+  A routine with a timer has a third, Start Timer.
 - If you touch nothing, it comes back once, ten minutes later. After that there are no
   more banners: a dot in the menu bar and a line in the panel wait until the time is done
   or its next time comes.
@@ -167,8 +168,63 @@ a fixed time by itself, but it would not know whether you are there, or that you
 pressed Done.
 
 The schedule has three kinds: times of day, a number of times a week, and every so many
-minutes at the screen. Only the first is planned so far. The other two are in the type so
-that the settings and the record do not have to change when they arrive.
+minutes at the screen. The first two are planned. The third is in the type so that the
+settings and the record do not have to change when it arrives.
+
+### So many times a week
+
+"Three times a week" is a count to reach, not three appointments. The routine has a
+count, the days it prefers and one time of day. `RoutineWeek` (in `BlinkCore/Routines`)
+decides whether a day asks, with one short rule:
+
+- nothing asks once the count is reached;
+- a preferred day asks, at the chosen time;
+- another day asks when you are behind: the preferred days still to come are fewer than
+  the times still to do.
+
+"Behind" is judged from what was done before that day. So a day's answer does not change
+during the day, and yesterday can be judged again today.
+
+| What happens | What the app does | Why |
+|---|---|---|
+| You miss Wednesday | Thursday asks instead | The count can still be reached |
+| You do it early, on a day that did not ask or before the time | It counts. "I Did It" is always in the panel | The count is what matters, not the day |
+| You do it twice in one day | It counts as two | The count is yours. Undo takes back a press made by mistake, for the rest of that day |
+| The count is out of reach late in the week | Each day left asks once, and no more | One reminder a day is the most this kind ever sends |
+| A new week starts | The count starts at zero | Nothing is owed from last week |
+| The routine is switched on in the middle of a week | That week asks on preferred days only | Catching up on a week you did not start would be nagging |
+| The time zone changes | Nothing moves | A "done" is kept under the date on the wall clock (`2026-11-20`), like the times of day |
+| The Mac sleeps for two days | One reminder on waking if you are behind, not three | What is due is worked out again from the record |
+
+The week starts where the Mac's calendar says: Monday or Sunday. A day that asks has one
+slot, which waits from its time until midnight. From there on it is an ordinary slot: the
+record, Done and Later, the banner rules and the menu-bar dot treat it like a time of day.
+
+The app keeps the last nine days of the record in memory. That covers the whole week, and
+yesterday when yesterday belonged to the week before.
+
+### A timer for a routine that takes a while
+
+Under a mask you cannot see the screen, and the camera cannot see your eyes. A routine
+can have a timer (`RoutineSession` for the rule, `RoutineSessionController` in the app).
+The built-in heated eye mask has one. Its length is your setting: the app gives no advice
+on how long or how warm, and its words send you to the instructions of what you use.
+
+| The timer | Why |
+|---|---|
+| Holds the moment it ends, and compares it with the clock | A countdown stops while the Mac sleeps and is wrong afterwards |
+| Pauses the camera until that moment, with the same pause as the Pause button | Covered eyes would be read as a low blink rate, or a long closure |
+| Leaves a pause you chose yourself as it is | The timer must not switch the camera back on behind your back |
+| Asks macOS not to sleep while it runs | Ten minutes without a key can put a Mac to sleep, and a sleeping Mac plays no sound |
+| Holds the other routines' reminders until it is over | Nobody is looking at the screen |
+| Plays a sound twice at the end, and marks the routine done | Your eyes are closed: the sound is what tells you |
+| Stop ends it and marks nothing | "I Did It" is still there if it was done |
+| Closing its window does not stop it | A stray click must not cost you the sound at the end |
+
+What it cannot do: be heard with the Mac's sound off. And it is not kept across a
+relaunch: quit the app and the timer is gone, though the camera's pause still ends by
+itself at the same moment. If the Mac did sleep past the end (a closed lid), the routine is
+marked done at the moment the timer ended, without a sound.
 
 ## 9. Keeping it cheap
 

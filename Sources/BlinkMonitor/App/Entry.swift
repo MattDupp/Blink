@@ -9,7 +9,8 @@ import BlinkCore
 ///       --whole-frames-dir=<folder>        captures also keep the whole camera picture, and go
 ///                                          there instead (to replay the eye finding: make replay)
 ///       --open=<window>[,<window>]         open windows at launch: live-view, history, settings,
-///                                          blink-break (to look at them, or to check they open)
+///                                          blink-break, routine-timer (to look at them, or to
+///                                          check they open; routine-timer also starts the timer)
 ///       --no-camera                        leave the camera off (to look at the windows)
 ///       --demo                             made-up eyes: no camera, no model (make demo)
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
@@ -119,6 +120,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.blinkBreak.onFinished = { blinkBreak.close() }
         model.reminders.onBlinkBreak = { blinkBreak.show() }      // the reminder banner's button
 
+        // A routine's timer: starting it opens the window, its end closes it. Closing the
+        // window by hand does NOT stop the timer (unlike the blink break): whoever is
+        // under a mask must not lose the sound at the end to a stray click. Stop is a button.
+        let routineTimer = WindowController(title: "Routine Timer") {
+            RoutineSessionView(routines: model.routines, session: model.routines.session)
+        }
+        model.routines.session.onOpen = { routineTimer.show() }
+        model.routines.session.onClose = { routineTimer.close() }
+
         let settingsState = SettingsState()
         let settings = WindowController(title: "Blink Monitor - Settings") {
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
@@ -128,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.onVisibilityChange = { open in if !open { settingsState.reset() } }
         self.settings = settings
-        windows = [history, liveView, blinkBreak, settings]
+        windows = [history, liveView, blinkBreak, settings, routineTimer]
 
         let statusItem = StatusItemController(model: model, actions: PanelActions(
             startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
@@ -179,6 +189,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let byName = ["live-view": liveView, "history": history, "settings": settings, "blink-break": blinkBreak]
         for name in Options.windowsToOpen { byName[name]?.show() }
+        if Options.windowsToOpen.contains("routine-timer"), let timed = model.routines.routines.first(where: { $0.sessionMinutes != nil }) {
+            model.routines.startSession(timed.id)
+        }
     }
 
     @objc private func showSettings() {

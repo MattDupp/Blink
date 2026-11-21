@@ -254,6 +254,12 @@ final class MonitorModel: ObservableObject {
         setPause(PauseState(duration, from: now))
     }
 
+    /// A pause until a moment of the caller's choosing: a routine's timer pauses the
+    /// camera for exactly its own length.
+    func pause(until end: Date) {
+        setPause(.paused(until: end))
+    }
+
     func resume() {
         setPause(.running)
     }

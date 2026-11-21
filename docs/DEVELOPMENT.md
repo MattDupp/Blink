@@ -96,7 +96,8 @@ trained on them.
 
 The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `history.csv`
 (one line per minute), `performance.csv` (the pipeline's cost, one line per minute) and
-`routines.csv` (one line each time a routine's reminder is shown, done, put off or left).
+`routines.csv` (one line each time a routine's reminder is shown, done, put off or left,
+a done is taken back, or a timer is started).
 
 ## Judging a change to the eye finding
 

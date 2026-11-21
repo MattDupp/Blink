@@ -8,6 +8,8 @@ struct RoutineBanner: Equatable {
     let slot: RoutineSlot?
     /// It fell due while nobody was at the screen, and was kept until now.
     var kept = false
+    /// For a routine counted by the week: where the week stands.
+    var week: RoutineWeek?
 }
 
 /// Your routines: which ones are on, what happened to today's times, and the moment to
@@ -24,18 +26,21 @@ struct RoutineBanner: Equatable {
 final class RoutineController: ObservableObject {
 
     private static let key = "routines"
-    /// How far back the record is kept in memory: today, and yesterday for its last time.
-    private static let daysKept = 2.0
+    /// How far back the record is kept in memory: the whole of this week for the routines
+    /// counted by the week, and yesterday when yesterday was last week's Sunday.
+    private static let daysKept = 9.0
     /// How often the clock is looked at. A reminder is at most this late.
     static let tickSeconds = 20.0
 
     @Published private(set) var routines: [Routine]
-    /// The record of the last two days, oldest first.
+    /// The record of the last nine days, oldest first.
     @Published private(set) var events: [RoutineEvent]
     /// macOS does not let the app show banners (set by `RoutineBanners`).
     @Published var bannersRefused = false
 
     let store: RoutineStore
+    /// The timer of a routine that has one (see `RoutineSessionController`).
+    let session = RoutineSessionController()
     var policy = RoutinePolicy()
     /// The calendar the times are read with. The live one: it follows a change of time zone.
     var calendar = Calendar.autoupdatingCurrent
@@ -59,6 +64,8 @@ final class RoutineController: ObservableObject {
         let stored = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode([Routine].self, from: $0) }
         routines = Routine.merged(stored: stored ?? [])
         events = store.load(since: now.addingTimeInterval(-Self.daysKept * 86_400))
+        // A timer that runs to its end marks the routine done, at the moment it ended.
+        session.onDone = { [weak self] in self?.didIt($0.routine, now: $0.end) }
     }
 
     /// A record of its own in the temporary folder, emptied at each start: the demo, the
@@ -72,7 +79,20 @@ final class RoutineController: ObservableObject {
     /// Connects the controller to the running app: presence from the camera, banners
     /// through the app's one `Notifier`.
     func connect(to model: MonitorModel) {
-        someoneThere = { [weak model] in model?.someoneAtScreen() ?? true }
+        // Under a timer nobody is looking: the other reminders are kept until it is over.
+        someoneThere = { [weak model, weak self] in
+            (model?.someoneAtScreen() ?? true) && self?.session.session == nil
+        }
+        // The timer pauses the camera for its length: covered eyes must not be read as a
+        // low blink rate. A pause you chose yourself is left exactly as it is.
+        session.pauseCamera = { [weak model] end in
+            guard let model, !model.isPaused else { return false }
+            model.pause(until: end)
+            return true
+        }
+        session.resumeCamera = { [weak model] end in
+            if let model, model.pause == .paused(until: end) { model.resume() }
+        }
         banners = RoutineBanners(notifier: model.reminders.notifier, routines: self)
     }
 
@@ -91,10 +111,11 @@ final class RoutineController: ObservableObject {
 
     // MARK: - What the windows ask
 
-    /// Today for each routine that is on and has times.
+    /// Today for each routine that is on and has something to show: times today, or a
+    /// week being counted (which is shown on its quiet days too).
     func days(now: Date) -> [RoutineDay] {
         routines.filter(\.isOn).map { RoutineDay(routine: $0, record: events, now: now, calendar: calendar) }
-            .filter { !$0.slots.isEmpty }
+            .filter { !$0.slots.isEmpty || $0.week != nil }
     }
 
     /// The routines with a time waiting right now.
@@ -107,6 +128,7 @@ final class RoutineController: ObservableObject {
     /// Looks at the clock: writes what was dropped, and shows the reminders that are due.
     /// Called every 20 seconds, and by the tests with a time of their own.
     func tick(now: Date = Date()) {
+        session.check(now: now)     // a timer whose end passed while the Mac slept
         for miss in RoutineDay.unrecordedMisses(routines: routines, record: events, now: now, calendar: calendar) {
             record(miss)
         }
@@ -121,7 +143,7 @@ final class RoutineController: ObservableObject {
             record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .shown))
             // More than a tick late: it was kept for you (asleep, away, or the app was closed).
             onBanner(RoutineBanner(routine: day.routine, slot: slot,
-                                   kept: now.timeIntervalSince(slot.due) > Self.tickSeconds * 3))
+                                   kept: now.timeIntervalSince(slot.due) > Self.tickSeconds * 3, week: day.week))
         }
         // A time can fall due, or be dropped, with nothing written (nobody is there): the
         // menu bar and the panel are told all the same.
@@ -142,6 +164,30 @@ final class RoutineController: ObservableObject {
     func later(_ slot: RoutineSlot, now: Date = Date()) {
         record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .later, until: policy.later(from: now)))
         settled(slot.routine, now: now)
+    }
+
+    /// "I did it", at any moment, for a routine counted by the week: it counts for the
+    /// week whether or not today asked, and before the time as well as after it.
+    /// (A routine with times of day is marked through its waiting time: `done(_:)`.)
+    func didIt(_ id: String, now: Date = Date()) {
+        guard let routine = routines.first(where: { $0.id == id }), case .timesPerWeek = routine.schedule else { return }
+        record(RoutineEvent(at: now, routine: id, slot: RoutineWeek.key(of: now, calendar: calendar), action: .done))
+        settled(id, now: now)
+    }
+
+    /// Takes back the latest "I did it" of today, pressed by mistake.
+    func undo(_ id: String, now: Date = Date()) {
+        guard let day = days(now: now).first(where: { $0.routine.id == id }), let today = day.week?.today,
+              today.done > 0 else { return }
+        record(RoutineEvent(at: now, routine: id, slot: today.key, action: .undone))
+        dueShown = due(now: now).compactMap { $0.due?.id }
+    }
+
+    /// Starts the routine's timer, if it has one and none is running.
+    func startSession(_ id: String, now: Date = Date()) {
+        guard let routine = routines.first(where: { $0.id == id }), session.start(routine, now: now) else { return }
+        record(RoutineEvent(at: now, routine: id, slot: RoutineWeek.key(of: now, calendar: calendar), action: .started))
+        onSettled(routine)      // the banner is answered: it can go
     }
 
     /// A banner's button was pressed. The banner names the time by its key, and can be
@@ -172,7 +218,44 @@ final class RoutineController: ObservableObject {
             // The times already past today are not asked for (see `Routine.onSince`).
             $0.onSince = isOn ? now : nil
         }
-        if !isOn, let routine = routines.first(where: { $0.id == id }) { onSettled(routine) }
+        if !isOn, let routine = routines.first(where: { $0.id == id }) {
+            onSettled(routine)
+            if session.session?.routine == id { session.stop() }
+        }
+    }
+
+    // A routine counted by the week: its count, its preferred days, its time.
+
+    func setWeekCount(_ id: String, _ count: Int) {
+        changeWeek(id) { _, weekdays, time in (min(max(count, 1), 7), weekdays, time) }
+    }
+
+    /// `weekday`: 1 = Sunday ... 7 = Saturday. The last preferred day cannot be removed.
+    func setWeekday(_ id: String, _ weekday: Int, preferred: Bool) {
+        changeWeek(id) { count, weekdays, time in
+            var days = weekdays
+            if preferred { days.insert(weekday) } else if days.count > 1 { days.remove(weekday) }
+            return (count, days, time)
+        }
+    }
+
+    func setWeekTime(_ id: String, _ time: TimeOfDay) {
+        changeWeek(id) { count, weekdays, _ in (count, weekdays, time) }
+    }
+
+    /// The length of the routine's timer, for a routine that has one.
+    func setSessionMinutes(_ id: String, _ minutes: Int) {
+        change(id) { routine in
+            if routine.sessionMinutes != nil { routine.sessionMinutes = min(max(minutes, 1), 60) }
+        }
+    }
+
+    private func changeWeek(_ id: String, _ change: (Int, Set<Int>, TimeOfDay) -> (Int, Set<Int>, TimeOfDay)) {
+        self.change(id) { routine in
+            guard case .timesPerWeek(let count, let weekdays, let time) = routine.schedule else { return }
+            let new = change(count, weekdays, time)
+            routine.schedule = .timesPerWeek(count: new.0, weekdays: new.1, time: new.2)
+        }
     }
 
     /// Replaces one time by another. Setting it to a time another reminder already has

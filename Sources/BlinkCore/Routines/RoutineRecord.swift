@@ -13,6 +13,11 @@ public struct RoutineEvent: Equatable {
         case done
         /// Its next time came and it had not been done: it was dropped.
         case missed
+        /// You took back a `done` pressed by mistake: it cancels the latest `done` of the
+        /// same slot. (The record only grows: a line is never removed.)
+        case undone
+        /// A timer was started for it. Kept for the record only: nothing is decided from it.
+        case started
     }
 
     /// When this happened.
@@ -42,6 +47,8 @@ public struct RoutineEvent: Equatable {
 ///     2026-11-20T08:03:41Z,eye-drops,2026-11-20T08:00,done,
 ///
 /// `slot` is a day and a time ON THE WALL CLOCK, with no time zone (see `RoutineSlot.key`).
+/// For a routine counted by the week it is the day alone, "2026-11-20": what is counted is
+/// "done on that day", whatever the hour.
 /// Lines are only ever added: what is due is worked out from them each time it is asked
 /// (`RoutineDay`), so there is no "state" file that could disagree with the record.
 public struct RoutineStore {

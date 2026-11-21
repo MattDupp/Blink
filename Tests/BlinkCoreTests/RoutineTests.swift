@@ -203,13 +203,14 @@ struct RoutineTests {
         #expect(RoutineDay.unrecordedMisses(routines: [routine], record: [], now: at(18), calendar: paris).isEmpty)
     }
 
-    @Test("The two kinds without a screen yet plan nothing, and do not break anything")
+    @Test("The kind without a screen yet plans nothing, and does not break anything")
     func otherKinds() {
-        for schedule in [RoutineSchedule.timesPerWeek(count: 3), .everyMinutesAtScreen(minutes: 45)] {
-            let routine = Routine(id: "other", name: "Other", symbol: "star", schedule: schedule, isOn: true)
-            #expect(RoutineDay(routine: routine, record: [], now: at(9), calendar: paris).slots.isEmpty)
-            #expect(routine.times.isEmpty)
-        }
+        // ("So many times a week" has its own suite: RoutineWeekTests.)
+        let routine = Routine(id: "other", name: "Other", symbol: "star", schedule: .everyMinutesAtScreen(minutes: 45),
+                              isOn: true)
+        let day = RoutineDay(routine: routine, record: [], now: at(9), calendar: paris)
+        #expect(day.slots.isEmpty && day.week == nil)
+        #expect(routine.times.isEmpty)
     }
 
     // MARK: When to show a banner
@@ -277,14 +278,14 @@ struct RoutineTests {
     @Test("A routine of each kind survives being stored, and a new built-in one is added to old settings")
     func stored() throws {
         let routines = [drops(weekdays: [2, 6], onSince: at(7)),
-                        Routine(id: "weekly", name: "Weekly", symbol: "star", schedule: .timesPerWeek(count: 3)),
+                        Routine(id: "weekly", name: "Weekly", symbol: "star", schedule: .timesPerWeek(count: 3, weekdays: [2, 4, 6], time: TimeOfDay(hour: 17)), sessionMinutes: 10),
                         Routine(id: "screen", name: "Screen", symbol: "clock", schedule: .everyMinutesAtScreen(minutes: 45))]
         let data = try JSONEncoder().encode(routines)
         #expect(try JSONDecoder().decode([Routine].self, from: data) == routines)
 
         #expect(Routine.merged(stored: []) == Routine.builtIn)
-        #expect(Routine.merged(stored: [routines[1]]).map(\.id) == ["weekly", "eye-drops"])
-        #expect(Routine.merged(stored: [routines[0]]) == [routines[0]])      // your own times are kept
+        #expect(Routine.merged(stored: [routines[1]]).map(\.id) == ["weekly", "eye-drops", "heated-mask"])
+        #expect(Routine.merged(stored: [routines[0]]).first == routines[0])  // your own times are kept
         #expect(!Routine.eyeDrops.isOn)
     }
 }

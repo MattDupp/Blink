@@ -55,18 +55,23 @@ public struct RoutineSlot: Equatable, Identifiable {
 ///
 /// WHERE A NEW KIND OF SCHEDULE PLUGS IN: `slots(of:on:record:now:calendar:)` switches on
 /// the schedule. A new kind returns its own slots there, each with a `key` that names the
-/// planned occasion in the record (for "three times a week": the week and which of the
-/// three, for example "2026-W47#2"). Everything after that - the record, Done and Later,
-/// the banner rules, the panel - works on slots and does not look at the schedule.
+/// planned occasion in the record. Everything after that - the record, Done and Later,
+/// the banner rules, the menu-bar dot - works on slots and does not look at the schedule.
+/// "Three times a week" is done this way: `RoutineWeek` says whether the day asks, and
+/// the day then has one slot, named by the day alone ("2026-11-20").
 public struct RoutineDay: Equatable {
 
     public let routine: Routine
     /// Today's planned times, in order.
     public let slots: [RoutineSlot]
+    /// For a routine counted by the week: where the week stands. It is there on every day
+    /// of the week, also on the days with no slot (nothing is asked, or the count is reached).
+    public let week: RoutineWeek?
 
     public init(routine: Routine, record: [RoutineEvent], now: Date, calendar: Calendar = .current) {
         self.routine = routine
         slots = Self.slots(of: routine, on: now, record: record, now: now, calendar: calendar)
+        week = routine.isOn ? RoutineWeek(routine: routine, record: record, on: now, calendar: calendar) : nil
     }
 
     /// The time waiting for you now, if any. At most one: an older one has been dropped.
@@ -91,9 +96,40 @@ public struct RoutineDay: Equatable {
         switch routine.schedule {
         case .timesOfDay(_, let weekdays):
             return timeSlots(of: routine, weekdays: weekdays, on: day, record: record, now: now, calendar: calendar)
-        case .timesPerWeek, .everyMinutesAtScreen:
+        case .timesPerWeek(_, _, let time):
+            return weekSlot(of: routine, time: time, on: day, record: record, now: now, calendar: calendar)
+        case .everyMinutesAtScreen:
             return []       // not planned yet: see the type's comment
         }
+    }
+
+    /// The one slot of a day that asks, for a routine counted by the week; none on a day
+    /// that does not ask. It waits from its time until midnight.
+    private static func weekSlot(of routine: Routine, time: TimeOfDay, on day: Date, record: [RoutineEvent],
+                                 now: Date, calendar: Calendar) -> [RoutineSlot] {
+        guard let week = RoutineWeek(routine: routine, record: record, on: day, calendar: calendar),
+              week.today.asks else { return [] }
+        let start = week.today.start
+        guard let midnight = calendar.date(byAdding: .day, value: 1, to: start),
+              let due = calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: start),
+              due >= start, due < midnight else { return [] }
+        let key = week.today.key
+        let events = record.filter { $0.routine == routine.id && $0.slot == key }
+        return [RoutineSlot(routine: routine.id, key: key, time: time, due: due, end: midnight,
+                            status: status(due: due, end: midnight, events: events, onSince: routine.onSince, now: now))]
+    }
+
+    /// The events that still stand: each `undone` takes away the latest `done` before it.
+    public static func standing(_ events: [RoutineEvent]) -> [RoutineEvent] {
+        var kept: [RoutineEvent] = []
+        for event in events {
+            if event.action == .undone {
+                if let last = kept.lastIndex(where: { $0.action == .done }) { kept.remove(at: last) }
+            } else {
+                kept.append(event)
+            }
+        }
+        return kept
     }
 
     private static func timeSlots(of routine: Routine, weekdays: Set<Int>?, on day: Date, record: [RoutineEvent],
@@ -128,6 +164,7 @@ public struct RoutineDay: Equatable {
 
     private static func status(due: Date, end: Date, events: [RoutineEvent], onSince: Date?,
                                now: Date) -> RoutineSlot.Status {
+        let events = standing(events)
         if let done = events.last(where: { $0.action == .done }) { return .done(at: done.at) }
         if now < due { return .upcoming }
         if let onSince, due < onSince { return .notAsked }
