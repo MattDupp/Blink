@@ -16,6 +16,7 @@ final class SettingsState: ObservableObject {
         case general = "General"
         case reminders = "Reminders"
         case breaks = "Breaks"
+        case routines = "Routines"
         case data = "Your Data"
     }
 
@@ -62,6 +63,7 @@ struct SettingsView: View {
             case .general: general
             case .reminders: remindersTab
             case .breaks: breaks
+            case .routines: RoutineSettings(routines: model.routines, moment: moment)
             case .data: data
             }
         }

@@ -42,8 +42,10 @@ enum SampleData {
         let preferences = Preferences.temporary()
         preferences.reference = Reference(rate: Baseline.medianRate(of: minutes) ?? 13,
                                           measuredOn: now.addingTimeInterval(-17 * 86_400), minutes: 214)
-        return MonitorModel(preferences: preferences,
-                            history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        let model = MonitorModel(preferences: preferences,
+                                 history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        demoRoutine(in: model, now: now)
+        return model
     }
 
     /// The app in one of those situations.
@@ -172,5 +174,63 @@ enum SampleData {
                                        observedSeconds: 58, blinks: low ? 6 : 13))
         }
         return sample
+    }
+
+    // MARK: Routines
+
+    /// What the screenshots show of a routine's day.
+    enum RoutineScene {
+        /// Two times done, one to come.
+        case kept
+        /// One done, one left, one waiting now.
+        case waiting
+        /// The waiting one was put off.
+        case putOff
+    }
+
+    /// Switches the built-in routine on in `model` and gives it a made-up day. The model
+    /// is a made-up one: its record is a scratch file (see `RoutineController.scratch`).
+    static func routines(in model: MonitorModel, now: Date, scene: RoutineScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let id = Routine.eyeDrops.id
+        let morning = calendar.startOfDay(for: now)
+        func at(_ hour: Int, _ minute: Int) -> Date {
+            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: morning) ?? now
+        }
+        func slot(_ hour: Int, _ minute: Int) -> String {
+            let day = calendar.dateComponents([.year, .month, .day], from: morning)
+            return String(format: "%04d-%02d-%02dT%02d:%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0, hour, minute)
+        }
+        routines.setOn(id, true, now: morning)
+        routines.record(RoutineEvent(at: at(8, 4), routine: id, slot: slot(8, 0), action: .done))
+        switch scene {
+        case .kept:
+            routines.record(RoutineEvent(at: at(13, 20), routine: id, slot: slot(13, 0), action: .done))
+        case .waiting, .putOff:
+            routines.setTimes(id, [TimeOfDay(hour: 8), TimeOfDay(hour: 12, minute: 30), TimeOfDay(hour: 16, minute: 30)])
+            routines.record(RoutineEvent(at: at(16, 30), routine: id, slot: slot(16, 30), action: .shown))
+            if case .putOff = scene {
+                routines.record(RoutineEvent(at: at(16, 35), routine: id, slot: slot(16, 30), action: .later,
+                                             until: at(16, 50)))
+            }
+        }
+    }
+
+    /// The demo's routine: one time done three hours ago, one that falls due two minutes
+    /// after the demo opens (so that the reminder is seen), one in four hours. Times that
+    /// would fall on another day are left out.
+    static func demoRoutine(in model: MonitorModel, now: Date, calendar: Calendar = .current) {
+        let id = Routine.eyeDrops.id
+        let moments = [-3 * 3600.0, 120, 4 * 3600].map { now.addingTimeInterval($0) }
+            .filter { calendar.isDate($0, inSameDayAs: now) }
+        let times = moments.map { TimeOfDay(hour: calendar.component(.hour, from: $0), minute: calendar.component(.minute, from: $0)) }
+        guard !times.isEmpty else { return }
+        model.routines.setTimes(id, times)
+        model.routines.setOn(id, true, now: calendar.startOfDay(for: now))
+        let day = RoutineDay(routine: model.routines.routines.first { $0.id == id } ?? .eyeDrops, record: [], now: now,
+                             calendar: calendar)
+        if let first = day.slots.first, first.due < now, moments[0] < now {
+            model.routines.record(RoutineEvent(at: first.due.addingTimeInterval(240), routine: id, slot: first.key, action: .done))
+        }
     }
 }

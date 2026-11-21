@@ -52,6 +52,14 @@ enum Snapshots {
             let model = SampleData.model(now: now, scene: scene)
             return AnyView(BlinkBreakView(model: model, blinkBreak: model.blinkBreak, moment: Moment(frozen: now)))
         }
+        /// The panel with the built-in routine switched on, on a made-up day.
+        func routinePanel(_ scene: SampleData.RoutineScene) -> AnyView {
+            let model = SampleData.model(now: now, scene: .watching)
+            SampleData.routines(in: model, now: now, scene: scene)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
+                                         actions: PanelActions()))
+        }
         let watching = SampleData.model(now: now, scene: .watching)
 
         return [
@@ -76,6 +84,13 @@ enum Snapshots {
             }),
             ("settings-breaks", settings(.breaks, scene: .learning)),
             ("settings-data", settings(.data)),
+            ("panel-routine", routinePanel(.kept)),
+            ("panel-routine-waiting", routinePanel(.waiting)),
+            ("panel-routine-later", routinePanel(.putOff)),
+            ("settings-routines", settings(.routines)),
+            ("settings-routines-on", settings(.routines) { _, model in
+                SampleData.routines(in: model, now: now, scene: .kept)
+            }),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
             ("welcome", AnyView(WelcomeView(start: {}))),

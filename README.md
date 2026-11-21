@@ -57,6 +57,10 @@ and shipping it inside a real app.
   once and sets the limit at 70% of it. See [the baseline](#a-baseline-that-does-not-follow-you-down).
 - **Look-away nudges** (off by default): after 20 minutes at the screen, look at something
   far away for 20 seconds.
+- **Routines** (off by default): a reminder to put in eye drops at the times you set, for
+  example 08:00, 13:00 and 17:00. It is silent, waits until you are at the screen, and has
+  two buttons: Done, or Later. The panel shows today's times and which are done. The app
+  reminds you of a routine you chose; it gives no advice on what to use or how often.
 - **Pause** for 15 minutes, an hour, until tomorrow or until you resume. It switches the
   camera off for real and ends by itself; the camera also goes off when the screen sleeps
   or locks.
@@ -168,6 +172,7 @@ thing to work on. The app logs its cost once a minute to
 
 - The camera picture is analysed in memory and dropped. Nothing is uploaded; the app makes no network connection.
 - What is kept: one line per minute (time watched, blinks) in `~/Library/Application Support/BlinkMonitor/history.csv`. Settings shows the file and can erase it.
+- With a routine switched on, one line each time a reminder is shown, done, put off or left, in `routines.csv` in the same folder.
 - Pictures are written to disk only by the recorder and by the capture buttons of the Live View window, when you press them, to build your own training data.
 - A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.

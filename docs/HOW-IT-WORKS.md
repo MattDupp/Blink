@@ -129,7 +129,48 @@ Three small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 | `PresenceTracker` | Time at the screen since the last break, where a break is 20 s with no face in view. The camera cannot see where you look, so the count also restarts once a nudge has been shown. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
 
-## 8. Keeping it cheap
+## 8. Routines
+
+A routine is something you decided to do regularly for your eyes, such as putting in eye
+drops at 08:00, 13:00 and 17:00. The app reminds you of it. It gives no advice: the times
+are yours.
+
+**What is due is worked out, never stored.** `RoutineDay` (in `BlinkCore/Routines`) takes
+four things: the routine, the record, the clock and the calendar. It answers with today's
+times and where each stands: to come, waiting, put off, done or left. Because nothing is
+stored, nothing goes stale. The Mac can sleep through a time, or the app can start after
+it, and the answer is simply worked out again.
+
+| Rule | Why |
+|---|---|
+| A time waits until the routine's next time, or midnight for the last one. Then it is dropped | Two reminders never pile up: at 13:10 you get the 13:00 one, not the 08:00 one too |
+| The record names a time by its day and its time on the wall clock (`2026-11-20T08:00`), with no time zone | Done at 08:00, then a flight west: 08:00 does not come a second time on the same date |
+| A time that daylight saving skips falls due at the next minute that exists; a time that happens twice falls due once | The clock moving must neither lose a reminder nor double it |
+| A time already past when the routine is switched on is not asked for | Switching it on at 13:10 must not answer with a reminder for 13:00 |
+
+**The record** is `routines.csv`, beside the history: one line each time a reminder is
+shown, done, put off or left. Lines are only added. Today's state in the panel, and how
+well a routine was kept, both come from that file.
+
+**Reminding gently** (`RoutinePolicy`, and `RoutineController` in the app):
+
+- The app looks at the clock every 20 seconds. A reminder is shown only while somebody is
+  at the screen: one that falls due while you are away is kept until you are back. While
+  the camera is paused the app cannot see you, so an awake screen counts as somebody there.
+- The banner makes no sound. It has two buttons, Done and Later (15 minutes).
+- If you touch nothing, it comes back once, ten minutes later. After that there are no
+  more banners: a dot in the menu bar and a line in the panel wait until the time is done
+  or its next time comes.
+
+What this cannot do: remind you while the app is not running. macOS could show a banner at
+a fixed time by itself, but it would not know whether you are there, or that you already
+pressed Done.
+
+The schedule has three kinds: times of day, a number of times a week, and every so many
+minutes at the screen. Only the first is planned so far. The other two are in the type so
+that the settings and the record do not have to change when they arrive.
+
+## 9. Keeping it cheap
 
 The app runs all day, so its cost matters as much as its accuracy.
 

@@ -54,6 +54,7 @@ struct MenuPanelView: View {
             }
             .padding(16)
             Divider()
+            RoutineBlock(routines: model.routines, now: now)
             TodaySection(history: history, state: state, limit: preferences.limit, now: now)
                 .padding(16)
             Divider()

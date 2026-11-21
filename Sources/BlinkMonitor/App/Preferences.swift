@@ -27,7 +27,8 @@ final class Preferences: ObservableObject {
     /// The choices offered for "nudge me after ... at the screen".
     static let breakChoices = [20, 30, 45, 60]
 
-    private let defaults: UserDefaults
+    /// Also read by `RoutineController`, which keeps the routines in the same store.
+    let defaults: UserDefaults
 
     // MARK: General
 

@@ -86,6 +86,7 @@ final class MonitorModel: ObservableObject {
     let reminders: ReminderController
     let blinkBreak: BlinkBreakController
     let loginItem: LoginItem
+    let routines: RoutineController
     let captures = CaptureController()
 
     /// No picture for this long, with the camera meant to be on, is said in the windows.
@@ -112,6 +113,8 @@ final class MonitorModel: ObservableObject {
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
         blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
         loginItem = LoginItem(allowed: !demo)
+        // Made-up eyes or a made-up state: the routine record is a scratch one too.
+        routines = demo || initial != nil ? .scratch(defaults: preferences.defaults) : RoutineController(defaults: preferences.defaults)
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {
@@ -124,6 +127,7 @@ final class MonitorModel: ObservableObject {
         } else {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
+        routines.connect(to: self)
     }
 
     var isDemo: Bool { demoCamera != nil }
@@ -154,6 +158,7 @@ final class MonitorModel: ObservableObject {
     func start() async {
         guard lifecycle == .starting, pipeline == nil else { return }
         loginItem.refresh()
+        routines.start()
         if let demoCamera {
             startDemo(demoCamera)
             return

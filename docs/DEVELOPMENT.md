@@ -95,7 +95,8 @@ trained on them.
 | `models/` | `make train` | `eyenet.pt`, `EyeNet.mlpackage`, `EyeNet.mlmodelc`, `eyenet_reference.json` |
 
 The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `history.csv`
-(one line per minute) and `performance.csv` (the pipeline's cost, one line per minute).
+(one line per minute), `performance.csv` (the pipeline's cost, one line per minute) and
+`routines.csv` (one line each time a routine's reminder is shown, done, put off or left).
 
 ## Judging a change to the eye finding
 
