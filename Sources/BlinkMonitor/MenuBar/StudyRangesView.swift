@@ -26,7 +26,7 @@ struct StudyRangesStrip: View {
     var limit: Marker?
 
     private let labelWidth: CGFloat = 158
-    private let spanWidth: CGFloat = 78
+    private let spanWidth: CGFloat = 104
     private let rowHeight: CGFloat = 22
     private let barHeight: CGFloat = 12
     /// Room above the bars for the user's marker, and under them for the scale and the limit.
@@ -38,8 +38,9 @@ struct StudyRangesStrip: View {
         let ranges = PublishedRates.ranges
         let top = PublishedRates.scaleTop
         Canvas { context, size in
+            // One row per range, and a last one for the two rates the experiment tested.
             let plot = CGRect(x: labelWidth, y: topRoom, width: max(size.width - labelWidth - spanWidth, 40),
-                              height: CGFloat(ranges.count) * rowHeight)
+                              height: CGFloat(ranges.count + 1) * rowHeight)
             func x(_ rate: Double) -> CGFloat {
                 plot.minX + CGFloat(min(max(rate, 0), top) / top) * plot.width
             }
@@ -69,6 +70,20 @@ struct StudyRangesStrip: View {
                              at: CGPoint(x: plot.maxX + 10, y: middle), anchor: .leading)
             }
 
+            // The experiment is two points, not a range: nothing is known between them, so
+            // nothing is drawn between them. Hollow where the eyes fared worse, full where
+            // they fared as well as at the person's own rate.
+            let experiment = PublishedRates.experiment
+            let last = plot.minY + (CGFloat(ranges.count) + 0.5) * rowHeight
+            context.draw(Text(experiment.rowName).font(.caption).foregroundStyle(Color.primary),
+                         at: CGPoint(x: 0, y: last), anchor: .leading)
+            let worse = CGRect(x: x(experiment.worseAt) - 5, y: last - 5, width: 10, height: 10)
+            context.stroke(Path(ellipseIn: worse.insetBy(dx: 0.75, dy: 0.75)), with: .color(.primary), lineWidth: 1.5)
+            let fine = CGRect(x: x(experiment.fineAt) - 5, y: last - 5, width: 10, height: 10)
+            context.fill(Path(ellipseIn: fine), with: .color(.primary))
+            context.draw(Text(experiment.span).font(.caption).monospacedDigit().foregroundStyle(Color.primary),
+                         at: CGPoint(x: plot.maxX + 10, y: last), anchor: .leading)
+
             if let limit {
                 var line = Path()
                 // It stops at the bars: carried on to its name, it ran through the numbers
@@ -90,7 +105,7 @@ struct StudyRangesStrip: View {
                           within: size.width, in: &context)
             }
         }
-        .frame(height: topRoom + CGFloat(ranges.count) * rowHeight + scaleRoom + bottomRoom)
+        .frame(height: topRoom + CGFloat(ranges.count + 1) * rowHeight + scaleRoom + bottomRoom)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }
@@ -107,6 +122,7 @@ struct StudyRangesStrip: View {
     /// The picture in words, for VoiceOver.
     private var spoken: String {
         var parts = PublishedRates.ranges.map { "\($0.situationName): \($0.span) blinks a minute in studies" }
+        parts.append("\(PublishedRates.experiment.rowName), in one experiment: \(PublishedRates.experiment.span)")
         if let yours { parts.append("\(yours.label) a minute") }
         if let limit { parts.append("\(limit.label) a minute") }
         return parts.joined(separator: ". ")

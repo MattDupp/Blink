@@ -137,7 +137,17 @@ A test feeds it four weeks of steady decline and checks that neither the referen
 ## What studies say about blink rate
 
 Before putting a "healthy range" in the app I read the studies. There is no ideal blink
-rate in them. There is a typical one, and it depends on what you are doing:
+rate in them. One experiment and one review carry most of what the app says.
+
+**The experiment** (Chai 2025) is the only study that changed the blink rate and measured
+the eyes afterwards. In 45 young adults with dry eye symptoms, half an hour at 10 blinks a
+minute left the tear film less stable, the eyes redder and the symptoms worse than half an
+hour at 20 a minute or at their own rate. It is the app's main source: the limit starts at
+that 10. It is also small, tested two rates only, away from a screen, and has not been
+repeated.
+
+**The review** (Doughty 2001, 75 years of studies) gives what is typical, and it depends
+on what you are doing:
 
 | What the person is doing | Blinks a minute, averages of study groups |
 |---|---|
@@ -145,29 +155,25 @@ rate in them. There is a typical one, and it depends on what you are doing:
 | Looking straight ahead, in silence | 8.0 to 21.0 |
 | In conversation | 10.5 to 32.5 |
 
-These are the ranges of a review of 75 years of studies (Doughty 2001). Three more things
-the studies say shaped the app:
+Three more things the studies say shaped the app:
 
 - **No rate is established as enough.** So the app calls the ranges typical, never ideal,
-  and they never move your limit: it shows them next to it. One experiment points further:
-  in 45 young adults with dry eye symptoms, half an hour at 10 blinks a minute left the
-  tear film worse than 20 a minute or their own rate (Chai 2025). It is small, tested two
-  rates and has not been repeated.
+  and they never move your limit: it shows them next to it.
 - **Complete blinks count for more than the rate.** In a study of 453 people the share of
   incomplete blinks predicted dry eye disease, and the rate was linked to nothing measured
   on the eye surface (Wang 2025). Blink Monitor counts complete blinks and does not
   measure incomplete ones yet.
 - **Healthy people at a screen average about 5 complete blinks a minute** (Freudenthaler
-  2003), from 0.4 to 18.9 from one person to the next. The app used to start with a limit
-  of 10, well above that average. A new install now starts at 6, and Settings says so
-  when a limit sits above your own usual rate.
+  2003), from 0.4 to 18.9 from one person to the next. A limit of 10 calls many of them
+  low. So Settings says so when the limit sits above your own usual rate, and the floor
+  can be lowered as far as 1.
 
 [What is a healthy blink rate?](docs/BLINK-RATE.md) has the answer in full, a table of the
 studies, what they disagree on and the 56 sources. Of those, 16 were read in full, 39 as
 abstracts and 1 only through a review, and the page says which.
 
 <p align="center">
-  <img src="docs/img/settings-reminders-light.png" alt="Settings, Reminders tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, with the user's reference and limit marked" width="460">
+  <img src="docs/img/settings-reminders-light.png" alt="Settings, Reminders tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, two dots for the rates one experiment tested, and the user's reference and limit marked" width="460">
 </p>
 
 ## Results
@@ -290,7 +296,7 @@ docs/                   how it works, the research on blink rates, lessons, deve
 ## Not a medical device
 
 Blink Monitor is a personal project and a learning exercise. Its numbers are not a
-diagnosis, and its limits (6 blinks a minute to start with, then 70% of your own usual
+diagnosis, and its limits (10 blinks a minute to start with, then 70% of your own usual
 rate) are starting points, not medical ones. The ranges it shows are what studies report
 as typical, not targets, and nobody with clinical training reviewed that reading. If your
 eyes hurt, see an eye-care professional.

@@ -107,26 +107,38 @@ public enum PublishedRates {
         return Comparison(rate: rate, position: atScreen.position(of: rate))
     }
 
+    // MARK: The experiment
+
+    /// The one study that CHANGED the blink rate and measured the eyes afterwards (Chai
+    /// 2025), and so the app's main source for what a rate does. 45 young adults with dry
+    /// eye symptoms spent 30 minutes at each of two paced rates and at their own.
+    public struct Experiment: Equatable {
+        /// Blinks a minute after which the tear film, the redness and the symptoms were worse.
+        public let worseAt: Double
+        /// Blinks a minute after which they were no different from the person's own rate.
+        public let fineAt: Double
+        public let source: Citation
+    }
+
+    /// Two rates were tested and no other: what lies between them is not known. The people
+    /// had symptoms, knew they were watched and were not at a screen, and the study has not
+    /// been repeated. That is why it leads the sources and still sets nobody's limit by itself.
+    public static let experiment = Experiment(worseAt: 10, fineAt: 20, source: chai2025)
+
     // MARK: The starting floor
 
-    /// A tear film that holds for about this long is the usual case in healthy eyes: 24
-    /// students averaged 10.3 s, from 3.4 to 22.9 (Chidi-Egboka 2023).
-    public static let usualBreakUpSeconds = 10.0
-
-    /// The floor a new install starts with, in blinks a minute.
+    /// The floor an install starts with, in blinks a minute: the rate that did harm in the
+    /// experiment. Under it, the app says "Low".
     ///
-    /// The first version started at 10. The studies say that is above what an average
-    /// healthy adult does at a screen (5.3 complete blinks a minute in Freudenthaler 2003),
-    /// so a person with an ordinary rate would have been told "Low" most of the time,
-    /// before and after their own reference was measured.
-    ///
-    /// This number is ARITHMETIC, not a finding. The eye surface is covered while the next
-    /// blink comes before the tear film breaks up (the Ocular Protection Index, Ousler
-    /// 2008). With evenly spaced blinks and the usual break-up time, that is 60 / 10 = 6 a
-    /// minute. Break-up times differ between people and blinks are not evenly spaced, so it
-    /// is a starting point to adjust, like the 10 it replaces.
+    /// For a day this branch started new installs at 6, from arithmetic on the tear film's
+    /// break-up time, because healthy adults at a screen average about 5 complete blinks a
+    /// minute (Freudenthaler 2003) and 10 calls many of them low. The project's author then
+    /// chose the experiment over the arithmetic (2026-11-21): a measured harm at 10 outweighs
+    /// a derived 6. The cost is known and handled: somebody who usually blinks less than 10
+    /// times a minute is told so in Settings, with the way to lower the floor
+    /// (`Baseline.limitAboveUsual`).
     public static var startingFloor: Int {
-        Int((60 / usualBreakUpSeconds).rounded())
+        Int(experiment.worseAt.rounded())
     }
 
     // MARK: The sources
@@ -135,8 +147,9 @@ public enum PublishedRates {
     public static let review = URL(string: "https://github.com/MattDupp/blink-monitor/blob/main/docs/BLINK-RATE.md")!
 
     /// The papers behind what the app says, in the order the Sources tab lists them.
-    public static let sources = [doughty2001, bentivoglio1997, freudenthaler2003, chidiEgboka2023,
-                                 wang2025, chai2025, ousler2008, kim2021, tfos2023]
+    /// The experiment first, then the ranges, then the rest.
+    public static let sources = [chai2025, doughty2001, bentivoglio1997, freudenthaler2003, chidiEgboka2023,
+                                 wang2025, ousler2008, kim2021, tfos2023]
 
     static let doughty2001 = Citation(
         id: "doughty-2001", name: "Doughty 2001",
@@ -178,14 +191,14 @@ public enum PublishedRates {
         title: "Identification of a blink frequency threshold for maintaining tear film stability in young adults with dry eye symptoms",
         journal: "Scientific Reports 15",
         link: doi("10.1038/s41598-025-26424-z"), reading: .fullText,
-        finding: "45 young adults with dry eye symptoms. After 30 minutes of blinking at 10 a minute, paced by a sound, their tear film was less stable and their symptoms worse than after 20 a minute or their own rate. It tested those two rates only, away from a screen, and says nothing about eyes without symptoms.")
+        finding: "The one experiment that changed the blink rate. 45 young adults with dry eye symptoms: after 30 minutes at 10 blinks a minute, paced by a sound, the tear film was less stable and the symptoms worse than after 20 a minute or their own rate. This app's floor starts at that 10. Two rates only, away from a screen, not repeated, and nothing about eyes without symptoms.")
 
     static let ousler2008 = Citation(
         id: "ousler-2008", name: "Ousler 2008",
         title: "The Ocular Protection Index",
         journal: "Cornea 27(5)",
         link: doi("10.1097/ICO.0b013e31816583f6"), reading: .abstract,
-        finding: "The eye surface is covered while the next blink comes before the tear film breaks up. With evenly spaced blinks and a tear film that holds 10 seconds, that is 6 blinks a minute: where this app's floor starts. That figure is arithmetic, not a finding.")
+        finding: "The Ocular Protection Index: the eye surface is covered while the next blink comes before the tear film breaks up, and exposed when it comes later. How long a tear film holds differs from one person to the next, so the index gives no single rate for everybody.")
 
     static let kim2021 = Citation(
         id: "kim-2021", name: "Kim 2021",

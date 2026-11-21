@@ -59,11 +59,6 @@ final class Preferences: ObservableObject {
     /// its own switch.
     static let floorChoices = 1...20
 
-    /// Where the floor started in the first version, before the studies were read
-    /// (`docs/BLINK-RATE.md`, 2026-11-21). An install that was already in use keeps it:
-    /// the app does not move somebody's limit behind their back.
-    static let floorOfTheFirstVersion = 10
-
     /// Your usual rate, measured once and kept (nil until calibration is complete).
     @Published var reference: Reference? {
         didSet {
@@ -110,18 +105,7 @@ final class Preferences: ObservableObject {
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
-        if let chosen = defaults.object(forKey: Key.floor) as? Int {
-            floor = chosen
-        } else {
-            // Never set: a new install starts where the studies point, and one that has
-            // already been used (it was welcomed, or has a reference) keeps the 10 it has
-            // been living with. Written down at once, because "new" is only true today:
-            // tomorrow this install is welcomed too.
-            let inUse = defaults.bool(forKey: Key.welcomed) || defaults.object(forKey: Key.reference) != nil
-            let start = inUse ? Self.floorOfTheFirstVersion : PublishedRates.startingFloor
-            floor = start
-            defaults.set(start, forKey: Key.floor)
-        }
+        floor = defaults.object(forKey: Key.floor) as? Int ?? PublishedRates.startingFloor
         breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
         breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? Self.breakChoices[0]
 

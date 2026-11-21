@@ -77,10 +77,23 @@ what you are doing.**
 
 ### What this supports for someone working at a screen
 
-A **typical** range: **1.4 to 14.4 blinks a minute**, the range of study averages for
-healthy adults reading or at a screen (Doughty 2001). It is not a target and not a safe
-zone. The words in the app follow that: "typical", "in studies", never "ideal", "healthy"
-or "normal".
+Two things, from two kinds of study.
+
+**What a rate does: one experiment.** Chai 2025 is the only study that changed the rate
+and measured the eyes. For people with dry eye symptoms, 10 blinks a minute was worse
+than 20 or than their own rate. Blink Monitor takes it as its main source: its limit
+starts at 10, the rate that did harm. It does not use 20, the threshold the authors name,
+as a limit: nothing between 10 and 20 was tested, the people were not at a screen, and
+healthy adults at a screen average 5 to 15.
+
+**What is typical: the ranges.** 1.4 to 14.4 blinks a minute is the range of study
+averages for healthy adults reading or at a screen (Doughty 2001). It is not a target and
+not a safe zone. The words in the app follow that: "typical", "in studies", never
+"ideal", "healthy" or "normal".
+
+The two do not fit neatly, and the page does not hide it: many healthy people at a screen
+blink less than 10 times a minute. So the app says when its limit sits above a person's
+own usual rate, and lets them lower it.
 
 How sure is this?
 
@@ -235,9 +248,10 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 - Almost all studies last minutes, in a laboratory, with young adults. One measured office
   workers at the start and the end of a real shift (Marelli 2026). Nobody has measured
   healthy adults at a screen for whole working days.
-- One number in this page is arithmetic, not a finding: with a tear break-up time of 10
-  seconds and evenly spaced blinks, the Ocular Protection Index falls under 1 below 6
-  blinks a minute. Break-up times differ between people, and blinks are not evenly spaced.
+- The app's starting limit of 10 rests on one experiment of 45 people with symptoms. For
+  healthy eyes there is only arithmetic: with a tear break-up time of 10 seconds and evenly
+  spaced blinks, the Ocular Protection Index falls under 1 below 6 blinks a minute.
+  Break-up times differ between people, and blinks are not evenly spaced.
 - The 2017 and 2025 TFOS dry eye workshop reports were not read in full.
 
 ## Sources

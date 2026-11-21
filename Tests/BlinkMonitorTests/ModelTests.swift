@@ -210,31 +210,13 @@ struct PreferencesTests {
         body(store)
     }
 
-    @Test("A new install starts at the floor the studies point to, and keeps it once it has been welcomed")
-    func newInstall() {
+    @Test("An install starts at the floor the experiment gives, welcomed or not")
+    func startingFloor() {
         withStore { store in
             let first = Preferences(defaults: store)
             #expect(first.floor == PublishedRates.startingFloor && first.limit == PublishedRates.startingFloor)
             first.welcomed = true
-
-            // The next launch: welcomed now, like an install of the first version - but the
-            // floor was written down on the first day, so it does not jump to 10.
             #expect(Preferences(defaults: store).floor == PublishedRates.startingFloor)
-        }
-    }
-
-    @Test("An install that was in use before keeps the floor of 10 it has been living with")
-    func installInUse() {
-        withStore { store in
-            store.set(true, forKey: "welcomed")
-            #expect(Preferences(defaults: store).floor == Preferences.floorOfTheFirstVersion)
-        }
-        withStore { store in
-            // Started with --no-camera, never welcomed, but it has measured a reference.
-            store.set(["rate": 13.2, "measuredOn": Date(timeIntervalSince1970: 1_800_000_000), "minutes": 214],
-                      forKey: "reference")
-            let preferences = Preferences(defaults: store)
-            #expect(preferences.floor == Preferences.floorOfTheFirstVersion && preferences.limit == 10)
         }
     }
 
@@ -242,7 +224,6 @@ struct PreferencesTests {
     func lowestFloor() {
         #expect(Preferences.floorChoices.lowerBound == 1)
         #expect(Preferences.floorChoices.contains(PublishedRates.startingFloor))
-        #expect(Preferences.floorChoices.contains(Preferences.floorOfTheFirstVersion))
 
         withStore { store in
             // Somebody who makes 1.6 complete blinks a minute at a screen, floor at its lowest.
@@ -297,7 +278,9 @@ struct StudyWordsTests {
         #expect(PublishedRates.atScreen.span == "1.4 to 14.4")
         #expect(PublishedRates.lookingAhead.span == "8 to 21")
         #expect(PublishedRates.inConversation.span == "10.5 to 32.5")
-        #expect(PublishedRates.caption.contains("not targets") && PublishedRates.caption.contains(PublishedRates.atScreen.source.name))
+        #expect(PublishedRates.caption.contains("a target") && PublishedRates.caption.contains(PublishedRates.atScreen.source.name))
+        #expect(PublishedRates.caption.contains(PublishedRates.experiment.source.name))
+        #expect(PublishedRates.experiment.span == "10 worse, 20 fine")
     }
 
     @Test("A limit above the usual rate is explained, with a way out that exists")

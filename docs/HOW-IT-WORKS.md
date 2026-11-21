@@ -111,8 +111,7 @@ A reminder needs evidence and restraint: a rate under your limit over the last t
 minutes, with at least two of them watched, and never more than one reminder in five
 minutes.
 
-**The limit.** It starts at 6 blinks a minute. (The first version started at 10, and an
-install that was already in use keeps that.) Once three hours have been watched over at
+**The limit.** It starts at 10 blinks a minute. Once three hours have been watched over at
 least two days, the app takes the median of those minutes as your reference and sets the
 limit at 70% of it, never under the floor you chose. The reference is then kept: nothing
 recomputes it. If you blink less as the weeks go by, the gap to the reference is reported
@@ -121,8 +120,8 @@ you would lower the bar as you declined, and hide the very thing it is for. Meas
 is a button in Settings, with a warning when the new value is lower.
 
 **What studies report.** `PublishedRates` (in `BlinkCore/History`) is the one place a
-number from a study lives: three ranges of blink rates, each with its source, and the
-papers the Settings window lists. Healthy adults average 1.4 to 14.4 blinks a minute while
+number from a study lives: three ranges of blink rates, each with its source, the
+experiment, and the papers the Settings window lists. Healthy adults average 1.4 to 14.4 blinks a minute while
 reading or at a screen, 8.0 to 21.0 looking straight ahead, and 10.5 to 32.5 in
 conversation (Doughty 2001). The app shows these next to your own rate and limit, and
 that is all they do:
@@ -132,12 +131,15 @@ that is all they do:
 - They never set the limit. That stays your own reference and your floor.
 - Nothing takes a colour because of them. Only your own limit turns a bar orange.
 
-One number is derived from them: the floor a new install starts with. The eye surface is
-covered while the next blink comes before the tear film breaks up. With a tear film that
-holds 10 seconds and evenly spaced blinks, that is 6 a minute. It is arithmetic, not a
-finding, and a starting point to adjust. The floor can be set from 1 to 20: some healthy
-people make 0 to 2 complete blinks a minute at a screen (Freudenthaler 2003), and a limit
-has to be able to follow them. When the limit ends up above your own usual rate, Settings
+The same type holds the app's main source, an experiment (Chai 2025): 45 young adults
+with dry eye symptoms fared worse after half an hour at 10 blinks a minute than at 20 or
+at their own rate. Two things come from it. The floor starts at that 10. And the strip in
+Settings marks the two rates as two dots, with nothing drawn between them, because nothing
+between them was tested.
+
+Healthy adults at a screen average about 5 complete blinks a minute (Freudenthaler 2003),
+so a limit of 10 is above the usual rate of many people. Two things answer that. The floor
+can be set from 1 to 20. And when the limit ends up above your own usual rate, Settings
 says so, because the app would say "Low" most of the time.
 
 [What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits

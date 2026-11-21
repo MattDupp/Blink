@@ -29,11 +29,23 @@ extension StudyRange {
     }
 }
 
+extension PublishedRates.Experiment {
+
+    /// The row's name in the strip.
+    var rowName: String { "With dry eye symptoms" }
+
+    /// "10 worse, 20 fine".
+    var span: String {
+        "\(StudyRange.written(worseAt)) worse, \(StudyRange.written(fineAt)) fine"
+    }
+}
+
 extension PublishedRates {
 
-    /// Said under the strip, wherever it is shown.
+    /// Said under the strip, wherever it is shown: the experiment first, because it is the
+    /// only study that changed the rate, then what the bars are, then what none of it is.
     static var caption: String {
-        "Averages of groups of healthy adults (\(atScreen.source.name)). People differ a lot, and no rate is established as enough: these are typical ranges, not targets."
+        "Dots: one experiment on people with dry eye symptoms (\(experiment.source.name)). After half an hour at \(StudyRange.written(experiment.worseAt)) blinks a minute their eyes fared worse than at \(StudyRange.written(experiment.fineAt)) or at their own rate. Bars: averages of groups of healthy adults (\(atScreen.source.name)). People differ a lot, and no rate is established as enough: none of this is a target."
     }
 
     /// Said after a comparison in the History window, which has no room for the list.

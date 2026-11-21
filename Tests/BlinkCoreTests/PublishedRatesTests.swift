@@ -83,31 +83,32 @@ struct PublishedRatesTests {
 
     // MARK: The starting floor
 
-    @Test("The starting floor is the rate at which evenly spaced blinks are one tear break-up time apart")
-    func startingFloor() {
-        #expect(PublishedRates.startingFloor == 6)
-        #expect(Double(PublishedRates.startingFloor) * PublishedRates.usualBreakUpSeconds == 60)
-        // It sits inside what studies report at a screen, and under what they report at rest:
-        // a floor above the screen range would call nearly everybody low.
-        #expect(PublishedRates.atScreen.position(of: Double(PublishedRates.startingFloor)) == .inside)
-        #expect(PublishedRates.lookingAhead.position(of: Double(PublishedRates.startingFloor)) == .below)
+    @Test("The experiment gives two rates and no more, and the floor starts at the one that did harm")
+    func experimentAndFloor() {
+        let experiment = PublishedRates.experiment
+        #expect(experiment.worseAt == 10 && experiment.fineAt == 20)
+        #expect(experiment.worseAt < experiment.fineAt)
+        #expect(PublishedRates.sources.first == experiment.source, "the experiment leads the sources")
+        #expect(PublishedRates.startingFloor == 10)
+        // Both tested rates fit the scale the strip draws.
+        #expect(experiment.fineAt <= PublishedRates.scaleTop)
     }
 
     @Test("A limit above your own usual rate is noticed: the app would say Low most of the time")
     func limitAboveUsual() {
+        // Ordinary at a screen in the studies, and under the starting floor.
         let usual = Reference(rate: 7.2, measuredOn: monday, minutes: 200)
-        // The first version's floor of 10 on someone who usually blinks 7 times a minute.
-        let old = Baseline.limit(reference: usual, automatic: true, floor: 10)
-        #expect(old == 10 && Baseline.limitAboveUsual(reference: usual, limit: old))
+        let start = Baseline.limit(reference: usual, automatic: true, floor: PublishedRates.startingFloor)
+        #expect(start == 10 && Baseline.limitAboveUsual(reference: usual, limit: start))
 
-        let new = Baseline.limit(reference: usual, automatic: true, floor: PublishedRates.startingFloor)
-        #expect(new == 6 && !Baseline.limitAboveUsual(reference: usual, limit: new))
+        // The way out Settings names: a lower floor lets the limit follow the person.
+        let lowered = Baseline.limit(reference: usual, automatic: true, floor: 5)
+        #expect(lowered == 5 && !Baseline.limitAboveUsual(reference: usual, limit: lowered))
 
-        // Someone who usually blinks less than the starting floor is still told, so that
-        // they can lower it.
-        let fewer = Reference(rate: 4.6, measuredOn: monday, minutes: 200)
-        #expect(Baseline.limitAboveUsual(reference: fewer, limit: Baseline.limit(reference: fewer, automatic: true,
-                                                                                 floor: PublishedRates.startingFloor)))
+        // Somebody who blinks more than the floor is not told anything.
+        let more = Reference(rate: 16, measuredOn: monday, minutes: 200)
+        #expect(!Baseline.limitAboveUsual(reference: more, limit: Baseline.limit(reference: more, automatic: true,
+                                                                                floor: PublishedRates.startingFloor)))
         #expect(!Baseline.limitAboveUsual(reference: nil, limit: 10), "nothing is known before the reference is measured")
     }
 
