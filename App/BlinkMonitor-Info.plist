@@ -2,40 +2,35 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIdentifier</key>
-    <string>local.blinkmonitor.monitor</string>
-    <key>CFBundleName</key>
-    <string>Blink Monitor</string>
-    <key>CFBundleDisplayName</key>
-    <string>Blink Monitor</string>
-    <key>CFBundleExecutable</key>
-    <string>BlinkMonitor</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <!-- What Finder's Get Info shows under the name, and the shelf Launchpad and the
-         Applications folder's "by kind" view file the app on. -->
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 MattDupp. MIT License.</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.healthcare-fitness</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <!-- "UI element": an app that lives in the menu bar, with no Dock icon. -->
-    <key>LSUIElement</key>
-    <true/>
-    <!-- Without this key macOS reports an iPhone offered by Continuity Camera as a
-         "built-in wide angle camera", and the app could pick the phone for the Mac's own. -->
-    <key>NSCameraUseContinuityCameraDeviceType</key>
-    <true/>
-    <key>NSCameraUsageDescription</key>
-    <string>Blink Monitor watches your eyes to count your blinks. The pictures are read on this Mac and never sent anywhere. Small pictures of your eyes are kept, on this Mac only, when you set it up.</string>
+	<key>CFBundleDisplayName</key>
+	<string>Blink Monitor</string>
+	<key>CFBundleExecutable</key>
+	<string>BlinkMonitor</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.blinkmonitor.monitor</string>
+	<key>CFBundleName</key>
+	<string>Blink Monitor</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.healthcare-fitness</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Blink Monitor watches your eyes to count your blinks. The pictures are read on this Mac and never sent anywhere. Small pictures of your eyes are kept, on this Mac only, when you set it up.</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 MattDupp. MIT License.</string>
 </dict>
 </plist>
