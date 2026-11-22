@@ -182,11 +182,23 @@ their numbers, and the file formats, across the two languages.
   Without recordings that can measure a change, say so instead of guessing.
 - **No medical claim.** The app reminds people of a routine they chose and reports what
   studies found. It does not advise on treatment, and its words must not start to.
+- **One name for each thing a user reads.** "Your usual rate", "limit", "lowest limit",
+  "recording", "reminder", "at the screen", "blinks a minute", "Quiet". `SourceTests`
+  fails when a retired word returns in a quoted string. Names in the code may differ
+  (`reference`, `floor`, `session`).
+- **Numbers and times go through `Format`** (`count`, `duration`, `rate`, `hour`), never
+  through a hand-made plural or `"%d:00"`.
+- **Anything that erases asks through `Confirm`** (BlinkUI), with its words in
+  `EraseWords`. `Uninstall.deleteEverything` is "Delete Everything and Quit": a test gives
+  it a temporary folder and a settings store of its own. Never run it, or press the
+  button, against the real folder.
 
 ## Checking the UI without clicking
 
 - `make snapshots`, then look at the pictures in `build/screens`. A new screen or state
   gets a line in `Snapshots.swift` and is looked at in light and dark.
+  The pictures have English numbers and a 24-hour clock, whatever this Mac is set to.
+  Settings is drawn whole there; in the app its tabs share one height and scroll.
 - Open windows at launch: `--open=setup,live-view,history,settings,blink-break,routine-timer`
   (the demo app accepts it too).
 - Read the app's log with the full path. In zsh a bare `log` is a shell builtin and
