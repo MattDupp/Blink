@@ -196,6 +196,109 @@ struct DemoTests {
     }
 }
 
+/// The choices the app remembers.
+@MainActor
+@Suite("Preferences")
+struct PreferencesTests {
+
+    /// A store of its own for one test, emptied before and after.
+    private func withStore(_ body: (UserDefaults) -> Void) {
+        let name = "local.blinkmonitor.tests.\(UUID().uuidString)"
+        let store = UserDefaults(suiteName: name)!
+        store.removePersistentDomain(forName: name)
+        defer { store.removePersistentDomain(forName: name) }
+        body(store)
+    }
+
+    @Test("An install starts at the floor the experiment gives, welcomed or not")
+    func startingFloor() {
+        withStore { store in
+            let first = Preferences(defaults: store)
+            #expect(first.floor == PublishedRates.startingFloor && first.limit == PublishedRates.startingFloor)
+            first.welcomed = true
+            #expect(Preferences(defaults: store).floor == PublishedRates.startingFloor)
+        }
+    }
+
+    @Test("The floor can be set as low as 1, so that a limit can follow someone who blinks very little")
+    func lowestFloor() {
+        #expect(Preferences.floorChoices.lowerBound == 1)
+        #expect(Preferences.floorChoices.contains(PublishedRates.startingFloor))
+
+        withStore { store in
+            // Somebody who makes 1.6 complete blinks a minute at a screen, floor at its lowest.
+            let preferences = Preferences(defaults: store)
+            preferences.reference = Reference(rate: 1.6, measuredOn: Date(timeIntervalSince1970: 1_800_000_000), minutes: 200)
+            #expect(Baseline.limitAboveUsual(reference: preferences.reference, limit: preferences.limit), "at the starting floor")
+            preferences.floor = Preferences.floorChoices.lowerBound
+            #expect(preferences.limit == 1)
+            #expect(!Baseline.limitAboveUsual(reference: preferences.reference, limit: preferences.limit))
+            // The choice is kept.
+            #expect(Preferences(defaults: store).floor == 1)
+        }
+    }
+
+    @Test("A floor somebody chose is never replaced")
+    func chosenFloor() {
+        withStore { store in
+            store.set(8, forKey: "threshold")
+            #expect(Preferences(defaults: store).floor == 8)
+            store.set(true, forKey: "welcomed")
+            #expect(Preferences(defaults: store).floor == 8)
+        }
+    }
+}
+
+/// What the app says about published studies: typical, never ideal.
+@Suite("Words about the studies")
+struct StudyWordsTests {
+
+    private let positions: [(Double, StudyRange.Position)] = [(0.9, .below), (11.8, .inside), (21.3, .above)]
+
+    @Test("Wherever a week falls, the sentence gives the range and never calls a rate ideal, healthy or normal")
+    func comparisonSentences() {
+        let judgements = ["ideal", "healthy", "normal", "should", "too little", "too much", "warning"]
+        for (rate, position) in positions {
+            let sentence = PublishedRates.Comparison(rate: rate, position: position).sentence
+            #expect(sentence.contains(PublishedRates.atScreen.span), "the range is missing: \(sentence)")
+            #expect(sentence.contains(String(format: "%.1f", rate)))
+            for word in judgements {
+                #expect(!sentence.lowercased().contains(word), "'\(word)' in: \(sentence)")
+            }
+        }
+        // Under the range, the likely reason is the counting, and the sentence says where to look.
+        #expect(PublishedRates.Comparison(rate: 0.9, position: .below).sentence.contains("Live View"))
+        // Above it, the ordinary reason is talking.
+        #expect(PublishedRates.Comparison(rate: 21.3, position: .above).sentence.contains(PublishedRates.inConversation.span))
+        #expect(PublishedRates.Comparison(rate: 11.8, position: .inside).sentence.contains("not a target"))
+    }
+
+    @Test("The ranges are written with one decimal, dropped when it is zero")
+    func spans() {
+        #expect(PublishedRates.atScreen.span == "1.4 to 14.4")
+        #expect(PublishedRates.lookingAhead.span == "8 to 21")
+        #expect(PublishedRates.inConversation.span == "10.5 to 32.5")
+        #expect(PublishedRates.caption.contains("a target") && PublishedRates.caption.contains(PublishedRates.atScreen.source.name))
+        #expect(PublishedRates.caption.contains(PublishedRates.experiment.source.name))
+        #expect(PublishedRates.experiment.span == "10 worse, 20 fine")
+    }
+
+    @Test("A limit above the usual rate is explained, with a way out that exists")
+    func limitAboveUsual() {
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+        let ordinary = PublishedRates.limitAboveUsual(reference: Reference(rate: 7.2, measuredOn: day, minutes: 200),
+                                                      limit: 10, canLower: true)
+        #expect(ordinary.contains("7.2") && ordinary.contains("limit of 10") && ordinary.contains("ordinary at a screen"))
+        #expect(ordinary.contains("lower Never under"))
+
+        // Under what studies report: the counting is the likely reason, not the person.
+        let missed = PublishedRates.limitAboveUsual(reference: Reference(rate: 0.9, measuredOn: day, minutes: 200),
+                                                    limit: 4, canLower: false)
+        #expect(missed.contains("Live View") && !missed.contains("ordinary"))
+        #expect(missed.contains("as low as it goes") && !missed.contains("lower Never under"))
+    }
+}
+
 /// Rules about the source itself.
 @Suite("The app's source")
 struct SourceTests {
@@ -219,5 +322,26 @@ struct SourceTests {
             }
         }
         #expect(offenders.isEmpty, "a stored Date() in: \(offenders)")
+    }
+
+    @Test("No window types a number that comes from a study: they are read from PublishedRates")
+    func noStudyNumberInAView() throws {
+        // The ends of the ranges that are not whole numbers, as a window would write them,
+        // and the sentence the first version had in Settings, which had no source.
+        let ends = PublishedRates.ranges.flatMap { [$0.lower, $0.upper] }.filter { $0 != $0.rounded() }
+        #expect(ends.count >= 4)
+        let figures = ends.map { String(format: "%.1f", $0) }
+        // A figure standing alone: not the tail of 21.4, nor the head of 1.45.
+        let typed = try Regex("(^|[^0-9.])(" + figures.map { $0.replacingOccurrences(of: ".", with: "\\.") }
+            .joined(separator: "|") + ")($|[^0-9])").anchorsMatchLineEndings()
+        var offenders: [String] = []
+        for folder in ["Sources/BlinkMonitor", "Sources/BlinkRecorder", "Sources/BlinkUI"] {
+            let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
+            for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                if text.contains(typed) || text.contains("15 to 20 times a minute") { offenders.append(file.lastPathComponent) }
+            }
+        }
+        #expect(offenders.isEmpty, "a study's number typed in: \(offenders)")
     }
 }

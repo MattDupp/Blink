@@ -45,10 +45,19 @@ final class Preferences: ObservableObject {
     @Published var automaticLimit: Bool { didSet { defaults.set(automaticLimit, forKey: Key.automaticLimit) } }
 
     /// The limit you set by hand, in blinks a minute. With an automatic limit it is the
-    /// floor: the limit never goes under it. People at rest blink roughly 15 to 20 times a
-    /// minute, and far less when staring at a screen; 10 is a starting point for you to
-    /// adjust, not a medical limit.
+    /// floor: the limit never goes under it. Where it starts is `PublishedRates.startingFloor`:
+    /// a starting point for you to adjust, not a medical limit.
     @Published var floor: Int { didSet { defaults.set(floor, forKey: Key.floor) } }
+
+    /// The floors the Settings window offers, in blinks a minute.
+    ///
+    /// Down to 1. The first version stopped at 4, but some healthy people make 0 to 2
+    /// complete blinks a minute at a screen (one of the three patterns Freudenthaler 2003
+    /// describes, see `PublishedRates`): with a floor of 4 their limit could never come
+    /// down to their own usual rate, and the app said "Low" to them all day. Not 0: a
+    /// limit of 0 can never be gone under, which is reminders switched off, and that has
+    /// its own switch.
+    static let floorChoices = 1...20
 
     /// Your usual rate, measured once and kept (nil until calibration is complete).
     @Published var reference: Reference? {
@@ -96,7 +105,7 @@ final class Preferences: ObservableObject {
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
-        floor = defaults.object(forKey: Key.floor) as? Int ?? 10
+        floor = defaults.object(forKey: Key.floor) as? Int ?? PublishedRates.startingFloor
         breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
         breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? Self.breakChoices[0]
 

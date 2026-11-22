@@ -202,6 +202,32 @@ recomputes it. If you blink less as the weeks go by, the gap to the reference is
 you would lower the bar as you declined, and hide the very thing it is for. Measuring again
 is a button in Settings, with a warning when the new value is lower.
 
+**What studies report.** `PublishedRates` (in `BlinkCore/History`) is the one place a
+number from a study lives: three ranges of blink rates, each with its source, the
+experiment, and the papers the Settings window lists. Healthy adults average 1.4 to 14.4 blinks a minute while
+reading or at a screen, 8.0 to 21.0 looking straight ahead, and 10.5 to 32.5 in
+conversation (Doughty 2001). The app shows these next to your own rate and limit, and
+that is all they do:
+
+- They are typical ranges, not ideal ones. No rate is established as enough, so the
+  words never say "ideal", "healthy" or "normal", and a test checks the sentences.
+- They never set the limit. That stays your own reference and your floor.
+- Nothing takes a colour because of them. Only your own limit turns a bar orange.
+
+The same type holds the app's main source, an experiment (Chai 2025): 45 young adults
+with dry eye symptoms fared worse after half an hour at 10 blinks a minute than at 20 or
+at their own rate. Two things come from it. The floor starts at that 10. And the strip in
+Settings marks the two rates as two dots, with nothing drawn between them, because nothing
+between them was tested.
+
+Healthy adults at a screen average about 5 complete blinks a minute (Freudenthaler 2003),
+so a limit of 10 is above the usual rate of many people. Two things answer that. The floor
+can be set from 1 to 20. And when the limit ends up above your own usual rate, Settings
+says so, because the app would say "Low" most of the time.
+
+[What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits
+and how each was read.
+
 ## 7. Breaks and pauses
 
 Three small pieces of logic, each a tested type in `BlinkCore/Monitoring`:

@@ -65,12 +65,15 @@ Sources/BlinkCore/
                  PauseState, PresenceTracker (time at the screen), BlinkBreak,
                  ProofTest (the ten-tick test of the setup)
     History/     minute records, the CSV stores, the reminder policy, Baseline (your
-                 reference and the limit), Insights (rates by hour)
+                 reference and the limit), Insights (rates by hour), PublishedRates
+                 (what studies report, with its sources: the only place such a
+                 number is typed)
     Recording/   SessionScript (the poses, the pace, the 70% check), SessionPipeline (the
                  frames of the setup: saved, or read and counted), SessionWriter and
                  CaptureWriter: the on-disk formats; PaintedEye (a drawn eye, for the
                  demo and the tests); WholeFrames (a capture's frames as a movie),
-                 CaptureReplay (those frames through the pipeline again)
+                 CaptureReplay (those frames through the pipeline again),
+                 RecordedCapture (a capture read back)
     Support/     logging, PNG and CSV files, stage timings, launch options
 Sources/BlinkUI/             the camera preview and its notes, RateReadout (the one way the
                              rate is written), Speaker (the voice), the screenshot renderer
