@@ -72,6 +72,16 @@ public enum SessionScript {
     /// minutes, and the test at the end of setup is what decides.
     public static let sessionsBeforeTraining = 2
 
+    /// What the voice adds before a pose, so that two minutes with closed eyes have a
+    /// middle and an end: "Halfway." before the pose that starts the second half, and
+    /// "Last one." before the last. Nil for every other pose.
+    public static func progressWords(before index: Int, of count: Int = phases.count) -> String? {
+        guard count >= 4 else { return nil }
+        if index == count - 1 { return "Last one." }
+        if index == count / 2 { return "Halfway." }
+        return nil
+    }
+
     public static let phases: [Phase] = [
         Phase(label: .open, variant: "screen", instruction: "Eyes open. Look at the screen normally."),
         Phase(label: .closed, variant: "gentle", instruction: "Close your eyes gently."),

@@ -1,5 +1,14 @@
 import Foundation
 
+/// A training that says nothing for a while is still working, not finished: the page
+/// then says so instead of a frozen "About 6 s left".
+public enum TrainingSilence {
+    public static let seconds = 10.0
+    public static func isSilent(lastWord: Date, now: Date) -> Bool {
+        now.timeIntervalSince(lastWord) >= seconds
+    }
+}
+
 /// What a training says while it runs. Each value is one line of text when the training
 /// runs in a helper process (`TrainingRun.helper`), read back by the app.
 public enum TrainingProgress: Codable, Equatable {

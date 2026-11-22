@@ -9,6 +9,20 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     private var waiting: CheckedContinuation<Void, Never>?
     private var generation = 0
 
+    /// The best English voice installed. The default one is the oldest and the flattest;
+    /// many Macs also carry an "enhanced" or "premium" one, and it is the guide for two
+    /// minutes with closed eyes. American English first, since the script is written in it.
+    static let voice: AVSpeechSynthesisVoice? = {
+        let english = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
+        func rank(_ voice: AVSpeechSynthesisVoice) -> Int {
+            voice.quality.rawValue * 2 + (voice.language == "en-US" ? 1 : 0)
+        }
+        // Novelty voices ("Bells", "Zarvox") are of default quality: an American default
+        // voice is only taken from the system's own choice.
+        let better = english.filter { $0.quality != .default }.max { rank($0) < rank($1) }
+        return better ?? AVSpeechSynthesisVoice(language: "en-US")
+    }()
+
     public override init() {
         super.init()
         synthesizer.delegate = self
@@ -17,7 +31,7 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     /// Speaks, and returns when the sentence is finished.
     public func say(_ text: String) async {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.voice = Self.voice
         generation += 1
         let mine = generation
 

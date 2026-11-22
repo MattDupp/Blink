@@ -335,6 +335,19 @@ struct SessionTests {
         return FoundEyes(crops: crops, of: located)
     }
 
+    @Test("The voice says where you are: halfway, and before the last pose; a training silent for ten seconds is still working")
+    func progressWords() {
+        let count = SessionScript.phases.count
+        let said = (0..<count).compactMap { index in SessionScript.progressWords(before: index).map { (index, $0) } }
+        #expect(said.map(\.0) == [count / 2, count - 1])
+        #expect(said.map(\.1) == ["Halfway.", "Last one."])
+        #expect(SessionScript.progressWords(before: 1, of: 2) == nil)
+
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        #expect(!TrainingSilence.isSilent(lastWord: start, now: start.addingTimeInterval(9)))
+        #expect(TrainingSilence.isSilent(lastWord: start, now: start.addingTimeInterval(10)))
+    }
+
     @Test("A session holds 960 pictures at the usual pace, and under 70% of it is recorded again")
     func sessionCheck() {
         #expect(SessionScript.phases.count == 16)

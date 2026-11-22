@@ -155,6 +155,10 @@ final class SetupModel: ObservableObject {
     @Published private(set) var training = Training.waiting
     /// A few of your pictures as the model is shown them during this pass: altered.
     @Published private(set) var alteredSamples: [CGImage] = []
+    /// The training has said nothing for ten seconds: "Still working…".
+    @Published private(set) var trainingSilent = false
+    private var lastTrainingWord = Date()
+    private var trainingWatch: Task<Void, Never>?
 
     // The test.
     @Published private(set) var proof = Proof.ready
@@ -431,6 +435,19 @@ final class SetupModel: ObservableObject {
     var faceInView: Bool { recentFaces.isEmpty ? faceFound : faceSteady }
     var canLeaveCameraCheck: Bool { camera == .on && faceInView }
 
+    /// Has the training said nothing for a while? Asked once a second.
+    @discardableResult
+    func checkTraining(now: Date = Date()) -> Bool {
+        let working: Bool
+        switch training {
+        case .done, .failed: working = false
+        default: working = step == .train
+        }
+        let silent = working && TrainingSilence.isSilent(lastWord: lastTrainingWord, now: now)
+        if silent != trainingSilent { trainingSilent = silent }
+        return working
+    }
+
     private func watchForSilence() {
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -576,6 +593,7 @@ final class SetupModel: ObservableObject {
                 phaseState = .listening
                 parts.painted?.follow(.hold(phase, session: number))
                 if attempt > 0, pace.spoken { await speaker.say(SessionCheck.faceLostWords) }
+                if attempt == 0, pace.spoken, let words = SessionScript.progressWords(before: index) { await speaker.say(words) }
                 if pace.spoken { await speaker.say(phase.instruction) }
                 if Task.isCancelled { break }
 
@@ -644,6 +662,17 @@ final class SetupModel: ObservableObject {
     private func startTraining() {
         job?.cancel()
         training = .waiting
+        lastTrainingWord = Date()
+        trainingSilent = false
+        // The camera's own timer is off during a training: this one asks once a second,
+        // and ends with the training.
+        trainingWatch?.cancel()
+        trainingWatch = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard let self, !Task.isCancelled, self.checkTraining() else { return }
+            }
+        }
         alteredSamples = []
         prepareSamples()
         do {
@@ -661,6 +690,8 @@ final class SetupModel: ObservableObject {
     /// What the trainer says, as it says it.
     func training(_ progress: TrainingProgress) {
         guard step == .train else { return }
+        lastTrainingWord = Date()
+        trainingSilent = false
         switch progress {
         case .reading(let done, let total):
             training = .reading(done: done, total: total)

@@ -544,7 +544,7 @@ private struct SessionBanner: View {
         case .idle: return ""
         case .listening: return "Listen"
         case .settling: return "Get ready"
-        case .recording: return "RECORDING"
+        case .recording: return "Recording"
         }
     }
 
@@ -555,9 +555,12 @@ private struct SessionBanner: View {
                     Text("Recording \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
                         .font(.headline)
                     Spacer()
+                    if model.phaseState == .recording {
+                        Circle().fill(Color.red).frame(width: 8, height: 8).accessibilityHidden(true)
+                    }
                     Text(stateText)
                         .font(.headline)
-                        .foregroundStyle(model.phaseState == .recording ? Color.red : Color.secondary)
+                        .foregroundStyle(.secondary)
                 }
                 Text(phase.instruction)
                     .font(.system(size: 24, weight: .semibold))
@@ -569,6 +572,16 @@ private struct SessionBanner: View {
                     }
                 }
                 .frame(height: 6)
+                // One dot per pose: where you are in the two minutes, at a glance.
+                HStack(spacing: 5) {
+                    ForEach(0..<SessionScript.phases.count, id: \.self) { index in
+                        Circle()
+                            .fill(index < model.phaseIndex ? Color.green : index == model.phaseIndex ? tint : Color.primary.opacity(0.15))
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                .padding(.top, 4)
+                .accessibilityHidden(true)
             } else {
                 Text(guidance.title)
                     .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -635,15 +648,8 @@ private struct SessionCounts: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            if model.sessionRunning || model.sessionOpen + model.sessionClosed > 0 {
-                SectionTitle(model.sessionRunning ? "This recording" : "Last recording")
-                    .padding(.top, 4)
-                HStack(spacing: 8) {
-                    StatTile(value: "\(model.sessionOpen)", caption: "eyes open")
-                    StatTile(value: "\(model.sessionClosed)", caption: "eyes closed")
-                }
-            }
-            let saved = model.sessions.reduce(0) { $0 + $1.pictures }
+            // One quiet line that moves, where two counters read like a data tool.
+            let saved = model.sessions.reduce(0) { $0 + $1.pictures } + (model.sessionRunning ? model.sessionOpen + model.sessionClosed : 0)
             Text(saved > 0 ? "\(saved.formatted()) pictures saved so far, each with the pose it was taken in."
                            : "Ten pictures a second are saved during each pose, each with the pose it was taken in.")
                 .font(.callout)
@@ -711,6 +717,8 @@ private struct TrainPage: View {
     }
 
     private var line: String {
+        // A time left that stopped moving is worse than none.
+        if model.trainingSilent { return "Still working…" }
         switch model.training {
         case .waiting: return "Starting…"
         case .reading(_, let total): return "Reading your \(total.formatted()) pictures…"
