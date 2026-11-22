@@ -11,7 +11,8 @@ import BlinkCore
 ///       --whole-frames-dir=<folder>        captures also keep the whole camera picture, and go
 ///                                          there instead (to replay the eye finding: make replay)
 ///       --open=<window>[,<window>]         open windows at launch: setup, live-view, history,
-///                                          settings, blink-break (to look at them)
+///                                          settings, blink-break, routine-timer (to look at
+///                                          them; routine-timer also starts the timer)
 ///       --eye-search=whole-frame           find the face in the whole frame at every search, as
 ///                                          the first versions did (to compare what it costs)
 ///       --no-camera                        leave the camera off (to look at the windows)
@@ -174,8 +175,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         launch(demo: Options.demo)
-        for name in Options.windowsToOpen {
+        for name in Options.windowsToOpen where name != "routine-timer" {
             if name == "setup" { showSetup(.resume) } else { running?.windows[name]?.show() }
+        }
+        // The timer's window is opened by a timer starting, not by hand.
+        if Options.windowsToOpen.contains("routine-timer"), let routines = running?.model.routines,
+           let timed = routines.routines.first(where: { $0.sessionMinutes != nil }) {
+            routines.startSession(timed.id)
         }
         if LaunchArguments.has("play-setup"), let running, running.isDemo {
             showSetup(.resume)
@@ -231,6 +237,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if open { setupModel.open(self?.setupPurpose ?? .resume) } else { setupModel.close() }
         }
 
+        // A routine's timer: starting it opens the window, its end closes it. Closing the
+        // window by hand does NOT stop the timer (unlike the blink break): whoever is
+        // under a mask must not lose the sound at the end to a stray click. Stop is a button.
+        let routineTimer = WindowController(title: "Routine Timer") {
+            RoutineSessionView(routines: model.routines, session: model.routines.session)
+        }
+        model.routines.session.onOpen = { routineTimer.show() }
+        model.routines.session.onClose = { routineTimer.close() }
+
         let settingsState = SettingsState()
         let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions)
         let settings = WindowController(title: "Blink Monitor - Settings") { [weak self] in
@@ -255,7 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         var running = Running(model: model, statusItem: statusItem, setup: setupModel,
                               windows: ["history": history, "live-view": liveView, "blink-break": blinkBreak,
-                                        "settings": settings, "setup": setup],
+                                        "settings": settings, "setup": setup, "routine-timer": routineTimer],
                               welcome: nil, isDemo: demo)
 
         // An app with no window has to show where it lives: the first time (and in the

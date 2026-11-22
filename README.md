@@ -113,6 +113,22 @@ and shipping it inside a real app.
   short ones. It starts from the classic 20-20-20. A break starts by itself and a sound
   says when it is over, so there is nothing to watch. The panel counts the day's breaks,
   and says which ones the camera saw you take away from the screen.
+- **Routines** (off by default): a reminder to put in eye drops at the times you set, for
+  example 08:00, 13:00 and 17:00. It is silent, waits until you are at the screen, and has
+  two buttons: Done, or Later. The panel shows today's times and which are done. The app
+  reminds you of a routine you chose; it gives no advice on what to use or how often.
+- **Routines of your own**: add a reminder in Settings, name it, and choose how it comes:
+  at times of day, a number of times a week, or every so many minutes at the screen, such
+  as drinking water every 60 minutes. The minutes are counted while you are at the screen,
+  not on the clock. Several routines stay gentle: banners come one at a time, at least 5
+  minutes apart and at most 4 in an hour, and "Quiet for Today" in the panel silences them
+  until midnight.
+- **A routine counted by the week** (off by default): a heated eye mask three times a
+  week, for example. It asks on the days you prefer until the week's count is reached, and
+  asks the next day when one is missed. "I Did It" in the panel counts at any time, and the
+  panel shows the week, such as "2 of 3 this week". Its timer pauses the camera while your
+  eyes are covered, plays a sound at the end and marks it done. You set the timer's length
+  from the instructions of what you use; the app gives no advice on it.
 - **Pause** for 15 minutes, an hour, until tomorrow or until you resume. It switches the
   camera off for real and ends by itself; the camera also goes off when the screen sleeps
   or locks.
@@ -337,6 +353,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - While it counts, each camera picture is analysed in memory and dropped.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a session) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Your Model shows them and deletes them, for good.
 - **What counting keeps:** one line per minute (time watched, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
+- With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Other pictures are written only by the capture buttons of the Live View window, when you press them. A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
 - The disk image contains no model either. `make dmg` checks the app before packing it and the image afterwards, and refuses to build one that holds a model.
@@ -450,7 +467,7 @@ Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
 Tests/BlinkCoreTests     117 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, the demo, where it is installed
+Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 26 tests
 scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, the research on blink rates, lessons, development notes

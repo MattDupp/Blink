@@ -53,8 +53,12 @@ enum SampleData {
         // Breaks at the demo's pace: one after a minute, and a long one after two of them.
         preferences.breakNudgesOn = true
         preferences.breakPlan = BreakPlan(workMinutes: 1, breakSeconds: 20, longEvery: 2, longMinutes: 1)
-        return MonitorModel(preferences: preferences,
-                            history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        let model = MonitorModel(preferences: preferences,
+                                 history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        demoRoutine(in: model, now: now)
+        demoWeek(in: model, now: now)
+        demoOwn(in: model, now: now)
+        return model
     }
 
     /// The app in one of those situations.
@@ -373,5 +377,198 @@ enum SampleData {
                                        observedSeconds: 58, blinks: low ? 6 : 13))
         }
         return sample
+    }
+
+    // MARK: Routines
+
+    /// What the screenshots show of a routine's day.
+    enum RoutineScene {
+        /// Two times done, one to come.
+        case kept
+        /// One done, one left, one waiting now.
+        case waiting
+        /// The waiting one was put off.
+        case putOff
+    }
+
+    /// Switches the built-in routine on in `model` and gives it a made-up day. The model
+    /// is a made-up one: its record is a scratch file (see `RoutineController.scratch`).
+    static func routines(in model: MonitorModel, now: Date, scene: RoutineScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let id = Routine.eyeDrops.id
+        let morning = calendar.startOfDay(for: now)
+        func at(_ hour: Int, _ minute: Int) -> Date {
+            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: morning) ?? now
+        }
+        func slot(_ hour: Int, _ minute: Int) -> String {
+            let day = calendar.dateComponents([.year, .month, .day], from: morning)
+            return String(format: "%04d-%02d-%02dT%02d:%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0, hour, minute)
+        }
+        routines.setOn(id, true, now: morning)
+        routines.record(RoutineEvent(at: at(8, 4), routine: id, slot: slot(8, 0), action: .done))
+        switch scene {
+        case .kept:
+            routines.record(RoutineEvent(at: at(13, 20), routine: id, slot: slot(13, 0), action: .done))
+        case .waiting, .putOff:
+            routines.setTimes(id, [TimeOfDay(hour: 8), TimeOfDay(hour: 12, minute: 30), TimeOfDay(hour: 16, minute: 30)])
+            routines.record(RoutineEvent(at: at(16, 30), routine: id, slot: slot(16, 30), action: .shown))
+            if case .putOff = scene {
+                routines.record(RoutineEvent(at: at(16, 35), routine: id, slot: slot(16, 30), action: .later,
+                                             until: at(16, 50)))
+            }
+        }
+    }
+
+    /// What the screenshots show of routines the user made.
+    enum OwnScene {
+        /// One routine "at the screen", counting.
+        case counting
+        /// The same, its minutes reached: waiting.
+        case waiting
+        /// Five routines in all, one of them waiting: the panel folds.
+        case many
+        /// The same five, all shown.
+        case manyShown
+        /// The same five, with "Quiet for Today" chosen.
+        case quiet
+    }
+
+    /// Adds made-up routines of the user's own to `model`. The names are everyday ones,
+    /// chosen for the pictures; none is advice.
+    static func own(in model: MonitorModel, now: Date, scene: OwnScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let morning = calendar.startOfDay(for: now)
+        var water = Routine.made(from: RoutineTemplate.all[0], now: morning, id: "user-sample01")
+        water.schedule = .everyMinutesAtScreen(minutes: 60)
+        routines.add(water)
+        /// A count that watched `minutes` at the screen, one look a minute, ending now.
+        func count(_ minutes: Int, every: Int) -> ScreenCount {
+            var count = ScreenCount()
+            for back in stride(from: minutes, through: 0, by: -1) {
+                count.advance(to: now.addingTimeInterval(Double(-back) * 60), present: true, minutes: every, calendar: calendar)
+            }
+            return count
+        }
+        switch scene {
+        case .counting:
+            routines.show(count: count(35, every: 60), of: water.id)
+        case .waiting:
+            routines.show(count: count(72, every: 60), of: water.id)
+        case .many, .manyShown, .quiet:
+            self.routines(in: model, now: now, scene: .kept)
+            week(in: model, now: now, scene: .toCome)
+            routines.show(count: count(72, every: 60), of: water.id)
+            var stand = Routine.made(from: RoutineTemplate.all[1], now: morning, id: "user-sample02")
+            stand.schedule = .everyMinutesAtScreen(minutes: 45)
+            routines.add(stand)
+            routines.show(count: count(20, every: 45), of: stand.id)
+            var call = Routine.made(from: RoutineTemplate.all[2], now: morning, id: "user-sample03")
+            call.name = "Water the plants"
+            call.symbol = "leaf"
+            call.schedule = .timesOfDay(times: [TimeOfDay(hour: 18, minute: 30)], weekdays: nil)
+            call.sessionMinutes = 5
+            routines.add(call)
+            routines.showsAll = scene == .manyShown
+            if scene == .quiet { routines.setQuiet(true, now: now) }
+        }
+    }
+
+    /// The demo's routine of the user's own: "every 2 minutes at the screen", so that it
+    /// can be seen falling due without waiting an hour. (Settings does not go under 15
+    /// minutes; the demo sets it directly.) The made-up eyes count as somebody there.
+    static func demoOwn(in model: MonitorModel, now: Date) {
+        var water = Routine.made(from: RoutineTemplate.all[0], now: now, id: "user-demo0001")
+        water.schedule = .everyMinutesAtScreen(minutes: 2)
+        model.routines.add(water)
+    }
+
+    /// What the screenshots show of a routine counted by the week.
+    enum WeekScene {
+        /// Two of three done, today's time still to come.
+        case toCome
+        /// One of three, a day missed, today's time waiting.
+        case waiting
+        /// The week's count reached, the last one today.
+        case reached
+        /// The timer running.
+        case timer
+        /// The timer just ended: done, and counted.
+        case timerDone
+    }
+
+    /// Switches the routine counted by the week on in `model`, and gives it a made-up week.
+    static func week(in model: MonitorModel, now: Date, scene: WeekScene, calendar: Calendar = .current) {
+        let routines = model.routines
+        let id = Routine.heatedMask.id
+        let today = calendar.startOfDay(for: now)
+        /// Done so many days ago, at 17:10. (The screenshots' "now" is a Friday.)
+        func done(daysAgo: Int, hour: Int = 17, minute: Int = 10) {
+            let day = calendar.date(byAdding: .day, value: -daysAgo, to: today) ?? today
+            let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+            routines.record(RoutineEvent(at: at, routine: id, slot: RoutineWeek.key(of: at, calendar: calendar), action: .done))
+        }
+        // Switched on weeks ago: an ordinary week, not a first one.
+        routines.setOn(id, true, now: today.addingTimeInterval(-21 * 86_400))
+        done(daysAgo: 4)                                    // Monday
+        switch scene {
+        case .toCome:
+            done(daysAgo: 2)                                // Wednesday
+        case .waiting:
+            routines.setWeekTime(id, TimeOfDay(hour: 16, minute: 30))
+        case .reached:
+            done(daysAgo: 2)
+            done(daysAgo: 0, hour: 12, minute: 15)
+        case .timer, .timerDone:
+            done(daysAgo: 2)
+            // Started three minutes ago. On a model whose camera is shown paused, the timer
+            // is made to end when that pause does: it is the timer that paused it.
+            let length = Double(Routine.heatedMask.sessionMinutes ?? 10) * 60
+            let start = model.pause.end.map { $0.addingTimeInterval(-length) } ?? now.addingTimeInterval(-175)
+            guard let routine = routines.routines.first(where: { $0.id == id }),
+                  let session = RoutineSession(routine: routine, start: start) else { return }
+            if case .timer = scene {
+                routines.session.show(running: session)
+            } else {
+                done(daysAgo: 0, hour: 16, minute: 42)
+                routines.session.show(finished: session)
+            }
+        }
+    }
+
+    /// The demo's week: a routine three times a week, done once two days ago, asked today
+    /// four minutes after the demo opens, with a timer of one minute so that a whole
+    /// session can be watched. Nothing here needs a face.
+    static func demoWeek(in model: MonitorModel, now: Date, calendar: Calendar = .current) {
+        let id = Routine.heatedMask.id
+        let soon = now.addingTimeInterval(240)
+        guard calendar.isDate(soon, inSameDayAs: now) else { return }
+        let weekday = calendar.component(.weekday, from: now)
+        model.routines.setWeekTime(id, TimeOfDay(hour: calendar.component(.hour, from: soon),
+                                                 minute: calendar.component(.minute, from: soon)))
+        for day in 1...7 { model.routines.setWeekday(id, day, preferred: true) }
+        for day in 1...7 where ![0, 2, 4].contains((day - weekday + 7) % 7) { model.routines.setWeekday(id, day, preferred: false) }
+        model.routines.setSessionMinutes(id, 1)
+        model.routines.setOn(id, true, now: calendar.startOfDay(for: now))
+        let before = now.addingTimeInterval(-2 * 86_400)
+        model.routines.record(RoutineEvent(at: before, routine: id, slot: RoutineWeek.key(of: before, calendar: calendar),
+                                           action: .done))
+    }
+
+    /// The demo's routine: one time done three hours ago, one that falls due two minutes
+    /// after the demo opens (so that the reminder is seen), one in four hours. Times that
+    /// would fall on another day are left out.
+    static func demoRoutine(in model: MonitorModel, now: Date, calendar: Calendar = .current) {
+        let id = Routine.eyeDrops.id
+        let moments = [-3 * 3600.0, 120, 4 * 3600].map { now.addingTimeInterval($0) }
+            .filter { calendar.isDate($0, inSameDayAs: now) }
+        let times = moments.map { TimeOfDay(hour: calendar.component(.hour, from: $0), minute: calendar.component(.minute, from: $0)) }
+        guard !times.isEmpty else { return }
+        model.routines.setTimes(id, times)
+        model.routines.setOn(id, true, now: calendar.startOfDay(for: now))
+        let day = RoutineDay(routine: model.routines.routines.first { $0.id == id } ?? .eyeDrops, record: [], now: now,
+                             calendar: calendar)
+        if let first = day.slots.first, first.due < now, moments[0] < now {
+            model.routines.record(RoutineEvent(at: first.due.addingTimeInterval(240), routine: id, slot: first.key, action: .done))
+        }
     }
 }

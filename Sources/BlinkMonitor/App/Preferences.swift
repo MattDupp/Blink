@@ -29,7 +29,8 @@ final class Preferences: ObservableObject {
         static let pausedUntil = "pausedUntil"
     }
 
-    private let defaults: UserDefaults
+    /// Also read by `RoutineController`, which keeps the routines in the same store.
+    let defaults: UserDefaults
 
     // MARK: General
 

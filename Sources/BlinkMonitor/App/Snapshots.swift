@@ -63,6 +63,37 @@ enum Snapshots {
             let model = SampleData.model(now: now, scene: scene)
             return AnyView(BlinkBreakView(model: model, blinkBreak: model.blinkBreak, moment: Moment(frozen: now)))
         }
+        /// The panel with the built-in routine switched on, on a made-up day.
+        func routinePanel(_ scene: SampleData.RoutineScene) -> AnyView {
+            let model = SampleData.model(now: now, scene: .watching)
+            SampleData.routines(in: model, now: now, scene: scene)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
+                                         actions: PanelActions()))
+        }
+        /// The panel with the routine counted by the week switched on, in a made-up week.
+        func weekPanel(_ scene: SampleData.WeekScene, withDrops: Bool = false) -> AnyView {
+            let model = SampleData.model(now: now, scene: scene == .timer ? .paused : .watching)
+            if withDrops { SampleData.routines(in: model, now: now, scene: .kept) }
+            SampleData.week(in: model, now: now, scene: scene)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
+                                         actions: PanelActions()))
+        }
+        /// The panel with routines the user made.
+        func ownPanel(_ scene: SampleData.OwnScene) -> AnyView {
+            let model = SampleData.model(now: now, scene: .watching)
+            SampleData.own(in: model, now: now, scene: scene)
+            return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
+                                         preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
+                                         actions: PanelActions()))
+        }
+        func routineTimer(_ scene: SampleData.WeekScene) -> AnyView {
+            let model = SampleData.model(now: now, scene: .watching)
+            SampleData.week(in: model, now: now, scene: scene)
+            return AnyView(RoutineSessionView(routines: model.routines, session: model.routines.session,
+                                              moment: Moment(frozen: now)))
+        }
         let watching = SampleData.model(now: now, scene: .watching)
 
         return [
@@ -136,6 +167,34 @@ enum Snapshots {
             ("settings-sources", settings(.sources)),
             // The list scrolls in the window: here it is whole, to be read.
             ("sources-list", AnyView(SourcesList().frame(width: 480))),
+            ("panel-routine", routinePanel(.kept)),
+            ("panel-routine-waiting", routinePanel(.waiting)),
+            ("panel-routine-later", routinePanel(.putOff)),
+            ("settings-routines", settings(.routines)),
+            ("settings-routines-on", settings(.routines) { _, model in
+                SampleData.routines(in: model, now: now, scene: .kept)
+            }),
+            ("panel-week", weekPanel(.toCome)),
+            ("panel-week-waiting", weekPanel(.waiting)),
+            ("panel-week-reached", weekPanel(.reached)),
+            ("panel-week-timer", weekPanel(.timer)),
+            ("panel-week-with-times", weekPanel(.toCome, withDrops: true)),
+            ("settings-routines-week", settings(.routines) { _, model in
+                SampleData.week(in: model, now: now, scene: .toCome)
+            }),
+            ("panel-own", ownPanel(.counting)),
+            ("panel-own-waiting", ownPanel(.waiting)),
+            ("panel-many", ownPanel(.many)),
+            ("panel-many-all", ownPanel(.manyShown)),
+            ("panel-many-quiet", ownPanel(.quiet)),
+            ("settings-routines-own", settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .counting)
+            }),
+            ("settings-routines-many", settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .many)
+            }),
+            ("routine-timer", routineTimer(.timer)),
+            ("routine-timer-done", routineTimer(.timerDone)),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
             ("welcome", AnyView(WelcomeView(start: {}))),

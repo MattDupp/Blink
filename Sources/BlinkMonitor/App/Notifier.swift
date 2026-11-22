@@ -37,6 +37,19 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Called on the main thread when a button of a banner is pressed.
     var onAction: (@MainActor (Action) -> Void)?
 
+    /// A press on a banner of another kind (the routines: see `RoutineBanners`).
+    struct OtherResponse {
+        let category: String
+        let action: String
+        let info: [String: String]
+    }
+
+    /// The other kinds of banner, with their buttons. macOS keeps ONE set of kinds per
+    /// app: they must all be given together, here.
+    var extraCategories: [UNNotificationCategory] = []
+    /// Called on the main thread for a press that is not one of `Action`.
+    var onOtherResponse: (@MainActor (OtherResponse) -> Void)?
+
     /// macOS only gives notifications to a real app (a bundle with an identifier).
     /// Run as a bare program there is none, and asking would crash.
     private var center: UNUserNotificationCenter? {
@@ -63,7 +76,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let skip = UNNotificationAction(identifier: Identifier.skipBreak, title: "Skip", options: [])
         let screenBreak = UNNotificationCategory(identifier: Identifier.screenBreak, actions: [later, skip], intentIdentifiers: [])
         let screenBreakLast = UNNotificationCategory(identifier: Identifier.screenBreakLast, actions: [skip], intentIdentifiers: [])
-        center.setNotificationCategories([lowRate, screenBreak, screenBreakLast])
+        center.setNotificationCategories(Set([lowRate, screenBreak, screenBreakLast] + extraCategories))
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             if let error { Log.app.error("Notifications: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
@@ -107,9 +120,22 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center?.removeDeliveredNotifications(withIdentifiers: [Identifier.screenBreak])
     }
 
+    /// Shows a banner of another kind, as it is given. Nothing is shown, and no sound is
+    /// played, when banners are not allowed: what it says must also be on screen elsewhere.
+    func show(_ content: UNNotificationContent, identifier: String) {
+        guard allowed, let center else { return }
+        center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
+    /// Takes a banner back, from the screen and from Notification Centre.
+    func withdraw(identifier: String) {
+        center?.removeDeliveredNotifications(withIdentifiers: [identifier])
+    }
+
     // Without this, macOS hides the banner of an app it considers "in front".
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // `.sound` allows a sound; a banner that carries none (a routine's) stays silent.
         completionHandler([.banner, .sound])
     }
 
@@ -129,6 +155,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
         if let action {
             Task { @MainActor [weak self] in self?.onAction?(action) }
+        } else {
+            let content = response.notification.request.content
+            let other = OtherResponse(category: content.categoryIdentifier, action: response.actionIdentifier,
+                                      info: content.userInfo as? [String: String] ?? [:])
+            Task { @MainActor [weak self] in self?.onOtherResponse?(other) }
         }
         completionHandler()
     }

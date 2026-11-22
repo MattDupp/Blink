@@ -21,7 +21,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// The eye is drawn closed until this moment (see `blinkBack`).
     private var eyeClosedUntil = Date.distantPast
     /// What the item currently draws: the status, and whether the rate is written next to it.
-    private var shown: (status: MonitorStatus, withRate: Bool)?
+    private var shown: (status: MonitorStatus, withRate: Bool, routines: [String])?
 
     init(model: MonitorModel, actions: PanelActions) {
         self.model = model
@@ -60,7 +60,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // later the status is asked again and the item redrawn if it differs. Nothing has
         // to remember to "update the menu bar".
         subscription = model.objectWillChange
-            .merge(with: model.history.objectWillChange, model.preferences.objectWillChange)
+            .merge(with: model.history.objectWillChange, model.preferences.objectWillChange, model.routines.objectWillChange)
             .throttle(for: .milliseconds(250), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] in self?.refresh() }
         blinks = model.blinked.sink { [weak self] in self?.blinkBack() }
@@ -115,8 +115,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard Date() >= eyeClosedUntil else { return }      // mid-blink: `blinkBack` redraws in a moment
         let status = model.status()
         let withRate = model.preferences.showRateInMenuBar
-        guard status != shown?.status || withRate != shown?.withRate, let button = item.button else { return }
-        shown = (status, withRate)
+        // A routine waiting to be done: a dot after the rate, until it is done.
+        let routines = model.routines.due().map(\.routine.title)
+        guard status != shown?.status || withRate != shown?.withRate || routines != shown?.routines,
+              let button = item.button else { return }
+        shown = (status, withRate, routines)
         let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "Blink Monitor")
             ?? NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink Monitor")
         // A "template" image is drawn by macOS in the menu bar's own colour: black on a
@@ -124,8 +127,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         image?.isTemplate = true
         button.image = image
         let demo = model.isDemo ? " demo" : ""
-        button.title = (withRate && !status.menuBarText.isEmpty ? " " + status.menuBarText : "") + demo
+        button.title = (withRate && !status.menuBarText.isEmpty ? " " + status.menuBarText : "")
+            + (routines.isEmpty ? "" : " \u{2022}") + demo
         button.toolTip = (model.isDemo ? "Demo, on made-up eyes. " : "") + status.tooltip
+            + (routines.isEmpty ? "" : ". Waiting to be done: " + routines.joined(separator: ", "))
     }
 
     @objc private func togglePanel() {

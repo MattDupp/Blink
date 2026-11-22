@@ -125,6 +125,7 @@ The app's own files are in `~/Library/Application Support/BlinkMonitor/`:
 |---|---|
 | `history.csv` | one line per minute |
 | `performance.csv` | the pipeline's cost, one line per minute |
+| `routines.csv` | one line each time a routine's reminder is shown, done, put off or left, a done is taken back, or a timer is started |
 | `sessions/<session>/` | what the setup recorded, in the format of `data/raw`. Folders only their owner can read |
 | `model/` | the model trained in the app: `eyenet.weights` (241 KB: eight bytes `EYENET01`, then 60,289 32-bit numbers) and `model.json` (when, from which sessions, how the check and the test went) |
 | `model.new/`, `model.previous/` | a training in progress, and the model before the last training |

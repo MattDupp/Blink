@@ -95,6 +95,7 @@ final class MonitorModel: ObservableObject {
     let reminders: ReminderController
     let blinkBreak: BlinkBreakController
     let loginItem: LoginItem
+    let routines: RoutineController
     let captures = CaptureController()
     /// Where the model trained in this app is kept.
     let modelStore: ModelStore
@@ -139,6 +140,8 @@ final class MonitorModel: ObservableObject {
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
         blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
         loginItem = LoginItem(demo: demo)
+        // Made-up eyes or a made-up state: the routine record is a scratch one too.
+        routines = demo || initial != nil ? .scratch(defaults: preferences.defaults) : RoutineController(defaults: preferences.defaults)
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {
@@ -153,6 +156,7 @@ final class MonitorModel: ObservableObject {
         } else {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
+        routines.connect(to: self)
     }
 
     var isDemo: Bool { demoCamera != nil }
@@ -184,6 +188,7 @@ final class MonitorModel: ObservableObject {
     func start() async {
         guard lifecycle == .starting, pipeline == nil else { return }
         loginItem.refresh()
+        routines.start()
         if let demoCamera {
             startDemo(demoCamera)
             return
@@ -412,6 +417,12 @@ final class MonitorModel: ObservableObject {
     /// monitor that is silently off.
     func pause(for duration: PauseDuration, now: Date = Date()) {
         setPause(PauseState(duration, from: now))
+    }
+
+    /// A pause until a moment of the caller's choosing: a routine's timer pauses the
+    /// camera for exactly its own length.
+    func pause(until end: Date) {
+        setPause(.paused(until: end))
     }
 
     func resume() {

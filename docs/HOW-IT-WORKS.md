@@ -266,7 +266,153 @@ The app feeds the schedule the wall clock, not the camera's clock, so a night is
 absence and not a jump. During a break a timer calls it once a second, because the camera
 sends few updates while nobody is in view.
 
-## 8. Keeping it cheap
+## 8. Routines
+
+A routine is something you decided to do regularly for your eyes, such as putting in eye
+drops at 08:00, 13:00 and 17:00. The app reminds you of it. It gives no advice: the times
+are yours.
+
+**What is due is worked out, never stored.** `RoutineDay` (in `BlinkCore/Routines`) takes
+four things: the routine, the record, the clock and the calendar. It answers with today's
+times and where each stands: to come, waiting, put off, done or left. Because nothing is
+stored, nothing goes stale. The Mac can sleep through a time, or the app can start after
+it, and the answer is simply worked out again.
+
+| Rule | Why |
+|---|---|
+| A time waits until the routine's next time, or midnight for the last one. Then it is dropped | Two reminders never pile up: at 13:10 you get the 13:00 one, not the 08:00 one too |
+| The record names a time by its day and its time on the wall clock (`2026-11-20T08:00`), with no time zone | Done at 08:00, then a flight west: 08:00 does not come a second time on the same date |
+| A time that daylight saving skips falls due at the next minute that exists; a time that happens twice falls due once | The clock moving must neither lose a reminder nor double it |
+| A time already past when the routine is switched on is not asked for | Switching it on at 13:10 must not answer with a reminder for 13:00 |
+
+**The record** is `routines.csv`, beside the history: one line each time a reminder is
+shown, done, put off or left. Lines are only added. Today's state in the panel, and how
+well a routine was kept, both come from that file.
+
+**Reminding gently** (`RoutinePolicy`, and `RoutineController` in the app):
+
+- The app looks at the clock every 20 seconds. A reminder is shown only while somebody is
+  at the screen: one that falls due while you are away is kept until you are back. While
+  the camera is paused the app cannot see you, so an awake screen counts as somebody there.
+- The banner makes no sound. It has two buttons, Done and Later (15 minutes).
+  A routine with a timer has a third, Start Timer.
+- If you touch nothing, it comes back once, ten minutes later. After that there are no
+  more banners: a dot in the menu bar and a line in the panel wait until the time is done
+  or its next time comes.
+- One at a time, over all routines. Two banners are at least 5 minutes apart, and no more
+  than 4 are shown in an hour. When several are due together, one that has had no banner
+  goes before the repeat of another, and a time of day goes before a routine "at the
+  screen". A reminder held back is not lost: the dot and the panel show it at once.
+- Nothing is shown while a routine's timer runs, or during a blink break.
+- "Quiet for Today" in the panel stops the banners until midnight. The dot and the panel
+  still show what waits.
+- The panel stays small. With one or two routines each is drawn in full. With more, only
+  what waits is drawn in full, then one line says what comes next, and the rest is one
+  click away.
+
+What this cannot do: remind you while the app is not running. macOS could show a banner at
+a fixed time by itself, but it would not know whether you are there, or that you already
+pressed Done.
+
+The schedule has three kinds: times of day, a number of times a week, and every so many
+minutes at the screen.
+
+### Every so many minutes at the screen
+
+"Every 60 minutes at the screen" counts time with somebody there, not time on the clock.
+`ScreenCount` (in `BlinkCore/Routines`) holds the rule. It has no clock and no camera of
+its own: every 20 seconds the app tells it the time and whether somebody is there. So the
+tests play whole days on timelines written by hand.
+
+| Rule | Why |
+|---|---|
+| While somebody is there, the time since the last look is added | An hour of work, lunch, then twenty minutes of work is eighty minutes, not two hours and more |
+| When the count reaches the minutes, the reminder is due and the count starts again at once | The next one is that many minutes of screen later, whatever you answer |
+| A reminder left unanswered is replaced by the next one | Two never pile up |
+| It gets one banner, with no repeat after ten minutes | It comes back by itself |
+| Done starts the count again. Later (15 minutes) does not touch it | Done means "just now"; Later only moves the banner |
+| Five minutes away in a row start the count again, and close a reminder left open | You got up. Nothing from before your break waits for you |
+| A shorter absence only stops the count | Turning to the phone is not a break |
+| A look that comes long after the last one is time away | The Mac slept, whatever the camera said last |
+| While a routine's timer runs, the count stands still | Covered eyes are neither at the screen nor away |
+| A new day starts at zero | Yesterday's last half hour is not owed today |
+
+While the camera is paused, an awake screen counts as somebody there, as for the other
+routines. What this cannot do: the count is kept in memory only. After a relaunch it
+starts from zero, so that one reminder comes later. And anybody in front of the camera
+counts as you.
+
+### Routines of your own
+
+The Routines tab of Settings adds a routine from a few starting points, each described by
+what it does. Its name, symbol, kind of schedule and timer can be changed afterwards, and
+it can be deleted. The two built-in routines can be switched off, not deleted.
+
+| Rule | Why |
+|---|---|
+| A routine has an id drawn at random when it is made (`user-3f9a12c4`), apart from its name | Renaming loses no record: `routines.csv` names the routine by its id |
+| The name is never written to `routines.csv` | Nothing typed can break the file |
+| A typed name is kept to one line of 40 characters, with no control characters; an empty one is shown as "Reminder" | It appears in a banner, the panel and the menu bar |
+| Deleting a routine leaves its lines in `routines.csv` | The file is only ever added to, and the id is never given again |
+| Changing the kind starts the routine afresh from now | What waited under the old schedule has no meaning in the new one |
+| At most 8 routines of your own | Reminders are only gentle while they are few |
+
+### So many times a week
+
+"Three times a week" is a count to reach, not three appointments. The routine has a
+count, the days it prefers and one time of day. `RoutineWeek` (in `BlinkCore/Routines`)
+decides whether a day asks, with one short rule:
+
+- nothing asks once the count is reached;
+- a preferred day asks, at the chosen time;
+- another day asks when you are behind: the preferred days still to come are fewer than
+  the times still to do.
+
+"Behind" is judged from what was done before that day. So a day's answer does not change
+during the day, and yesterday can be judged again today.
+
+| What happens | What the app does | Why |
+|---|---|---|
+| You miss Wednesday | Thursday asks instead | The count can still be reached |
+| You do it early, on a day that did not ask or before the time | It counts. "I Did It" is always in the panel | The count is what matters, not the day |
+| You do it twice in one day | It counts as two | The count is yours. Undo takes back a press made by mistake, for the rest of that day |
+| The count is out of reach late in the week | Each day left asks once, and no more | One reminder a day is the most this kind ever sends |
+| A new week starts | The count starts at zero | Nothing is owed from last week |
+| The routine is switched on in the middle of a week | That week asks on preferred days only | Catching up on a week you did not start would be nagging |
+| The time zone changes | Nothing moves | A "done" is kept under the date on the wall clock (`2026-11-20`), like the times of day |
+| The Mac sleeps for two days | One reminder on waking if you are behind, not three | What is due is worked out again from the record |
+
+The week starts where the Mac's calendar says: Monday or Sunday. A day that asks has one
+slot, which waits from its time until midnight. From there on it is an ordinary slot: the
+record, Done and Later, the banner rules and the menu-bar dot treat it like a time of day.
+
+The app keeps the last nine days of the record in memory. That covers the whole week, and
+yesterday when yesterday belonged to the week before.
+
+### A timer for a routine that takes a while
+
+Under a mask you cannot see the screen, and the camera cannot see your eyes. A routine
+can have a timer (`RoutineSession` for the rule, `RoutineSessionController` in the app).
+The built-in heated eye mask has one. Its length is your setting: the app gives no advice
+on how long or how warm, and its words send you to the instructions of what you use.
+
+| The timer | Why |
+|---|---|
+| Holds the moment it ends, and compares it with the clock | A countdown stops while the Mac sleeps and is wrong afterwards |
+| Pauses the camera until that moment, with the same pause as the Pause button | Covered eyes would be read as a low blink rate, or a long closure |
+| Leaves a pause you chose yourself as it is | The timer must not switch the camera back on behind your back |
+| Asks macOS not to sleep while it runs | Ten minutes without a key can put a Mac to sleep, and a sleeping Mac plays no sound |
+| Holds the other routines' reminders until it is over | Nobody is looking at the screen |
+| Plays a sound twice at the end, and marks the routine done | Your eyes are closed: the sound is what tells you |
+| Stop ends it and marks nothing | "I Did It" is still there if it was done |
+| Closing its window does not stop it | A stray click must not cost you the sound at the end |
+
+What it cannot do: be heard with the Mac's sound off. And it is not kept across a
+relaunch: quit the app and the timer is gone, though the camera's pause still ends by
+itself at the same moment. If the Mac did sleep past the end (a closed lid), the routine is
+marked done at the moment the timer ended, without a sound.
+
+## 9. Keeping it cheap
 
 The app runs all day, so its cost matters as much as its accuracy.
 

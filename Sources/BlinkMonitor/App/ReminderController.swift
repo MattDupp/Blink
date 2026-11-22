@@ -24,7 +24,8 @@ final class ReminderController: ObservableObject {
 
     private let preferences: Preferences
     private var policy = ReminderPolicy()
-    private let notifier = Notifier()
+    /// The app's one `Notifier`: the routines show their banners through it too.
+    let notifier = Notifier()
     private var wanted: AnyCancellable?
     private var breaksChanged: AnyCancellable?
     private var prepared = false
