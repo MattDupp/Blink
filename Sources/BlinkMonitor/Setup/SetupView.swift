@@ -486,7 +486,7 @@ private struct RecordPage: View {
         if model.sessionRunning { return "Keep your face in front of the camera. Blink whenever you need to." }
         if model.camera == .on && !model.faceFound { return "No face in view: a session can start once the camera sees you." }
         if !model.parts.ownSessions {
-            return "Sessions are saved in \(model.parts.sessionsRoot.path). For the Python route, close this window and run: make train"
+            return "Sessions are saved in \(model.parts.sessionsRoot.path), the folder named when the app was started."
         }
         if model.soundMuted { return "The Mac's sound is off: you would not hear the voice that guides you. Turn it up, then press Play the Voice." }
         return "Sound on: the voice is your guide while your eyes are closed."

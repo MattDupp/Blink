@@ -57,7 +57,9 @@ struct MenuPanelView: View {
             if onDiskImage { DiskImageBanner() }
             if model.isDemo { DemoBanner(actions: actions) }
             VStack(alignment: .leading, spacing: 10) {
-                NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed, actions: actions)
+                NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed,
+                           limit: preferences.limit, offersSetup: model.failure?.offersSetup ?? false,
+                           tryAgain: { Task { await model.tryAgain() } }, actions: actions)
                 Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
             }
             .padding(16)
@@ -133,21 +135,56 @@ private struct NowSection: View {
     let blinks: Int
     /// The setup has been started before (its welcome page was passed).
     let begun: Bool
+    /// The limit in force, in blinks a minute.
+    var limit = 10
+    /// The failure is one the setup can mend (no readable model).
+    var offersSetup = false
+    var tryAgain: () -> Void = {}
     let actions: PanelActions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center) {
-                RateReadout(rate: status.rate, tint: status.isLow ? .orange : .primary)
+                if let headline = status.headline {
+                    // No rate to write: the state takes its place, in the same large type.
+                    Text(headline)
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(height: 62)
+                } else {
+                    RateReadout(rate: status.rate, tint: status.isLow ? .orange : .primary)
+                }
                 Spacer(minLength: 8)
-                StatusPill(text: status.label, color: status.tint, pulse: blinks)
+                // Beside a headline the pill would say the same word twice. It stays
+                // while the eyes are read, for its dot: it pulses at each blink.
+                if status.headline == nil || status == .watching(rate: nil) {
+                    StatusPill(text: status.label, color: status.tint, pulse: blinks)
+                }
             }
-            Text(status.explanation)
+            Text(status.explanation(limit: limit))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if status == .cameraRefused {
-                Button("Open Camera Settings") { actions.openCameraSettings() }
+                HStack(spacing: 8) {
+                    Button("Open Camera Settings") { actions.openCameraSettings() }
+                    Button("Check Again") { tryAgain() }
+                }
+                .padding(.top, 2)
+            }
+            if case .failed = status {
+                HStack(spacing: 8) {
+                    Button("Try Again") { tryAgain() }
+                    if offersSetup { Button("Open Setup...") { actions.openSetup() } }
+                }
+                .padding(.top, 2)
+            }
+            // "Does it see me?" is answered by Live View, which was a small grey word
+            // beside Quit.
+            if status == .noFace || status == .cameraSilent {
+                Button("See What the Camera Sees") { actions.openLiveView() }
                     .padding(.top, 2)
             }
             // An app that cannot count yet says what to do about it, here where you look.
@@ -243,9 +280,8 @@ private struct Notes: View {
                                      drift * 100, reference.rate, Format.day(reference.measuredOn)), .orange))
             }
         } else {
-            let progress = Baseline.calibration(records: history.minutes).progress
             lines.append(("gauge.with.needle",
-                          "Learning your usual rate: \(Int(progress * 100))% done. Until then the limit is \(preferences.limit).",
+                          CalibrationWords.line(Baseline.calibration(records: history.minutes), limit: preferences.limit),
                           .secondary))
         }
         return lines

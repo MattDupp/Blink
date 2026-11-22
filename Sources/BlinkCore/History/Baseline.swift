@@ -51,11 +51,20 @@ public enum Baseline {
         public let watchedSeconds: Double
         public let days: Int
 
+        public init(watchedSeconds: Double, days: Int) {
+            self.watchedSeconds = watchedSeconds
+            self.days = days
+        }
+
         /// 0...1: the smaller of "share of the time needed" and "share of the days needed".
         public var progress: Double {
             min(1, watchedSeconds / Baseline.calibrationSeconds, Double(days) / Double(Baseline.calibrationDays))
         }
         public var isComplete: Bool { progress >= 1 }
+        /// Time at the screen still to record.
+        public var secondsLeft: Double { max(0, Baseline.calibrationSeconds - watchedSeconds) }
+        /// Days still to see: the measure needs minutes from two different days.
+        public var daysLeft: Int { max(0, Baseline.calibrationDays - days) }
     }
 
     public static func calibration(records: [MinuteRecord], calendar: Calendar = .current) -> Calibration {

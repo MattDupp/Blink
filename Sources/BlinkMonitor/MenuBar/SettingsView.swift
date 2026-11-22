@@ -27,7 +27,7 @@ final class SettingsState: ObservableObject {
 
     enum Tab: String, CaseIterable {
         case general = "General"
-        case reminders = "Reminders"
+        case reminders = "Blink Rate"
         case breaks = "Breaks"
         case routines = "Routines"
         case model = "Your Model"
@@ -430,7 +430,7 @@ struct SettingsView: View {
             }
             return text
         case .builtIn:
-            return "Made by the Python route (make train) and copied in by make monitor."
+            return "It came with this copy of the app, put there by whoever built it."
                 + (state.onDisk.untested ? " A model trained here is waiting for its test: Continue Setup." : "")
         case .given(let url):
             return url.path

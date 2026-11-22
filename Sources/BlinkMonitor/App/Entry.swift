@@ -161,6 +161,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // The app comes forward: what was refused may have been allowed meanwhile.
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.running?.model.comeForward() }
+        }
+
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {

@@ -344,4 +344,34 @@ struct SourceTests {
         }
         #expect(offenders.isEmpty, "a study's number typed in: \(offenders)")
     }
+
+    @Test("Learning the usual rate says what is left: the time, and the second day")
+    func calibrationWords() {
+        func line(hours: Double, days: Int) -> String {
+            CalibrationWords.line(Baseline.Calibration(watchedSeconds: hours * 3600, days: days), limit: 10)
+        }
+        // The first day: time is missing, and so is a second day.
+        #expect(line(hours: 1 + 20.0 / 60, days: 1)
+                == "Learning your usual rate: 1 h 20 of 3 h 00, over 2 days. It can finish tomorrow. Until then the limit is 10.")
+        // The first day, a long one: only the second day is missing. It no longer stops at "50%".
+        #expect(line(hours: 5, days: 1).contains("all on one day") && line(hours: 5, days: 1).contains("finishes tomorrow"))
+        // The second day: only time is missing.
+        #expect(line(hours: 2.5, days: 2).contains("2 h 30 of 3 h 00. 30 min to go."))
+    }
+
+    @Test("A failure to start is a sentence for a person: no error text, no command")
+    func startFailureWords() {
+        for failure in [StartFailure.model(trainedHere: true), .model(trainedHere: false), .noCamera, .camera, .cameraLeftOff] {
+            let sentence = failure.sentence
+            #expect(!sentence.contains("make ") && !sentence.contains("--") && !sentence.contains("Error"))
+            #expect(sentence.contains("counted"))
+        }
+        #expect(StartFailure.model(trainedHere: true).offersSetup && !StartFailure.camera.offersSetup)
+        // With no rate to show, the panel writes the state where the number would be.
+        #expect(MonitorStatus.paused(until: nil).headline == "Paused")
+        #expect(MonitorStatus.noFace.headline == "No face")
+        #expect(MonitorStatus.watching(rate: nil).headline == "Starting")
+        #expect(MonitorStatus.watching(rate: 13).headline == nil)
+        #expect(MonitorStatus.watching(rate: 13).explanation(limit: 10) == "Your rate over the last minute. Your limit is 10.")
+    }
 }

@@ -257,7 +257,7 @@ studies, what they disagree on and the 56 sources. Of those, 16 were read in ful
 abstracts and 1 only through a review, and the page says which.
 
 <p align="center">
-  <img src="docs/img/settings-reminders-light.png" alt="Settings, Reminders tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, two dots for the rates one experiment tested, and the user's reference and limit marked" width="460">
+  <img src="docs/img/settings-reminders-light.png" alt="Settings, Blink Rate tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, two dots for the rates one experiment tested, and the user's reference and limit marked" width="460">
 </p>
 
 ## Results
@@ -471,7 +471,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink Monitor, and open it again. |
 | "No picture" in the panel | The camera is on but sends nothing: the lid is closed, or the camera failed. Counting resumes by itself. |
 | No eye in the menu bar | On a MacBook with many menu-bar items, the notch can hide it. Quit a few, or use a menu-bar manager. |
-| No reminder ever shows | Settings > Reminders > *Send a Test Reminder*. If nothing appears, allow notifications for Blink Monitor in System Settings. |
+| No reminder ever shows | Settings > Blink Rate > *Send a Test Reminder*. If nothing appears, allow notifications for Blink Monitor in System Settings. |
 | A banner with a blank icon after reinstalling | Notification Centre kept the old one. Run `killall NotificationCenter`; macOS restarts it. |
 | The linker prints "search path ... not found" | Harmless: two folders that only exist inside Xcode. `make` hides them. |
 

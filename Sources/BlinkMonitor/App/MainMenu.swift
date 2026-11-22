@@ -18,12 +18,23 @@ enum MainMenu {
         app.addItem(.separator())
         app.addItem(withTitle: "Quit Blink Monitor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
+        // THE EDIT MENU. Cmd-V, Cmd-C, Cmd-A and Cmd-Z are menu shortcuts like the others:
+        // without these items, nothing could be pasted into a routine's name.
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
         let window = NSMenu(title: "Window")
         window.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
 
         let main = NSMenu()
-        for menu in [app, window] {
+        for menu in [app, edit, window] {
             let item = NSMenuItem()
             item.submenu = menu
             main.addItem(item)

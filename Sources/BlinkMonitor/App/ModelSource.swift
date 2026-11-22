@@ -42,6 +42,7 @@ enum ModelSource: Equatable {
     }
 
     /// Where a model that failed to load was looked for, and how to make it again.
+    /// For the log only (a developer reads it): the panel says `StartFailure.sentence`.
     var remedy: String {
         switch self {
         case .given(let url): return "It was named at launch: \(url.path)"

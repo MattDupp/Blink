@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import Combine
 import CoreVideo
+import AVFoundation
 import BlinkCore
 import BlinkUI
 
@@ -59,6 +60,7 @@ final class MonitorModel: ObservableObject {
         var cameraSilent = false
         var modelSource = ModelSource.none
         var setupStage: MonitorStatus.SetupStage?
+        var failure: StartFailure?
     }
 
     // MARK: Facts
@@ -95,6 +97,8 @@ final class MonitorModel: ObservableObject {
     let reminders: ReminderController
     let blinkBreak: BlinkBreakController
     let loginItem: LoginItem
+    /// Why counting could not start, while `lifecycle` is `.failed`.
+    @Published private(set) var failure: StartFailure?
     let routines: RoutineController
     let captures = CaptureController()
     /// Where the model trained in this app is kept.
@@ -153,6 +157,7 @@ final class MonitorModel: ObservableObject {
             cameraSilent = initial.cameraSilent
             modelSource = initial.modelSource
             setupStage = initial.setupStage
+            failure = initial.failure
         } else {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
@@ -210,7 +215,9 @@ final class MonitorModel: ObservableObject {
             }
             judge = loaded
         } catch {
-            fail("The eye model could not be loaded.\n\(modelSource.remedy)\n\(error)")
+            var trainedHere = false
+            if case .trainedHere = modelSource { trainedHere = true }
+            fail(.model(trainedHere: trainedHere), detail: "The eye model could not be loaded.\n\(modelSource.remedy)\n\(error)")
             return
         }
         let pipeline = MonitorPipeline(classifier: judge, strategy: Options.eyeSearch)
@@ -218,7 +225,7 @@ final class MonitorModel: ObservableObject {
         if !cameraLent { frames.withLock { $0 = .monitor(pipeline) } }
 
         if Options.noCamera {
-            fail("The camera is off (--no-camera). The model loaded correctly.")
+            fail(.cameraLeftOff, detail: "The camera is off (--no-camera). The model loaded correctly.")
             return
         }
         do {
@@ -227,9 +234,33 @@ final class MonitorModel: ObservableObject {
             reminders.prepare()
         } catch CameraCapture.CameraError.refused {
             lifecycle = .cameraRefused
+        } catch CameraCapture.CameraError.noCamera {
+            fail(.noCamera, detail: "No camera was found")
         } catch {
-            fail("\(error)")
+            fail(.camera, detail: "\(error)")
         }
+    }
+
+    /// "Try Again" and "Check Again", in the panel: starts once more after a failure or a
+    /// refusal. Before this, both were final until the app was quit, and nothing said so.
+    func tryAgain() async {
+        guard !isDemo else { return }
+        switch lifecycle {
+        case .failed, .cameraRefused: break
+        case .starting, .needsSetup, .running: return
+        }
+        failure = nil
+        lifecycle = .starting
+        await startCounting()
+    }
+
+    /// The app came forward, or its panel opened. Someone who was refused the camera has
+    /// often just been to System Settings to allow it: look, instead of waiting for a quit.
+    func comeForward() {
+        reminders.rereadNotifications()
+        guard lifecycle == .cameraRefused, !isDemo,
+              AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
+        Task { await tryAgain() }
     }
 
     /// Starts the camera the first time (macOS asks for it then), and resumes it afterwards.
@@ -274,7 +305,7 @@ final class MonitorModel: ObservableObject {
     /// Nothing is counted until `leaveSetup`.
     func enterSetup(_ stage: MonitorStatus.SetupStage, frames handler: @escaping (CVPixelBuffer, Double) -> Void) async throws {
         if Options.noCamera {
-            throw CameraCapture.CameraError.cannotConfigure("it was left off at launch (--no-camera)")
+            throw CameraCapture.CameraError.cannotConfigure("it was left off when the app was started")
         }
         setupStage = stage
         live = live.withCameraOff
@@ -405,9 +436,12 @@ final class MonitorModel: ObservableObject {
         DispatchQueue.global(qos: .utility).async { source.recover() }
     }
 
-    private func fail(_ reason: String) {
-        Log.app.error("Not started: \(reason, privacy: .private)")   // the reason can hold a path
-        lifecycle = .failed(reason)
+    /// The panel gets a sentence for a person (`StartFailure`); what the system said
+    /// goes to the log.
+    private func fail(_ failure: StartFailure, detail: String) {
+        Log.app.error("Not started: \(detail, privacy: .private)")   // the detail can hold a path
+        self.failure = failure
+        lifecycle = .failed(failure.sentence)
     }
 
     var isPaused: Bool { pause != .running }

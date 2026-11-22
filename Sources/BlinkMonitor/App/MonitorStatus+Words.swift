@@ -71,8 +71,25 @@ extension MonitorStatus {
         }
     }
 
-    /// One sentence under the rate, in the panel.
-    var explanation: String {
+    /// The state in a word or two, written LARGE in the panel where the rate would be,
+    /// when there is no rate to write. Nil when the rate is shown. Before this, two grey
+    /// dashes stood there and the largest type on the panel said nothing.
+    var headline: String? {
+        switch self {
+        case .starting: return "Starting"
+        case .needsSetup: return "Not set up"
+        case .settingUp: return "Setting up"
+        case .cameraRefused: return "No camera"
+        case .failed: return "Not counting"
+        case .paused: return "Paused"
+        case .cameraSilent: return "No picture"
+        case .noFace: return "No face"
+        case .watching(let rate), .low(let rate, _): return rate == nil ? "Starting" : nil
+        }
+    }
+
+    /// One sentence under the rate, in the panel. `limit`: the limit in force.
+    func explanation(limit: Int) -> String {
         switch self {
         case .starting:
             return "Starting the camera."
@@ -87,7 +104,8 @@ extension MonitorStatus {
         case .settingUp(.testing):
             return "Setup is testing your model. Nothing is counted meanwhile."
         case .cameraRefused:
-            return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera, then open it again."
+            return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera. "
+                + "If nothing changes after that, quit Blink Monitor and open it again."
         case .failed(let reason):
             return reason
         case .paused(let until):
@@ -95,11 +113,62 @@ extension MonitorStatus {
         case .cameraSilent:
             return "The camera is not sending pictures, so nothing is counted. With the lid closed that is expected; otherwise it is started again by itself."
         case .noFace:
-            return "Nobody in front of the camera: this time is not counted."
+            return "No face in view, so this time is not counted. If you are here: face the camera and check the light."
         case .watching(let rate):
-            return rate == nil ? "A rate appears after 20 seconds of watching." : "Over the last minute your eyes were watched."
+            return rate == nil ? "Your rate appears after 20 seconds." : "Your rate over the last minute. Your limit is \(limit)."
         case .low(_, let recent):
             return String(format: "About %.0f a minute over the last 3 minutes. A blink break helps: ten slow, full blinks.", recent)
         }
+    }
+}
+
+/// How far the app is from knowing your usual rate, said with what is left.
+/// "50% done" stopped at 50% for the whole first day and gave no reason: the measure
+/// needs three hours at the screen AND two different days.
+enum CalibrationWords {
+    static func line(_ calibration: Baseline.Calibration, limit: Int) -> String {
+        let needed = Format.duration(Baseline.calibrationSeconds)
+        let progress: String
+        if calibration.secondsLeft > 0 {
+            let done = "\(Format.duration(calibration.watchedSeconds)) of \(needed)"
+            progress = calibration.daysLeft > 0
+                ? "\(done), over \(Baseline.calibrationDays) days. It can finish tomorrow."
+                : "\(done). \(Format.duration(max(60, calibration.secondsLeft))) to go."
+        } else {
+            progress = "\(needed) done, all on one day. It takes \(Baseline.calibrationDays) days: it finishes tomorrow."
+        }
+        return "Learning your usual rate: \(progress) Until then the limit is \(limit)."
+    }
+}
+
+/// Why counting could not start, in a sentence for a person. What the system said (a
+/// Swift error, a path) goes to the log: `/usr/bin/log show --predicate 'subsystem == "local.blinkmonitor"'`.
+enum StartFailure: Equatable {
+    /// The model could not be read. `trainedHere`: it is the one the setup made.
+    case model(trainedHere: Bool)
+    case noCamera
+    case camera
+    /// The app was started with the camera left off (a developer looking at the windows).
+    case cameraLeftOff
+
+    var sentence: String {
+        switch self {
+        case .model(trainedHere: true):
+            return "Your model could not be read from disk, so nothing is counted. Try again, or open the setup to train a new one: your recordings are kept."
+        case .model(trainedHere: false):
+            return "The model this copy of the app came with could not be read, so nothing is counted. Open the setup to train one on your eyes."
+        case .noCamera:
+            return "No camera was found, so nothing is counted. Plug one in, or open the lid, then try again."
+        case .camera:
+            return "The camera could not be started, so nothing is counted. Another app may be holding it. Try again in a moment."
+        case .cameraLeftOff:
+            return "The camera was left off when the app was started. Nothing is counted."
+        }
+    }
+
+    /// The setup can make another model.
+    var offersSetup: Bool {
+        if case .model = self { return true }
+        return false
     }
 }

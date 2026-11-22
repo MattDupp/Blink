@@ -27,6 +27,12 @@ enum SampleData {
         case firstMinute
         /// The camera has stopped sending pictures (the lid is closed).
         case noPicture
+        /// The camera is on and sees nobody.
+        case noFace
+        /// macOS refused the camera.
+        case cameraRefused
+        /// The model could not be read from disk.
+        case problem
         /// The demo: `watching`, on made-up eyes.
         case demo
         /// A new Mac: no model of your eyes yet, the setup window closed.
@@ -117,6 +123,16 @@ enum SampleData {
         case .noPicture:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.cameraSilent = true
+            initial.live = live.withCameraOff
+        case .noFace:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+            initial.live.faceFound = false
+        case .cameraRefused:
+            initial.lifecycle = .cameraRefused
+            initial.live = live.withCameraOff
+        case .problem:
+            initial.failure = .model(trainedHere: true)
+            initial.lifecycle = .failed(StartFailure.model(trainedHere: true).sentence)
             initial.live = live.withCameraOff
         case .firstMinute:
             minutes = []

@@ -28,7 +28,7 @@ struct LiveView: View {
             CaptureBanner(captures: captures)
             if let folder = Options.wholeFrameRoot {
                 // Said for as long as the mode is on, not only while a capture runs.
-                Text("Captures also keep the whole camera picture (your face), in \(folder.path). Started with --whole-frames-dir.")
+                Text("Captures also keep the whole camera picture (your face), in \(folder.path), as asked when the app was started.")
                     .font(.callout)
                     .foregroundStyle(.orange)
                     .frame(maxWidth: .infinity, alignment: .leading)
