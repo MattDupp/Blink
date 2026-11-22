@@ -374,8 +374,9 @@ private struct TodaySection: View {
             SectionTitle("Today")
             HStack(spacing: 8) {
                 StatTile(value: Format.duration(today.observedSeconds), caption: "at the screen")
-                StatTile(value: today.blinks.formatted(), caption: "blinks")
-                StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "a minute")
+                StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute, average")
+                    .help("\(today.blinks.formatted()) blinks counted today")
+                StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--", caption: "of minutes above your limit")
             }
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
@@ -404,16 +405,15 @@ private struct TodaySection: View {
         }
     }
 
-    /// The minute under the pointer when there is one; else how today went, said as what
-    /// went well ("above your limit") and not as a reproach ("under the limit").
+    /// The minute under the pointer, when there is one.
     private func caption(today: DaySummary, hour: LastHour) -> String {
         if let ago = state.hoveredMinute {
             let time = Format.time(hour.start(minutesAgo: ago))
             guard let rate = hour.rate(minutesAgo: ago) else { return "\(time): not counted" }
             return String(format: "%@: %.0f a minute", time, rate) + (ago == 0 ? " so far" : "")
         }
-        guard let low = today.lowShare else { return "" }
-        return "\(Int(((1 - low) * 100).rounded()))% of today's minutes above your limit"
+        // A figure for the whole day captioned the chart of the last hour: it is a tile now.
+        return ""
     }
 }
 

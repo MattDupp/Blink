@@ -109,7 +109,9 @@ extension MonitorStatus {
         case .failed(let reason):
             return reason
         case .paused(let until):
-            return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume") + ". Nothing is being counted."
+            // What stops and what goes on: routines do not need the camera.
+            return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume")
+                + ". Nothing is counted, and no blink reminder or look-away break comes. Routines still remind you."
         case .cameraSilent:
             return "The camera is not sending pictures, so nothing is counted. That is normal with the lid closed. Otherwise the camera restarts by itself."
         case .noFace:

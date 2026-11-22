@@ -135,11 +135,11 @@ and shipping it inside a real app.
   at times of day, a number of times a week, or every so many minutes at the screen, such
   as drinking water every 60 minutes. The minutes are counted while you are at the screen,
   not on the clock. Several routines stay gentle: banners come one at a time, at least 5
-  minutes apart and at most 4 in an hour, and "Quiet for Today" in the panel silences them
-  until midnight.
+  minutes apart and at most 4 in an hour, and Quiet in the panel silences them, with every other reminder,
+  for 30 minutes, an hour or until tomorrow.
 - **A routine counted by the week** (off by default): a heated eye mask three times a
   week, for example. It asks on the days you prefer until the week's count is reached, and
-  asks the next day when one is missed. "I Did It" in the panel counts at any time, and the
+  asks the next day when one is missed. "Done" in the panel counts at any time, and the
   panel shows the week, such as "2 of 3 this week". Its timer pauses the camera while your
   eyes are covered, plays a sound at the end and marks it done. You set the timer's length
   from the instructions of what you use; the app gives no advice on it.

@@ -325,7 +325,7 @@ well a routine was kept, both come from that file.
   goes before the repeat of another, and a time of day goes before a routine "at the
   screen". A reminder held back is not lost: the dot and the panel show it at once.
 - Nothing is shown while a routine's timer runs, or during a blink break.
-- "Quiet for Today" in the panel stops the banners until midnight. The dot and the panel
+- Quiet, in the panel, stops every banner for 30 minutes, an hour or until tomorrow. The dot and the panel
   still show what waits.
 - The panel stays small. With one or two routines each is drawn in full. With more, only
   what waits is drawn in full, then one line says what comes next, and the rest is one
@@ -395,7 +395,7 @@ during the day, and yesterday can be judged again today.
 | What happens | What the app does | Why |
 |---|---|---|
 | You miss Wednesday | Thursday asks instead | The count can still be reached |
-| You do it early, on a day that did not ask or before the time | It counts. "I Did It" is always in the panel | The count is what matters, not the day |
+| You do it early, on a day that did not ask or before the time | It counts. "Done" is always in the panel | The count is what matters, not the day |
 | You do it twice in one day | It counts as two | The count is yours. Undo takes back a press made by mistake, for the rest of that day |
 | The count is out of reach late in the week | Each day left asks once, and no more | One reminder a day is the most this kind ever sends |
 | A new week starts | The count starts at zero | Nothing is owed from last week |
@@ -425,7 +425,7 @@ on how long or how warm, and its words send you to the instructions of what you 
 | Asks macOS not to sleep while it runs | Ten minutes without a key can put a Mac to sleep, and a sleeping Mac plays no sound |
 | Holds the other routines' reminders until it is over | Nobody is looking at the screen |
 | Plays a sound twice at the end, and marks the routine done | Your eyes are closed: the sound is what tells you |
-| Stop ends it and marks nothing | "I Did It" is still there if it was done |
+| Stop ends it and marks nothing | "Done" is still there if it was done |
 | Closing its window does not stop it | A stray click must not cost you the sound at the end |
 
 What it cannot do: be heard with the Mac's sound off. And it is not kept across a

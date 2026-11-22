@@ -34,18 +34,20 @@ private struct RoutineList: View {
             let quiet = routines.isQuiet(now: now)
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    SectionTitle("Routine")
+                    SectionTitle("Routines")
                     Spacer(minLength: 8)
+                    // One Quiet for everything, at the foot of the panel. This older one,
+                    // for routines only, is no longer offered: it is only shown, with its
+                    // way out, for someone who had it on.
                     if quiet {
-                        Text("Quiet until tomorrow")
+                        Text("Routines quiet until tomorrow")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        Button("Undo") { routines.setQuiet(false) }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                            .help("Show routine reminders again")
                     }
-                    Button(quiet ? "Undo" : "Quiet for Today") { routines.setQuiet(!quiet) }
-                        .buttonStyle(.link)
-                        .font(.caption)
-                        .help(quiet ? "Show routine reminders again"
-                                    : "No routine reminders until midnight. The menu bar and this panel still show what waits.")
                 }
                 ForEach(folds ? days.filter { isActive($0) } : days, id: \.routine.id) { day in
                     row(day)
@@ -56,7 +58,7 @@ private struct RoutineList: View {
                         .foregroundStyle(.secondary)
                 }
                 if days.count > RoutineFold.shownInFull {
-                    Button(routines.showsAll ? "Show Less" : "All \(days.count) Routines") { routines.showsAll.toggle() }
+                    Button(routines.showsAll ? "Show Less" : "Show All \(days.count)") { routines.showsAll.toggle() }
                         .buttonStyle(.link)
                         .font(.callout)
                 }
@@ -110,7 +112,7 @@ enum RoutineFold {
 }
 
 /// A routine counted by the week: how far the week is, its seven days, and what can be
-/// done now. "I Did It" is always there: doing it early, or on a day that did not ask,
+/// done now. "Done" is always there: doing it early, or on a day that did not ask,
 /// counts like any other.
 private struct WeekRow: View {
 
@@ -174,7 +176,7 @@ private struct WeekRow: View {
                             Button("Start Timer") { actions.start() }
                                 .help("\(Format.count(minutes, "minute")). The camera is paused meanwhile, a sound marks the end, and it is marked done.")
                         }
-                        Button("I Did It") { actions.didIt() }
+                        Button("Done") { actions.didIt() }
                             .help("Counts for this week, whatever the day or the hour")
                     }
                 }
@@ -202,13 +204,13 @@ private struct WeekRow: View {
     private var state: String {
         if let running { return "Timer running until \(Format.time(running.end)). The camera is paused." }
         if let slot = day.due { return "Waiting since \(Format.time(slot.due))" }
-        if let slot = day.putOff, case .later(let until) = slot.status { return "Put off until \(Format.time(until))" }
+        if let slot = day.putOff, case .later(let until) = slot.status { return "Later, at \(Format.time(until))" }
         if week.today.done > 1 { return "Done \(week.today.done) times today" }
-        if week.today.done == 1 { return week.isReached ? "Done today. That is the week's count." : "Done today" }
+        if week.today.done == 1 { return week.isReached ? "Done today. Week complete." : "Done today" }
         if week.isReached { return "Done for this week" }
         if let slot = day.next { return "Today at \(Format.time(slot.due))" }
         if let next = week.nextAsk { return "Next on \(calendar.weekdaySymbols[next.weekday - 1])" }
-        return "Nothing more is asked this week"
+        return "Nothing more this week"
     }
 }
 
@@ -255,7 +257,7 @@ private struct DayChip: View {
         if day.done > 1 { return "done \(day.done) times" }
         if day.done == 1 { return "done" }
         if planned { return place == .today ? "asked today" : "to come" }
-        return place == .past ? "not done" : "nothing asked"
+        return place == .past ? "not done" : "nothing due"
     }
 }
 
@@ -306,10 +308,10 @@ private struct RoutineRow: View {
                 .padding(.vertical, 7)
                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
             } else if let slot = day.due {
-                waiting(day.screen == nil ? "\(Format.time(slot.due)) is waiting" : "Waiting since \(Format.time(slot.due))",
+                waiting("Waiting since \(Format.time(slot.due))",
                         slot: slot, offerLater: true)
             } else if let slot = day.putOff, case .later(let until) = slot.status {
-                waiting("\(Format.time(slot.due)) put off until \(Format.time(until))", slot: slot, offerLater: false)
+                waiting("\(Format.time(slot.due)), later at \(Format.time(until))", slot: slot, offerLater: false)
             }
         }
         .accessibilityElement(children: .contain)
@@ -403,10 +405,10 @@ private struct TimeChip: View {
         switch slot.status {
         case .upcoming: return "to come"
         case .due: return "waiting"
-        case .later: return "put off"
+        case .later: return "later"
         case .done: return "done"
         case .missed: return "not done"
-        case .notAsked: return "not asked for today"
+        case .notAsked: return "not due today"
         }
     }
 }
@@ -452,7 +454,7 @@ struct RoutineSettings: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Card {
-                Row("Record", detail: "One line each time a reminder is shown, done, put off or left. It stays on this Mac. Any spreadsheet opens it.") {
+                Row("Routine log", detail: "One line each time a reminder is shown, done, postponed or missed. It stays on this Mac and opens in any spreadsheet.") {
                     Button("Show in Finder") { showRecord() }
                 }
             }
