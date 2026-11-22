@@ -35,6 +35,8 @@ enum SampleData {
         case problem
         /// The usual rate was just measured, under the starting limit: the panel offers to follow it.
         case ownRate
+        /// "Quiet" was chosen in the panel, for an hour.
+        case quiet
         /// The demo: `watching`, on made-up eyes.
         case demo
         /// A new Mac: no model of your eyes yet, the setup window closed.
@@ -128,6 +130,8 @@ enum SampleData {
             initial.live = live.withCameraOff
         case .ownRate:
             preferences.reference = Reference(rate: 7.2, measuredOn: now.addingTimeInterval(-3600), minutes: 214)
+        case .quiet:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
         case .noFace:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.live.faceFound = false
@@ -178,6 +182,7 @@ enum SampleData {
         for ending in [BreakOutcome.Ending.onTrust, .away, .onTrust, .skipped, .away, .onTrust] {
             tally.record(BreakOutcome(kind: .short, ending: ending), dayStart: tally.day)
         }
+        if case .quiet = scene { model.reminders.setQuiet(.oneHour, now: now) }
         if case .lookingAway = scene {
             model.reminders.breaks.show(current: .init(kind: .short, seconds: 40), tally: tally)
         }

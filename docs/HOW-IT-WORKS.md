@@ -229,6 +229,25 @@ says so, because the app would say "Low" most of the time.
 [What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits
 and how each was read.
 
+### One gate for every banner
+
+The app has three kinds of reminder: the blink reminder, the look-away break and the
+routines. Each one asks the same gate before it shows a banner (`BannerGate`, in
+`Sources/BlinkCore/Monitoring`). The gate is a pure rule: it is handed the clock and the
+facts, and its tests are moments written by hand.
+
+| Rule | Why |
+|---|---|
+| Nothing during a look-away break, a blink break, a routine's timer or the setup | You are doing what the app asked. A break that falls due meanwhile waits, it is not lost |
+| At least two minutes between two banners | Three gentle reminders in one minute are not gentle |
+| A break goes first: the others stay away when one falls due within two minutes | The break has a clock running. The blink reminder comes back by itself |
+| Quiet (30 minutes, an hour, until tomorrow) holds every banner and every sound | "Leave me alone" is one thing to say, not three. Counting goes on, and it is remembered |
+
+The blink reminder also backs off (`ReminderPolicy`). While the rate stays low and
+nothing answers, the next reminder comes after 5, 15, 30, then 60 minutes, and only the
+first two make a sound. Three minutes above the limit start it over. A finished blink
+break is an answer: its banner is taken back, and none comes for 20 minutes.
+
 ## 7. Breaks and pauses
 
 Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:

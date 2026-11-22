@@ -105,6 +105,7 @@ enum Snapshots {
             ("panel-first-minute", panel(.firstMinute)),
             ("panel-no-picture", panel(.noPicture)),
             ("panel-own-rate", panel(.ownRate)),
+            ("panel-quiet", panel(.quiet)),
             ("panel-no-face", panel(.noFace)),
             ("panel-camera-refused", panel(.cameraRefused)),
             ("panel-problem", panel(.problem)),

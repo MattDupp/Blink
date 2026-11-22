@@ -39,8 +39,14 @@ final class ScreenBreakController: ObservableObject {
     var withdraw: () -> Void = {}
     /// The sound that says a break is over.
     var playEnd: () -> Void = { NSSound(named: "Glass")?.play() }
-    /// Reminders are snoozed at this moment: a break that falls due is passed over.
+    /// "Quiet" is on at this moment: a break that falls due is passed over, and one that
+    /// ends makes no sound.
     var isSnoozed: (Date) -> Bool = { _ in false }
+    /// A blink break, a routine's timer or the setup is under way: a break that falls due
+    /// waits for it to be over (`BannerGate`).
+    var isHeld: () -> Bool = { false }
+    /// A break's banner was shown: the gate's two minutes start.
+    var onAnnounced: (Date) -> Void = { _ in }
 
     private let preferences: Preferences
     private var schedule: BreakSchedule
@@ -78,7 +84,7 @@ final class ScreenBreakController: ObservableObject {
         }
         schedule.plan = preferences.breakPlan
         let events = schedule.observe(time: now.timeIntervalSinceReferenceDate, faceFound: faceFound,
-                                      quiet: !wanted || isSnoozed(now))
+                                      quiet: !wanted || isSnoozed(now), hold: isHeld())
         handle(events, now: now)
     }
 
@@ -86,6 +92,20 @@ final class ScreenBreakController: ObservableObject {
     /// (the camera sends few updates while nobody is in view, and none while it sleeps).
     func tick(now: Date = Date()) {
         handle(schedule.advance(to: now.timeIntervalSinceReferenceDate), now: now)
+    }
+
+    /// A break falls due within `seconds`: the other banners let it go first.
+    func dueWithin(_ seconds: Double, now: Date = Date()) -> Bool {
+        guard preferences.breakNudgesOn, schedule.running == nil else { return false }
+        return schedule.screenSeconds(at: now.timeIntervalSinceReferenceDate) >= Double(schedule.plan.workMinutes) * 60 - seconds
+    }
+
+    /// "Quiet" was just chosen: a break in progress ends without a sound or a mark.
+    func quieted() {
+        guard schedule.running != nil else { return }
+        schedule.stop()
+        ended()
+        publish(now: Date())
     }
 
     /// "In 5 Minutes": once per break.
@@ -110,11 +130,12 @@ final class ScreenBreakController: ObservableObject {
                 let minutes = max(1, Int(schedule.plan.workMinutes))
                 announce(BreakWords.bannerTitle(kind, plan: schedule.plan),
                          BreakWords.bannerBody(kind, screenMinutes: minutes), canPostpone)
+                onAnnounced(now)
                 startTimer()
             case .ended(let outcome):
                 // An absence nobody announced (you simply left) ends without a sound.
                 if announced {
-                    if outcome.ending == .away || outcome.ending == .onTrust { playEnd() }
+                    if (outcome.ending == .away || outcome.ending == .onTrust) && !isSnoozed(now) { playEnd() }
                     ended()
                 }
                 Log.app.notice("Break ended: \(outcome.kind.rawValue, privacy: .public), \(String(describing: outcome.ending), privacy: .public)")

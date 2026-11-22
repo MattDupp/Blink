@@ -88,7 +88,9 @@ public struct ReminderPolicy {
 
     /// Ask once a minute, with the recent rate (nil when too little was watched).
     /// Returns what to show now, or nil; a reminder returned starts the next wait.
-    public mutating func reminder(rate: Double?, threshold: Double, now: Date) -> Due? {
+    /// `allowed`: false while a banner may not show (`BannerGate`); a reminder that is due
+    /// then waits, and its wait does not start.
+    public mutating func reminder(rate: Double?, threshold: Double, now: Date, allowed: Bool = true) -> Due? {
         guard let rate else { return nil }          // away: nothing is learned either way
         guard rate < threshold else {
             let since = aboveSince ?? now
@@ -100,6 +102,7 @@ public struct ReminderPolicy {
         if isSnoozed(at: now) { return nil }
         if let quietUntil, now < quietUntil { return nil }
         if let lastReminder, now.timeIntervalSince(lastReminder) < currentWait { return nil }
+        guard allowed else { return nil }
         lastReminder = now
         unanswered += 1
         return Due(sound: unanswered <= Self.remindersWithSound)

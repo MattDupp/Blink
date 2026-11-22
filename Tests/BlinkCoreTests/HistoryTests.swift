@@ -231,6 +231,19 @@ struct HistoryTests {
         #expect(ask(26)?.sound == true)
     }
 
+    @Test("A reminder that may not show yet waits, and its wait does not start")
+    func heldByTheGate() {
+        var policy = ReminderPolicy()
+        func ask(_ minute: Int, allowed: Bool) -> ReminderPolicy.Due? {
+            policy.reminder(rate: 6, threshold: 10, now: afterThree.addingTimeInterval(Double(minute) * 60), allowed: allowed)
+        }
+        #expect(ask(0, allowed: false) == nil && ask(1, allowed: false) == nil)
+        #expect(policy.unanswered == 0 && policy.lastReminder == nil)
+        #expect(ask(2, allowed: true)?.sound == true)
+        #expect(ask(6, allowed: true) == nil)
+        #expect(ask(7, allowed: true) != nil)
+    }
+
     @Test("While snoozed there is no reminder; afterwards they come back")
     func snooze() {
         var policy = ReminderPolicy()

@@ -163,6 +163,11 @@ final class MonitorModel: ObservableObject {
         }
         routines.connect(to: self)
         blinkBreak.onDone = { [weak self] in self?.reminders.blinkBreakDone() }
+        reminders.busy = { [weak self] in
+            guard let self else { return .free }
+            return BannerGate.Busy(lookAwayBreak: self.reminders.breaks.current != nil, blinkBreak: self.blinkBreak.exercise != nil,
+                                   timer: self.routines.session.session != nil, setup: self.setupStage != nil)
+        }
     }
 
     var isDemo: Bool { demoCamera != nil }

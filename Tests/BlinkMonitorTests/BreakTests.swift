@@ -199,6 +199,32 @@ struct BreakTests {
         #expect(breaks.current == nil && heard.withdrawn == 1 && heard.endSounds == 0)
     }
 
+    @Test("Quiet holds the blink reminder and the routines, is remembered, and ends by itself or by hand")
+    func quietForAWhile() {
+        let defaults = store()
+        let reminders = ReminderController(preferences: Preferences(defaults: defaults))
+        #expect(reminders.mayShowRoutineBanner(now: morning) && !reminders.isQuiet(now: morning))
+        reminders.setQuiet(.oneHour, now: morning)
+        #expect(reminders.isQuiet(now: morning.addingTimeInterval(1800)))
+        #expect(!reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(1800)))
+        #expect(reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(3601)))
+        #expect(reminders.snoozedUntil == morning.addingTimeInterval(3600))
+        // Remembered: it is in the store a relaunch reads.
+        #expect(Preferences(defaults: defaults).quietUntil == morning.addingTimeInterval(3600))
+        reminders.setQuiet(until: nil)
+        #expect(reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(60)) && reminders.snoozedUntil == nil)
+        #expect(Preferences(defaults: defaults).quietUntil == nil)
+
+        // In the middle of a blink break, a timer or the setup, a routine's banner waits.
+        reminders.busy = { BannerGate.Busy(blinkBreak: true) }
+        #expect(!reminders.mayShowRoutineBanner(now: morning))
+        reminders.busy = { .free }
+        // Two minutes after any banner.
+        reminders.routineBannerShown(now: morning)
+        #expect(!reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(60)))
+        #expect(reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(120)))
+    }
+
     @Test("In the demo the made-up person looks away during a break: no face in view")
     func demoLooksAway() {
         var eyes = DemoEyes()

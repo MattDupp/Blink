@@ -26,6 +26,7 @@ final class Preferences: ObservableObject {
         static let breakTally = "breakTally"
         static let welcomed = "welcomed"
         static let ownRateOfferAnswered = "ownRateOfferAnswered"
+        static let quietUntil = "quietUntil"
         static let paused = "paused"
         static let pausedUntil = "pausedUntil"
     }
@@ -131,6 +132,13 @@ final class Preferences: ObservableObject {
     func followOwnRate() {
         if let reference { floor = min(floor, Baseline.floorFollowing(reference: reference)) }
         ownRateOfferAnswered = true
+    }
+
+    /// "Quiet", chosen in the panel: no banner and no sound before this. It survives a
+    /// relaunch, like a pause.
+    var quietUntil: Date? {
+        get { defaults.object(forKey: Key.quietUntil) as? Date }
+        set { defaults.set(newValue, forKey: Key.quietUntil) }
     }
 
     /// Today's look-away breaks, counted: they survive a relaunch.

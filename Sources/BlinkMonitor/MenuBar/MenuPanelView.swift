@@ -246,9 +246,10 @@ private struct Notes: View {
                 }
                 if let until = reminders.snoozedUntil {
                     HStack(spacing: 6) {
-                        NoteLine(symbol: "bell.slash", text: "Reminders snoozed until \(Format.time(until))")
+                        NoteLine(symbol: "bell.slash",
+                                 text: "Quiet until \(Format.pauseEnd(until)): no reminder, no break and no sound. Counting goes on.")
                         Spacer(minLength: 4)
-                        Button("Resume") { reminders.snooze(minutes: nil) }
+                        Button("End Quiet") { reminders.setQuiet(until: nil) }
                             .controlSize(.small)
                     }
                 }
@@ -503,6 +504,16 @@ private struct ActionsSection: View {
                 Text("Blink Monitor \(AppInfo.version)")
                     .foregroundStyle(.tertiary)
                 Spacer()
+                // "Leave me alone for an hour": every banner and sound is held, counting
+                // goes on. Pause is something else: it turns the camera off.
+                Menu("Quiet") {
+                    Button("For 30 Minutes") { model.reminders.setQuiet(.thirtyMinutes) }
+                    Button("For 1 Hour") { model.reminders.setQuiet(.oneHour) }
+                    Button("Until Tomorrow") { model.reminders.setQuiet(.untilTomorrow) }
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("No reminder, no look-away break and no sound for a while. Blinks are still counted.")
                 Button("Live View") { actions.openLiveView() }
                     .help("The camera with your eyes framed, and each blink as it is counted")
                 Button("Quit") { actions.quit() }

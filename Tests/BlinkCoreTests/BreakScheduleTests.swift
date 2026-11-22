@@ -27,10 +27,10 @@ struct BreakScheduleTests {
         }
 
         /// Someone at the screen (or not) for this many seconds, seen once a second.
-        mutating func watch(_ seconds: Int, face: Bool = true, quiet: Bool = false) {
+        mutating func watch(_ seconds: Int, face: Bool = true, quiet: Bool = false, hold: Bool = false) {
             for _ in 0..<seconds {
                 time += 1
-                note(schedule.observe(time: time, faceFound: face, quiet: quiet))
+                note(schedule.observe(time: time, faceFound: face, quiet: quiet, hold: hold))
             }
         }
 
@@ -355,6 +355,17 @@ struct BreakScheduleTests {
         #expect(day.events.isEmpty && day.screenSeconds == 100)
         day.watch(1100)
         #expect(day.events == [.due(.short, canPostpone: true)])
+    }
+
+    @Test("Held back (a blink break, a timer, the setup), a break that falls due waits, and starts when the hold is over")
+    func held() {
+        var day = Timeline(classic)
+        day.watch(1190)
+        day.watch(40, hold: true)                 // due at 1200, in the middle of a blink break
+        #expect(day.events.isEmpty && day.screenSeconds == 1230)
+        day.watch(1)
+        #expect(day.events == [.due(.short, canPostpone: true)])
+        #expect(day.log.first?.at == 1231)
     }
 
     @Test("Switching breaks off forgets the one in progress")

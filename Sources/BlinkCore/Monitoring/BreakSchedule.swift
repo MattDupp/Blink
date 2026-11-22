@@ -182,14 +182,17 @@ public struct BreakSchedule: Sendable {
 
     /// The camera said whether a face is in view. `quiet`: breaks are not wanted now
     /// (snoozed, or switched off): one that falls due is passed over without a word.
-    public mutating func observe(time: Double, faceFound: Bool, quiet: Bool = false) -> [Event] {
-        step(time, face: faceFound, quiet: quiet)
+    /// `hold`: a break that falls due waits (a blink break, a timer or the setup is
+    /// under way, see `BannerGate`): it starts at the first look once the hold is over,
+    /// and the time at the screen goes on counting meanwhile.
+    public mutating func observe(time: Double, faceFound: Bool, quiet: Bool = false, hold: Bool = false) -> [Event] {
+        step(time, face: faceFound, quiet: quiet, hold: hold)
     }
 
     /// Time has passed and the camera said nothing new. The app calls this once a second
     /// during a break, so that the break ends on time even if no frame arrives.
     public mutating func advance(to time: Double) -> [Event] {
-        step(time, face: nil, quiet: false)
+        step(time, face: nil, quiet: false, hold: false)
     }
 
     /// "In 5 minutes": once per break. False when it was not allowed.
@@ -217,7 +220,7 @@ public struct BreakSchedule: Sendable {
 
     // MARK: - One step
 
-    private mutating func step(_ time: Double, face: Bool?, quiet: Bool) -> [Event] {
+    private mutating func step(_ time: Double, face: Bool?, quiet: Bool, hold: Bool) -> [Event] {
         guard let previous = clock, time >= previous else {
             // The first observation, or a clock that was set back: nothing is known about
             // the time before. Start a new stretch; the count to the long break is kept.
@@ -296,6 +299,7 @@ public struct BreakSchedule: Sendable {
             postponed = false
             return events
         }
+        if hold { return events }     // due, and kept waiting: nothing is forgotten
         let kind = nextKind
         running = Running(kind: kind, start: time,
                           length: kind == .long ? plan.longSeconds : Double(plan.breakSeconds),

@@ -145,6 +145,12 @@ and shipping it inside a real app.
 - **Pause** for 15 minutes, an hour, until tomorrow or until you resume. It switches the
   camera off for real and ends by itself; the camera also goes off when the screen sleeps
   or locks.
+- **Quiet** for 30 minutes, an hour or until tomorrow, from the panel. No reminder, no
+  look-away break and no sound, of any kind. Blinks are still counted, and the choice
+  survives a restart of the app.
+- **Reminders that know each other.** Nothing arrives during a look-away break, a blink
+  break, a routine's timer or the setup. Two banners are at least two minutes apart.
+  When two would come together, a break goes first.
 
 <p align="center">
   <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the reference" width="270">

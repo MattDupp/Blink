@@ -29,8 +29,15 @@ final class ReminderController: ObservableObject {
     /// The banner's "Start Blink Break" button was pressed.
     var onBlinkBreak: () -> Void = {}
 
+    /// What you are in the middle of (a blink break, a timer, the setup): asked by the
+    /// gate before every banner. The model says.
+    var busy: () -> BannerGate.Busy = { .free }
+
     private let preferences: Preferences
     private var policy = ReminderPolicy()
+    /// The one gate every banner asks (`BannerGate`): the breaks and the blink reminder
+    /// here, the routines through `mayShow`.
+    private var gate = BannerGate()
     /// The app's one `Notifier`: the routines show their banners through it too.
     let notifier = Notifier()
     private var wanted: AnyCancellable?
@@ -54,7 +61,17 @@ final class ReminderController: ObservableObject {
             self?.notifier.show(.screenBreak(title: title, body: body, canPostpone: canPostpone))
         }
         breaks.withdraw = { [weak self] in self?.notifier.withdrawScreenBreak() }
-        breaks.isSnoozed = { [weak self] now in self?.policy.isSnoozed(at: now) ?? false }
+        breaks.isSnoozed = { [weak self] now in self?.gate.isQuiet(at: now) ?? false }
+        // A break does not wait for the gate's two minutes: it goes first, and the other
+        // kinds stay away when one is about to fall due (`soon`). It waits only for what
+        // you are in the middle of.
+        breaks.isHeld = { [weak self] in self?.busy().holds(.screenBreak) ?? false }
+        breaks.onAnnounced = { [weak self] now in self?.gate.shown(at: now) }
+        // Quiet survives a relaunch.
+        if let until = preferences.quietUntil, until > Date() {
+            gate.quiet(until: until)
+            snoozedUntil = until
+        }
         breaksChanged = breaks.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         // Switching a nudge on in Settings is the moment to ask macOS for notifications.
         wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn)
@@ -102,21 +119,54 @@ final class ReminderController: ObservableObject {
         }
     }
 
-    /// No reminder and no nudge for this long (nil: they are back now).
-    func snooze(minutes: Int?, now: Date = Date()) {
-        let until = minutes.map { now.addingTimeInterval(Double($0) * 60) }
-        policy.snooze(until: until)
+    /// QUIET: no banner and no sound of any kind before `until` (nil: over now). The blink
+    /// reminder, the look-away breaks and the routines all ask the same gate. Counting
+    /// goes on, and the choice is remembered across a relaunch.
+    func setQuiet(until: Date?) {
+        gate.quiet(until: until)
+        preferences.quietUntil = until
         snoozedUntil = until
+        if until != nil { breaks.quieted() }
+    }
+
+    func setQuiet(_ length: BannerGate.QuietLength, now: Date = Date()) {
+        setQuiet(until: length.end(from: now))
+    }
+
+    /// The banner's "Snooze 1 Hour": the same Quiet, for an hour.
+    func snooze(minutes: Int?, now: Date = Date()) {
+        setQuiet(until: minutes.map { now.addingTimeInterval(Double($0) * 60) })
+    }
+
+    func isQuiet(now: Date = Date()) -> Bool { gate.isQuiet(at: now) }
+
+    /// A routine asks whether its banner may show now, and says when it did.
+    func mayShowRoutineBanner(now: Date = Date()) -> Bool {
+        gate.mayShow(.routine, busy: busy(), soon: soon(now: now), now: now)
+    }
+
+    func routineBannerShown(now: Date = Date()) {
+        gate.shown(at: now)
+    }
+
+    /// A look-away break is about to fall due: it goes first.
+    private func soon(now: Date) -> Set<BannerGate.Kind> {
+        breaks.dueWithin(BannerGate.gapSeconds, now: now) ? [.screenBreak] : []
     }
 
     /// A minute just ended: show a reminder if one is due.
     func minuteEnded(minutes: [MinuteRecord], now: Date = Date()) {
-        if let snoozedUntil, now >= snoozedUntil { self.snoozedUntil = nil }
+        if let snoozedUntil, now >= snoozedUntil {
+            self.snoozedUntil = nil
+            preferences.quietUntil = nil
+        }
         // The policy is asked every minute, low or not: it is how it learns that the rate
         // came back above the limit, which ends its back-off.
         let rate = policy.recentRate(records: minutes, now: now)
-        guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now),
-              preferences.remindersOn, let rate else { return }
+        let allowed = preferences.remindersOn && gate.mayShow(.blink, busy: busy(), soon: soon(now: now), now: now)
+        guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now, allowed: allowed),
+              let rate else { return }
+        gate.shown(at: now)
         notifier.show(.lowRate(recent: rate, sound: due.sound))
     }
 
