@@ -3,6 +3,9 @@ import SwiftUI
 /// The camera picture with the eye squares drawn over it. Two windows show it: the setup,
 /// to check that the squares sit on the eyes, and Live View, to show what is read.
 ///
+/// The picture is shown mirrored, as every app that shows you yourself does: unmirrored,
+/// you lean left and the face on screen leans right, which is hard to follow.
+///
 /// It knows nothing about cameras or models: it is handed a picture, the frame's size and
 /// the squares, and draws them.
 public struct CameraPreviewView: View {
@@ -47,6 +50,12 @@ public struct CameraPreviewView: View {
                             }
                         }
                     }
+                    // Drawn as a mirror shows you: raise your right hand and the picture's
+                    // hand goes up on the right. The flip comes after the overlay, so the
+                    // squares turn with the picture and stay on the eyes. Only what is
+                    // drawn is turned: the frames the model reads, and the pictures the
+                    // setup saves, stay as the camera sent them.
+                    .scaleEffect(x: -1, y: 1)
             } else {
                 Text(placeholder)
                     .foregroundStyle(.white.opacity(0.85))
