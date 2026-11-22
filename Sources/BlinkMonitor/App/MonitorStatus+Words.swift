@@ -9,8 +9,8 @@ extension MonitorStatus {
     /// The SF Symbol of the menu-bar item.
     var symbol: String {
         switch self {
-        case .starting, .noFace, .watching: return "eye"
-        case .cameraRefused, .paused, .cameraSilent: return "eye.slash"
+        case .starting, .noFace, .watching, .settingUp: return "eye"
+        case .cameraRefused, .paused, .cameraSilent, .needsSetup: return "eye.slash"
         case .failed: return "exclamationmark.triangle"
         case .low: return "eye.trianglebadge.exclamationmark"
         }
@@ -24,8 +24,8 @@ extension MonitorStatus {
     /// The text next to the menu-bar symbol.
     var menuBarText: String {
         switch self {
-        case .starting, .failed, .paused, .cameraSilent: return ""
-        case .cameraRefused: return "!"
+        case .starting, .failed, .paused, .cameraSilent, .settingUp: return ""
+        case .cameraRefused, .needsSetup: return "!"
         case .noFace, .watching, .low: return rateText
         }
     }
@@ -33,6 +33,8 @@ extension MonitorStatus {
     var tooltip: String {
         switch self {
         case .starting: return "Blink Monitor is starting"
+        case .needsSetup: return "Blink Monitor: setup is not finished"
+        case .settingUp: return "Blink Monitor is being set up"
         case .cameraRefused: return "Blink Monitor: camera access refused"
         case .failed(let reason): return "Blink Monitor: \(reason)"
         case .paused(let until): return "Blink Monitor is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
@@ -48,6 +50,7 @@ extension MonitorStatus {
     var label: String {
         switch self {
         case .starting: return "Starting"
+        case .needsSetup, .settingUp: return "Setup"
         case .cameraRefused: return "No camera"
         case .failed: return "Problem"
         case .paused: return "Paused"
@@ -61,8 +64,9 @@ extension MonitorStatus {
     var tint: Color {
         switch self {
         case .watching: return .green
-        case .low, .cameraSilent: return .orange
+        case .low, .cameraSilent, .needsSetup: return .orange
         case .cameraRefused, .failed: return .red
+        case .settingUp: return .accentColor
         case .starting, .paused, .noFace: return .secondary
         }
     }
@@ -72,6 +76,16 @@ extension MonitorStatus {
         switch self {
         case .starting:
             return "Starting the camera."
+        case .needsSetup:
+            return "Blink Monitor has no model of your eyes yet, so nothing is counted. Setup takes about six minutes."
+        case .settingUp(.checkingCamera):
+            return "Setup is checking the camera. Nothing is counted meanwhile."
+        case .settingUp(.recording):
+            return "Setup is recording your eyes. Nothing is counted meanwhile."
+        case .settingUp(.training):
+            return "Your model is being trained. Nothing is counted meanwhile."
+        case .settingUp(.testing):
+            return "Setup is testing your model. Nothing is counted meanwhile."
         case .cameraRefused:
             return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera, then open it again."
         case .failed(let reason):

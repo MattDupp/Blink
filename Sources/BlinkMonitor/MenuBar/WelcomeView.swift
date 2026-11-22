@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Shown once, at the first launch, BEFORE the camera is asked for.
+/// Shown once, at the first launch of an app that already HAS a model (one built in by
+/// `make monitor`), BEFORE the camera is asked for. An app with no model opens its setup
+/// instead, whose first page says the same and more (`SetupView`).
 ///
 /// An app that turns the camera on needs to say why first: what it looks at, where the
 /// pictures go (nowhere), and how to switch it off. Then the permission question that
@@ -25,13 +27,13 @@ struct WelcomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 16) {
-                Point(symbol: "camera", title: "It watches your eyes through the camera",
+                WelcomePoint(symbol: "camera", title: "It watches your eyes through the camera",
                       text: "A small model, trained on your own eyes, reads each eye 30 times a second and counts the moments they close.")
-                Point(symbol: "lock.shield", title: "Nothing leaves this Mac",
+                WelcomePoint(symbol: "lock.shield", title: "Nothing leaves this Mac",
                       text: "Pictures are analysed and thrown away at once. Only numbers are kept: blinks per minute, in a file you can open.")
-                Point(symbol: "light.beacon.max", title: "The green camera light stays on",
+                WelcomePoint(symbol: "light.beacon.max", title: "The green camera light stays on",
                       text: "That is macOS telling you the camera is in use. Pause, in the menu, turns the camera off for real; so does closing the lid or locking the screen.")
-                Point(symbol: "bell", title: "A nudge when you blink too little",
+                WelcomePoint(symbol: "bell", title: "A nudge when you blink too little",
                       text: "People blink far less at a screen. When your rate stays low for a few minutes you get one notification, never more than one every five minutes.")
             }
 
@@ -64,7 +66,7 @@ struct WelcomeView: View {
 }
 
 /// A drawing of the menu bar's right end, with the app's item marked.
-private struct MenuBarSketch: View {
+struct MenuBarSketch: View {
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: "wifi")
@@ -88,7 +90,8 @@ private struct MenuBarSketch: View {
     }
 }
 
-private struct Point: View {
+/// One thing to know, with its symbol: the welcome and setup windows list a few.
+struct WelcomePoint: View {
     let symbol: String
     let title: String
     let text: String

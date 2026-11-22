@@ -36,7 +36,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             state: panelState,
             actions: PanelActions(startBlinkBreak: closing(actions.startBlinkBreak), openHistory: closing(actions.openHistory),
                                   openSettings: closing(actions.openSettings), openLiveView: closing(actions.openLiveView),
-                                  openCameraSettings: closing(actions.openCameraSettings), quit: actions.quit))
+                                  openCameraSettings: closing(actions.openCameraSettings),
+                                  openSetup: closing(actions.openSetup), leaveDemo: actions.leaveDemo.map(closing),
+                                  quit: actions.quit))
         let host = NSHostingController(rootView: panel)
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
         popover.contentViewController = host
@@ -84,10 +86,21 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         Log.app.notice("Panel opened by itself: \(self.popover.isShown, privacy: .public)")
     }
 
+    /// Takes the item out of the menu bar: the app is replacing this model by another
+    /// (entering or leaving the demo), which gets an item of its own.
+    func remove() {
+        subscription = nil
+        blinks = nil
+        popover.performClose(nil)
+        NSStatusBar.system.removeStatusItem(item)
+    }
+
     /// You blinked: the eye in the menu bar closes for a moment too. It costs one small
     /// picture swap, and it answers at once the first question anyone has: does it see me?
+    /// (It answers during the setup's test as well: that is the moment the question is asked.)
     private func blinkBack() {
-        guard model.preferences.blinkBack, model.status().isCameraOn,
+        let status = model.status()
+        guard model.preferences.blinkBack, status.isCameraOn || status == .settingUp(.testing),
               let closed = NSImage(systemSymbolName: "eye.half.closed", accessibilityDescription: "Blink Monitor") else { return }
         closed.isTemplate = true
         item.button?.image = closed

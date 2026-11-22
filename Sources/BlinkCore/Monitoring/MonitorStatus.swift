@@ -3,6 +3,8 @@ import Foundation
 /// Where an app that needs the camera is in its life.
 public enum Lifecycle: Equatable {
     case starting
+    /// There is no model of your eyes yet: the camera stays off until setup has made one.
+    case needsSetup
     /// macOS refused the camera (System Settings > Privacy & Security > Camera).
     case cameraRefused
     case failed(String)
@@ -17,7 +19,17 @@ public enum Lifecycle: Equatable {
 /// sleeping screen, a new threshold took a minute to show). Now the situation is decided
 /// here, from the facts, each time it is asked - and every window words what this says.
 public enum MonitorStatus: Equatable {
+
+    /// What the setup window is doing with the camera.
+    public enum SetupStage: Equatable {
+        case checkingCamera, recording, training, testing
+    }
+
     case starting
+    /// No model of your eyes yet, and the setup window is not at work.
+    case needsSetup
+    /// The setup window has the camera (or is training): nothing is counted meanwhile.
+    case settingUp(SetupStage)
     case cameraRefused
     case failed(String)
     /// The camera is off: you chose Pause (`until`: when it resumes by itself, nil when it
@@ -34,12 +46,15 @@ public enum MonitorStatus: Equatable {
     case low(rate: Double?, recent: Double)
 
     /// `pause` is taken as it is: resolve it against the clock first (`PauseState.resolved`).
-    public init(lifecycle: Lifecycle, pause: PauseState = .running, asleep: Bool = false,
+    /// `setup`: what the setup window is doing, nil when it is not at work.
+    public init(lifecycle: Lifecycle, setup: SetupStage? = nil, pause: PauseState = .running, asleep: Bool = false,
                 cameraSilent: Bool = false, faceFound: Bool, rate: Double?, recentLowRate: Double?) {
         switch lifecycle {
         case .starting: self = .starting
         case .cameraRefused: self = .cameraRefused
         case .failed(let reason): self = .failed(reason)
+        case .needsSetup: self = setup.map { .settingUp($0) } ?? .needsSetup
+        case .running where setup != nil: self = .settingUp(setup ?? .recording)
         case .running:
             if case .paused(let until) = pause {
                 self = .paused(until: until)
@@ -61,7 +76,7 @@ public enum MonitorStatus: Equatable {
     public var isCameraOn: Bool {
         switch self {
         case .noFace, .watching, .low: return true
-        case .starting, .cameraRefused, .failed, .paused, .cameraSilent: return false
+        case .starting, .needsSetup, .settingUp, .cameraRefused, .failed, .paused, .cameraSilent: return false
         }
     }
 

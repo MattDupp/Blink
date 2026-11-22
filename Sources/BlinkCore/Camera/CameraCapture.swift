@@ -49,7 +49,7 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     /// Asks for the camera, then starts it. Returns once frames are on their way; throws
     /// `CameraError.refused` when the permission is not given.
     ///
-    /// Both apps start the camera through this one call: the permission question, and
+    /// Counting and the setup start the camera through this one call: the permission question, and
     /// the hop off the main thread that `startRunning` needs (it blocks while the camera
     /// wakes up), are written once.
     public func start(onFrame: @escaping FrameHandler) async throws {
@@ -112,7 +112,7 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
         guard session.canAddOutput(output) else { throw CameraError.cannotConfigure("output refused") }
         session.addOutput(output)
 
-        // Never mirror: the pictures must be the same in the recorder and in the monitor.
+        // Never mirror: the pictures must be the same when they are recorded and when they are read.
         if let connection = output.connection(with: .video), connection.isVideoMirroringSupported {
             connection.automaticallyAdjustsVideoMirroring = false
             connection.isVideoMirrored = false
@@ -140,7 +140,7 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     /// NOT simply "the default camera". With an iPhone nearby, macOS can offer the phone
     /// as the default (Continuity Camera) - and, unless the app's Info.plist sets
     /// NSCameraUseContinuityCameraDeviceType, it even reports that phone as a "built-in
-    /// wide angle camera". Both apps set the key, so here a built-in camera is the Mac's.
+    /// wide angle camera". The app sets the key, so here a built-in camera is the Mac's.
     private static func pickCamera() -> AVCaptureDevice? {
         let found = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external],
                                                      mediaType: .video, position: .unspecified).devices

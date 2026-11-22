@@ -21,7 +21,7 @@ from paths import BLINKS, RAW
 
 # Beyond this head turn the far eye hides behind the nose (same rule and same number as
 # LocatedEyes.usableEyes in the Swift code). The first session was recorded before the
-# recorder applied it, so the loader applies it too.
+# recording applied it, so the loader applies it too.
 MAX_YAW_FOR_BOTH_EYES = 0.4
 
 
@@ -54,7 +54,7 @@ def is_far_eye(row: dict) -> bool:
 
 
 def load(roots: tuple[Path, ...] = (RAW, BLINKS)) -> EyeData:
-    """Loads every session of every root: the recorder's sessions (eyes held open or
+    """Loads every session of every root: the recorded sessions (eyes held open or
     closed) and the labelled live captures (real blinks). Each is a "session": a block of
     pictures taken together, held out together when the model is tested."""
     rows, pictures = [], []

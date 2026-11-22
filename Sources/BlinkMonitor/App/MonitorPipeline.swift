@@ -75,11 +75,16 @@ final class MonitorPipeline: @unchecked Sendable {
         var liveView = false
         var capture: CaptureWriter?
         var tick = false
+        /// Another model to read the eyes with, from the next frame on.
+        var newJudge: EyeJudging?
     }
 
     private let requests = Locked(Requests())
     /// Nil for a pipeline that is handed readings instead of frames (the demo).
-    private let reader: EyeReader?
+    private var reader: EyeReader?
+    /// How the eyes are found. Kept, so that a model that takes over later (`setJudge`)
+    /// is given eyes found the same way.
+    private let strategy: EyeLocator.Strategy
     private var detector = BlinkDetector()
     private var stats = BlinkStats()
     private var minutes = MinuteAggregator()
@@ -91,14 +96,22 @@ final class MonitorPipeline: @unchecked Sendable {
     private var lastTimingsAt = 0.0
     private var lastMinuteTimingsAt = 0.0
 
+    /// `classifier`: the model that reads the eyes. The one trained in the app
+    /// (`EyeNetwork`) or a Core ML one made by the Python route (`EyeClassifier`).
     /// `strategy`: how the eyes are found (`EyeLocator.usual` unless asked otherwise at launch).
-    init(classifier: EyeClassifier, strategy: EyeLocator.Strategy = EyeLocator.usual) {
-        reader = EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy)))
+    init(classifier: EyeJudging, strategy: EyeLocator.Strategy = EyeLocator.usual) {
+        self.strategy = strategy
+        reader = Self.reader(classifier, strategy)
     }
 
     /// A pipeline with no camera and no model behind it: see `process(_:time:)` for readings.
     init() {
+        strategy = EyeLocator.usual
         reader = nil
+    }
+
+    private static func reader(_ classifier: EyeJudging, _ strategy: EyeLocator.Strategy) -> EyeReader {
+        EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy)))
     }
 
     // MARK: - Requests from the main thread
@@ -119,6 +132,12 @@ final class MonitorPipeline: @unchecked Sendable {
             $0.capture = writer
             $0.tick = false
         }
+    }
+
+    /// Another model takes over, from the next frame on: setup has just trained one.
+    /// The counters and the minute in progress are kept; a closure in progress is dropped.
+    func setJudge(_ judge: EyeJudging) {
+        requests.withLock { $0.newJudge = judge }
     }
 
     /// A cue sound was just played: the next frame is marked in the capture.
@@ -184,12 +203,17 @@ final class MonitorPipeline: @unchecked Sendable {
             defer {
                 requests.reset = false
                 requests.tick = false
+                requests.newJudge = nil
             }
             return requests
         }
         if asked.reset {
             detector.reset()
             stats = BlinkStats()
+        }
+        if let judge = asked.newJudge, reader != nil {
+            reader = Self.reader(judge, strategy)
+            detector.reset()
         }
         return asked
     }

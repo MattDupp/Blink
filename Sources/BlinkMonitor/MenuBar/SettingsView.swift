@@ -6,6 +6,19 @@ import BlinkCore
 struct SettingsActions {
     var startBlinkBreak: () -> Void = {}
     var openLiveView: () -> Void = {}
+    /// Opens the setup window: to go on, to add a session, or to take the test again.
+    var openSetup: (SetupModel.Purpose) -> Void = { _ in }
+    /// Closes the setup window: what it shows is about to be deleted.
+    var closeSetup: () -> Void = {}
+}
+
+/// Where the files that setup makes are kept.
+struct SettingsFiles {
+    var store: ModelStore
+    var sessionsRoot: URL
+    /// False when the sessions folder was named at launch: a developer's data, which
+    /// Settings does not delete.
+    var ownSessions = true
 }
 
 /// What the Settings window remembers while it is open.
@@ -16,7 +29,17 @@ final class SettingsState: ObservableObject {
         case general = "General"
         case reminders = "Reminders"
         case breaks = "Breaks"
+        case model = "Your Model"
         case data = "Your Data"
+    }
+
+    /// What setup has left on disk: counted when the window opens, not at every redraw.
+    struct OnDisk: Equatable {
+        var sessions = 0
+        var pictures = 0
+        var megabytes = 0.0
+        /// A model trained here that has not passed (or been excused from) its test.
+        var untested = false
     }
 
     /// The outcome of "Measure Again", waiting for your decision.
@@ -28,10 +51,27 @@ final class SettingsState: ObservableObject {
     @Published var tab = Tab.general
     @Published var measurement: Measurement?
     @Published var confirmingErase = false
+    @Published var onDisk = OnDisk()
+    /// Set by the screenshots, which state what is on disk instead of counting it.
+    var onDiskIsStated = false
+    @Published var confirmingDelete = false
+    @Published var deleteProblem: String?
 
     func reset() {
         measurement = nil
         confirmingErase = false
+        confirmingDelete = false
+        deleteProblem = nil
+    }
+
+    /// Counts what is on disk again.
+    func refresh(_ files: SettingsFiles) {
+        guard !onDiskIsStated else { return }
+        let sessions = SessionStore.sessions(in: files.sessionsRoot)
+        let bytes = SessionStore.bytes(under: files.sessionsRoot) + SessionStore.bytes(under: files.store.folder)
+        onDisk = OnDisk(sessions: sessions.count, pictures: sessions.reduce(0) { $0 + $1.pictures },
+                        megabytes: Double(bytes) / 1_000_000,
+                        untested: files.store.info().map { !$0.isAccepted } ?? false)
     }
 }
 
@@ -48,6 +88,7 @@ struct SettingsView: View {
     @ObservedObject var state: SettingsState
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
+    let files: SettingsFiles
     let actions: SettingsActions
 
     var body: some View {
@@ -62,6 +103,7 @@ struct SettingsView: View {
             case .general: general
             case .reminders: remindersTab
             case .breaks: breaks
+            case .model: modelTab
             case .data: data
             }
         }
@@ -281,7 +323,8 @@ struct SettingsView: View {
             Card {
                 VStack(alignment: .leading, spacing: 8) {
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the time your eyes were watched and the number of blinks.")
-                    DataPoint(symbol: "photo", text: "Never kept: pictures. Each camera frame is analysed in memory and dropped.")
+                    DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. Your Model shows them and deletes them.")
+                    DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each frame is analysed in memory and dropped.")
                     DataPoint(symbol: "wifi.slash", text: "Nothing leaves this Mac. The app makes no network connection.")
                 }
                 .padding(.horizontal, 14)
@@ -308,6 +351,124 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: Your model
+
+    private var modelTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Card {
+                Row(modelTitle, detail: modelDetail) {
+                    if !model.isDemo && model.modelSource == .none {
+                        Button(preferences.welcomed ? "Continue Setup..." : "Set Up...") { actions.openSetup(.resume) }
+                    }
+                }
+            }
+            if !model.isDemo {
+                Card {
+                    Row("Add a session",
+                        detail: "Two minutes in another light, on another day or with other glasses. Then the model is trained again on everything, and tested.") {
+                        Button("Add a Session...") { actions.openSetup(.addSession) }
+                    }
+                    Divider()
+                    Row("Test it again", detail: "Ten ticks, a blink at each: how many does it count where you sit now?") {
+                        Button("Test...") { actions.openSetup(.test) }
+                            .disabled(!isTrainedHere)
+                    }
+                }
+                Card {
+                    Row("Recordings", detail: onDiskDetail) {
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([files.store.base]) }
+                    }
+                    Divider()
+                    if state.confirmingDelete {
+                        Row("Delete the recordings and the model?", detail: deleteWarning) {
+                            Button("Cancel") { state.confirmingDelete = false }
+                                .keyboardShortcut(.cancelAction)
+                            Button("Delete", role: .destructive) { deleteEverything() }
+                        }
+                    } else {
+                        Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. For good, not to the Trash.") {
+                            Button("Delete...") { state.confirmingDelete = true }
+                                .disabled(state.onDisk.sessions == 0 && !isTrainedHere && !state.onDisk.untested)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { state.refresh(files) }
+    }
+
+    private var isTrainedHere: Bool {
+        if case .trainedHere = model.modelSource { return true }
+        return false
+    }
+
+    private var modelTitle: String {
+        if model.isDemo { return "The demo has no model" }
+        switch model.modelSource {
+        case .trainedHere: return "Trained in this app, on your eyes"
+        case .builtIn: return "Built into this app"
+        case .given: return "Named at launch"
+        case .none: return "No model yet"
+        }
+    }
+
+    private var modelDetail: String {
+        if model.isDemo { return "Its blinks are made up. See the Setup, in the panel, trains a real model on painted eyes." }
+        switch model.modelSource {
+        case .trainedHere(let info):
+            var text = "On \(Format.day(info.trainedOn)), from \(info.sessions.count) session\(info.sessions.count == 1 ? "" : "s") "
+                + "(\(info.pictures.formatted()) pictures), in \(Int(info.seconds.rounded())) s."
+            if let proof = info.proof {
+                text += " Its test: \(proof.found) of \(proof.of) blinks counted"
+                    + (proof.found >= ProofTest.passMark ? "." : "; you chose to use it anyway.")
+            }
+            return text
+        case .builtIn:
+            return "Made by the Python route (make train) and copied in by make monitor."
+                + (state.onDisk.untested ? " A model trained here is waiting for its test: Continue Setup." : "")
+        case .given(let url):
+            return url.path
+        case .none:
+            return state.onDisk.untested
+                ? "A model was trained and waits for its test. Until then nothing is counted."
+                : "Blink Monitor reads your eyes with a model trained on them. Setup makes it in about six minutes."
+        }
+    }
+
+    private var onDiskDetail: String {
+        let disk = state.onDisk
+        guard disk.sessions > 0 else { return "No recording on this Mac." }
+        return "\(disk.sessions) session\(disk.sessions == 1 ? "" : "s"), \(disk.pictures.formatted()) small pictures of your eyes, "
+            + String(format: "%.0f MB. ", disk.megabytes)
+            + (files.ownSessions ? "In a folder only your account can read." : "In \(files.sessionsRoot.path), named at launch.")
+    }
+
+    private var deleteWarning: String {
+        var text = files.ownSessions
+            ? "Every recording and the model trained on them. This cannot be undone."
+            : "The model trained here. The recordings are in a folder named at launch and are left alone."
+        if isTrainedHere {
+            text += FileManager.default.fileExists(atPath: ModelSource.builtInModel.path)
+                ? " Blink Monitor goes back to the model built into it."
+                : " Blink Monitor stops counting until it is set up again."
+        }
+        return text
+    }
+
+    private func deleteEverything() {
+        state.confirmingDelete = false
+        actions.closeSetup()
+        Task {
+            do {
+                try await model.deleteModelAndRecordings(sessions: files.sessionsRoot, own: files.ownSessions)
+                state.deleteProblem = nil
+            } catch {
+                state.deleteProblem = "It could not be deleted: \(error.localizedDescription)"
+            }
+            state.refresh(files)
         }
     }
 

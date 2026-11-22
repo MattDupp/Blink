@@ -11,7 +11,7 @@ import CoreVideo
 /// WHY. The training pictures are eyes held open or held closed. A real blink is neither:
 /// the lid is caught half-way, blurred by its own speed, for 3 to 5 frames in all. To know
 /// what the model answers on those frames - and to teach it the right answer - we need to
-/// see them. Unlike the recorder, this keeps all 30 frames a second: here the frames in
+/// see them. Unlike a recorded session, this keeps all 30 frames a second: here the frames in
 /// between are exactly what we are after.
 ///
 /// WITH WHOLE FRAMES (`wholeFrames`), the camera's whole picture is kept too, so that the

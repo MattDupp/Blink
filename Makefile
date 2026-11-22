@@ -1,8 +1,14 @@
 # BlinkMonitor - every task of the project, one command each.   Run `make` to list them.
 
 DATA        ?= $(CURDIR)/data
+MODELS      ?= $(CURDIR)/models
 INSTALL_DIR ?= $(HOME)/Applications
-MODEL       := models/EyeNet.mlmodelc
+MODEL       := $(MODELS)/EyeNet.mlmodelc
+
+# The Python tools and the tests that need real recordings find them through these
+# (training/paths.py): `make evaluate DATA=<folder>` judges recordings kept elsewhere.
+export BLINK_DATA   := $(DATA)
+export BLINK_MODELS := $(MODELS)
 
 # With only Apple's Command Line Tools (no Xcode), the compiler has to be told where the
 # testing macros live. With Xcode this is automatic and the flags stay empty.
@@ -22,7 +28,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor demo build test lint format recorder train improve evaluate replay monitor monitor-app uninstall snapshots icon clean
+.PHONY: help doctor demo build test lint format recorder train improve evaluate compare replay monitor monitor-app uninstall snapshots icon clean
 
 help:  ## List the tasks
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -32,13 +38,13 @@ doctor:  ## Check that this Mac has what the project needs
 
 # --- Try it first --------------------------------------------------------------------------
 
-demo: App/AppIcon.icns  ## Try the whole app in a minute: made-up blinks, no camera, no model
+demo: App/AppIcon.icns  ## Try the whole app in a minute: made-up blinks, no camera, nothing recorded
 	@scripts/doctor.sh mac swift
 	DEMO=1 scripts/bundle.sh BlinkMonitor
 	@pkill -x -f "$(CURDIR)/build/BlinkMonitorDemo.app/Contents/MacOS/BlinkMonitor" 2>/dev/null; true
 	open build/BlinkMonitorDemo.app
 	@echo "The demo is running: look for the eye marked 'demo' in the menu bar. Quit it from its panel."
-	@echo "To use it on your own eyes:  make recorder"
+	@echo "To use it on your own eyes:  make monitor"
 
 # --- Checks -----------------------------------------------------------------------------
 
@@ -55,16 +61,18 @@ lint:  ## Check the Python code's style
 format:  ## Reformat the Python code
 	cd training && uv run ruff check --fix . ../scripts && uv run ruff format . ../scripts
 
-# --- The four steps, in order -----------------------------------------------------------
+# --- The Python route: the lab ------------------------------------------------------------
+#
+# To USE the app, `make monitor` (further down) is all it takes: it sets itself up the
+# first time, recording your eyes and training your model itself. The steps here are the
+# same training in Python, where it can be taken apart and measured.
 
-recorder: App/AppIcon.icns  ## 1. Record labelled pictures of your eyes (opens the recorder)
-	@scripts/doctor.sh mac swift
-	scripts/bundle.sh BlinkRecorder
+recorder:  ## Lab 1. Record sessions into data/raw (opens the app's setup, saving there)
 	mkdir -p -m 700 "$(DATA)" "$(DATA)/raw"
-	open -n build/BlinkRecorder.app --args "--out=$(DATA)/raw"
-	@echo "The recorder is open. Record 5 sessions in different light, then:  make train"
+	@$(MAKE) --no-print-directory monitor OPEN_ARGS='"--sessions-dir=$(DATA)/raw" --open=setup'
+	@echo "The setup window records into $(DATA)/raw. Two sessions or more, in different light, then:  make train"
 
-train:  ## 2. Train the model on your recordings and convert it to Core ML
+train:  ## Lab 2. Train the model in Python on data/, and convert it to Core ML
 	@scripts/doctor.sh uv
 	cd training && uv run python train.py && uv run python convert.py
 	@echo "Your model is ready. Next:  make monitor"
@@ -78,6 +86,16 @@ evaluate:  ## Measure blink counting on your captures (models that never saw the
 	@scripts/doctor.sh uv
 	cd training && uv run python evaluate.py
 
+# A long job on the graphics processor: run it alone, never beside another training
+# (docs/LESSONS.md, number 8). COMPARE_SEEDS=7,8,9 is the default; each seed more adds
+# three trainings a side.
+compare:  ## Measure the app's own trainer against the Python route: same pictures, same splits
+	@scripts/doctor.sh mac swift uv
+	swift build -c release --product BlinkTrain $(QUIET)
+	cd training && uv run python compare.py jobs
+	.build/release/BlinkTrain training/out/compare/jobs.json training/out/compare/swift.json
+	cd training && uv run python compare.py python && uv run python compare.py score
+
 # make monitor WHOLE_FRAMES=1: until the app is next started, the captures of its Live View
 # window also keep the whole camera picture of every frame, in data/replay. That is a film
 # of your face, on your disk only: it is what `make replay` needs, and nothing else does.
@@ -85,7 +103,8 @@ ifdef WHOLE_FRAMES
 WHOLE_FRAMES_ARGS := "--whole-frames-dir=$(DATA)/replay"
 endif
 
-monitor: monitor-app  ## 3. Install the menu-bar app in ~/Applications and start it
+# OPEN_ARGS: more launch options (`make recorder` passes its own).
+monitor: monitor-app  ## Install the menu-bar app in ~/Applications and start it (it sets itself up the first time)
 	@# Stop the copy that is running, if any, and wait for it to be gone.
 	@# (The extra second lets macOS notice it has quit: opening the app too early fails with error -600.)
 	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; sleep 1; fi
@@ -97,9 +116,12 @@ monitor: monitor-app  ## 3. Install the menu-bar app in ~/Applications and start
 	@# copies under one identifier is how Notification Centre ends up with no icon to show.
 	@$(LSREGISTER) -u "$(CURDIR)/build/BlinkMonitor.app" >/dev/null 2>&1; true
 	@$(LSREGISTER) -f "$(INSTALL_DIR)/BlinkMonitor.app" >/dev/null 2>&1; true
-	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live" $(WHOLE_FRAMES_ARGS)
+	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live" $(WHOLE_FRAMES_ARGS) $(OPEN_ARGS)
 	@echo "Blink Monitor is running: look for the eye in the menu bar, at the top right of the screen."
 	@echo "macOS asks for the camera the first time, and again after each rebuild."
+	@# Which model it uses: the one trained in the app when there is one, else the one built in.
+	@if [ -f "$(HOME)/Library/Application Support/BlinkMonitor/model/eyenet.weights" ] && [ -d "$(MODEL)" ]; then \
+		echo "Note: a model trained in the app is in use, not $(MODEL). Settings > Your Model deletes it."; fi
 	@# (No comma in this sentence: inside make's "if" function a comma starts the "else"
 	@# part, which make then ran as a command whenever WHOLE_FRAMES was not set.)
 	@$(if $(WHOLE_FRAMES),echo "WHOLE FRAMES: the captures of the Live View window also keep the whole camera picture in $(DATA)/replay.")
@@ -110,30 +132,30 @@ replay: $(MODEL)  ## Judge the eye finding: run the captures that kept whole fra
 	swift build -c release --product BlinkReplay $(QUIET)
 	.build/release/BlinkReplay "$(DATA)/replay" "--model=$(MODEL)" $(if $(PACE),--pace) $(REPLAY_ARGS)
 
-monitor-app: $(MODEL) App/AppIcon.icns
+# The Python route's model is built into the app when there is one. Without it the app
+# still works: it trains its own.
+monitor-app: App/AppIcon.icns
 	@scripts/doctor.sh mac swift
-	scripts/bundle.sh BlinkMonitor $(MODEL)
+	scripts/bundle.sh BlinkMonitor $(wildcard $(MODEL))
 
 uninstall:  ## Remove the installed app (your history and recordings are kept)
 	@pkill -x BlinkMonitor 2>/dev/null; true
 	@$(LSREGISTER) -u "$(INSTALL_DIR)/BlinkMonitor.app" >/dev/null 2>&1; true
 	rm -rf "$(INSTALL_DIR)/BlinkMonitor.app"
 	@echo "Removed. Still on this Mac, and yours to delete:"
-	@echo "  your history:     ~/Library/Application Support/BlinkMonitor"
-	@echo "  your recordings:  $(DATA)   and your model: $(CURDIR)/models"
+	@echo "  your history, and the recordings and model the app made:  ~/Library/Application Support/BlinkMonitor"
+	@echo "  the Python route's recordings:  $(DATA)   and its model: $(MODELS)"
 	@echo "If you switched on Start at Login, remove it in System Settings > General > Login Items."
 
 $(MODEL):
-	@echo "No trained model yet ($(MODEL)). Record your eyes (make recorder), then: make train"
+	@echo "No model from the Python route yet ($(MODEL)). Record your eyes (make recorder), then: make train"
 	@exit 1
 
 # --- Extras -----------------------------------------------------------------------------
 
-snapshots: App/AppIcon.icns  ## Render every screen of both apps with made-up data (build/screens)
+snapshots: App/AppIcon.icns  ## Render every screen of the app with made-up data (build/screens)
 	scripts/bundle.sh BlinkMonitor
-	scripts/bundle.sh BlinkRecorder
 	build/BlinkMonitor.app/Contents/MacOS/BlinkMonitor "--snapshots=$(CURDIR)/build/screens" >/dev/null
-	build/BlinkRecorder.app/Contents/MacOS/BlinkRecorder "--snapshots=$(CURDIR)/build/screens" >/dev/null
 	@# Every screen and state is rendered, to be looked at. Only the pictures the docs
 	@# show are kept in the repository: those are copied to docs/img.
 	@for name in $$(grep -ohE 'img/[a-z-]+-(light|dark)\.png' README.md docs/*.md | sort -u); do \

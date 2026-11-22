@@ -25,6 +25,10 @@ enum SampleData {
         case noPicture
         /// The demo: `watching`, on made-up eyes.
         case demo
+        /// A new Mac: no model of your eyes yet, the setup window closed.
+        case needsSetup
+        /// The setup window is recording a session.
+        case settingUp
     }
 
     /// A history file of its own, emptied at each start: made-up minutes must never
@@ -73,7 +77,8 @@ enum SampleData {
         timings.analysedShare = 1
 
         var initial = MonitorModel.InitialState(live: live, curve: curve(), timings: timings,
-                                                cameraNote: "The camera picture is left out of screenshots.")
+                                                cameraNote: "The camera picture is left out of screenshots.",
+                                                modelSource: .trainedHere(modelInfo(now: now)))
         var minutes = self.minutes(now: now, low: isLow)
         // A store of their own: the screenshots must not depend on the user's settings.
         let preferences = Preferences.temporary()
@@ -87,7 +92,17 @@ enum SampleData {
         case .demo:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.cameraNote = nil
+            initial.modelSource = .none
             isDemo = true
+        case .needsSetup, .settingUp:
+            minutes = []
+            initial.lifecycle = .needsSetup
+            initial.live = LiveState()
+            initial.modelSource = .none
+            if case .settingUp = scene {
+                initial.setupStage = .recording
+                preferences.welcomed = true
+            }
         case .noPicture:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.cameraSilent = true
@@ -117,9 +132,169 @@ enum SampleData {
         var current: MinuteRecord? = MinuteRecord(start: MinuteRecord.minuteStart(of: now), observedSeconds: 36,
                                                   blinks: isLow ? 4 : 8)
         if case .firstMinute = scene { current = nil }
+        if initial.lifecycle == .needsSetup { current = nil }
         return MonitorModel(preferences: preferences,
                             history: HistoryController(store: scratchHistory(), minutes: minutes, current: current),
                             initial: initial, demo: isDemo)
+    }
+
+    // MARK: - The setup
+
+    /// A model as setup leaves it: two sessions, trained in eleven seconds, tested.
+    static func modelInfo(now: Date, found: Int? = 10) -> ModelInfo {
+        ModelInfo(trainedOn: now.addingTimeInterval(-3 * 86_400), sessions: ["20261117-093012", "20261117-093655"],
+                  openPictures: 962, closedPictures: 950, passes: TrainingRun.passes, seconds: 10.6, lastLoss: 0.004,
+                  rightOnOwnPictures: 1910, largestDifference: 0.000001,
+                  proof: found.map { ModelInfo.Proof(found: $0, of: ProofTest.ticks, extra: 0, on: now.addingTimeInterval(-3 * 86_400),
+                                                     accepted: $0 >= ProofTest.passMark) })
+    }
+
+    /// Where the demo's setup writes: a folder of its own, emptied at each start. Painted
+    /// sessions and the model trained on them must never reach the user's own files.
+    static func demoSetupParts(monitor: MonitorModel) -> SetupModel.Parts {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-demo-setup", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        return SetupModel.Parts(monitor: monitor, store: ModelStore(base: folder),
+                                sessionsRoot: folder.appendingPathComponent("sessions", isDirectory: true),
+                                pace: .painted, painted: PaintedCamera())
+    }
+
+    /// The moments of the setup that the screenshots show.
+    enum SetupScene {
+        case welcome, demoWelcome
+        case camera, cameraNoFace, cameraDark, cameraRefused
+        case recordFirst, recording, recordShort, recordNext, recordEnough
+        case training, trainingFailed, trainingFailedAgain, trained
+        case testReady, testRunning, testPassed, testFailed
+        case done
+    }
+
+    /// The setup window at one of those moments: stated, with no camera and no disk.
+    static func setup(_ scene: SetupScene, now: Date) -> SetupModel {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-setup", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        var monitorScene = Scene.needsSetup
+        if case .demoWelcome = scene { monitorScene = .demo }
+        let parts = SetupModel.Parts(monitor: model(now: now, scene: monitorScene), store: ModelStore(base: folder),
+                                     sessionsRoot: folder.appendingPathComponent("sessions", isDirectory: true))
+
+        func session(_ name: String, _ open: Int, _ closed: Int) -> SessionSummary {
+            SessionSummary(name: name, folder: parts.sessionsRoot.appendingPathComponent(name), open: open, closed: closed)
+        }
+        let first = session("20261120-093012", 478, 470), second = session("20261120-093655", 484, 480)
+        let openEyes = [PaintedEye(openness: 0.9, light: 0.72).image(), PaintedEye(openness: 0.9, light: 0.66, noseOnRight: false).image()]
+        let closedEyes = [PaintedEye(openness: 0, light: 0.72).image(), PaintedEye(openness: 0, light: 0.66, noseOnRight: false).image()]
+
+        var state = SetupModel.InitialState()
+        state.crops = openEyes
+        switch scene {
+        case .welcome, .demoWelcome:
+            state.step = .welcome
+        case .camera:
+            state.step = .camera
+        case .cameraNoFace:
+            state.step = .camera
+            (state.faceFound, state.faceMissing, state.crops) = (false, true, [nil, nil])
+        case .cameraDark:
+            state.step = .camera
+            state.brightness = 41
+            state.crops = [PaintedEye(openness: 0.9, light: 0.22).image(), PaintedEye(openness: 0.9, light: 0.18, noseOnRight: false).image()]
+        case .cameraRefused:
+            state.step = .camera
+            (state.camera, state.faceFound, state.crops) = (.refused, false, [nil, nil])
+        case .recordFirst:
+            state.step = .record
+        case .recording:
+            state.step = .record
+            state.sessions = [first]
+            (state.sessionRunning, state.phaseIndex, state.phaseState, state.recordProgress) = (true, 5, .recording, 0.6)
+            (state.sessionOpen, state.sessionClosed, state.crops) = (178, 148, closedEyes)
+        case .recordShort:
+            state.step = .record
+            state.sessions = [first]
+            state.sessionNote = "That session holds 58% of what it should: your face was out of view during some poses. "
+                + "It was not kept. Record it again, staying in front of the camera."
+            (state.sessionOpen, state.sessionClosed) = (301, 256)
+        case .recordNext:
+            state.step = .record
+            state.sessions = [first]
+            (state.sessionOpen, state.sessionClosed) = (first.open, first.closed)
+        case .recordEnough:
+            state.step = .record
+            state.sessions = [first, second]
+            (state.sessionOpen, state.sessionClosed) = (second.open, second.closed)
+        case .training:
+            state.step = .train
+            state.sessions = [first, second]
+            state.training = .learning(pass: 12, of: TrainingRun.passes, secondsLeft: 6.4)
+            state.alteredSamples = alteredSamples(pass: 12)
+        case .trainingFailed, .trainingFailedAgain:
+            state.step = .train
+            state.sessions = [first, second]
+            var attempts = 1
+            if case .trainingFailedAgain = scene { attempts = 2 }
+            state.training = .failed(reason: "The trainer stopped before the end (signal 6).\n"
+                + "MPSGraphVariable.mm:69: failed assertion `multi-device variable handling not correcly implemented'", attempts: attempts)
+        case .trained:
+            state.step = .train
+            state.sessions = [first, second]
+            state.info = modelInfo(now: now, found: nil)
+            state.training = .done
+            state.alteredSamples = alteredSamples(pass: 0)
+        case .testReady:
+            state.step = .proof
+            state.info = modelInfo(now: now, found: nil)
+        case .testRunning:
+            state.step = .proof
+            state.info = modelInfo(now: now, found: nil)
+            state.proof = .running
+            state.proofTest = proofTest(ticks: 6, missed: [2])
+        case .testPassed:
+            state.step = .proof
+            state.info = modelInfo(now: now, found: 10)
+            state.proofTest = proofTest(ticks: 10, missed: [])
+            state.proof = .finished(state.proofTest.result)
+        case .testFailed:
+            state.step = .proof
+            state.info = modelInfo(now: now, found: 6)
+            state.proofTest = proofTest(ticks: 10, missed: [1, 4, 5, 8])
+            state.proof = .finished(state.proofTest.result)
+            state.hasPrevious = true
+        case .done:
+            state.step = .done
+            state.sessions = [first, second]
+            state.info = modelInfo(now: now, found: 10)
+            (state.megabytes, state.place) = (19, "~/Library/Application Support/BlinkMonitor")
+        }
+        return SetupModel(parts: parts, initial: state)
+    }
+
+    /// A test in progress: `ticks` played, each answered by a blink except the `missed`
+    /// ones (and the last one, which is still being answered).
+    static func proofTest(ticks: Int, missed: Set<Int>) -> ProofTest {
+        var test = ProofTest()
+        for tick in 0..<ticks {
+            let time = 100 + Double(tick) * ProofTest.secondsBetweenTicks
+            test.tick(at: time)
+            let pending = ticks < ProofTest.ticks && tick == ticks - 1
+            if !missed.contains(tick) && !pending { test.blink(Blink(start: time + 0.3, end: time + 0.45)) }
+        }
+        return test
+    }
+
+    /// Six painted eyes, altered the way a training pass alters real ones.
+    static func alteredSamples(pass: Int) -> [CGImage] {
+        let eyes = [PaintedEye(openness: 0.9), PaintedEye(openness: 0.55, gaze: CGPoint(x: 0.6, y: 0.2), noseOnRight: false),
+                    PaintedEye(openness: 1, scale: 1.15, light: 0.55), PaintedEye(openness: 0),
+                    PaintedEye(openness: 0, scale: 0.85, light: 0.6, noseOnRight: false), PaintedEye(openness: 0, tilt: 0.25)]
+        var altered = [Float](repeating: 0, count: EyeNetwork.pixels)
+        return eyes.enumerated().compactMap { index, eye in
+            guard let gray = eye.buffer().flatMap(TrainingSet.gray(of:)) else { return nil }
+            guard pass > 0 else { return TrainingSet.image(fromGray: gray) }
+            var random = SeededRandom(seed: UInt64(pass * 100 + index))
+            PictureAlteration.apply(gray, into: &altered, random: &random)
+            return TrainingSet.image(fromGray: altered)
+        }
     }
 
     /// Ten seconds of the model's answers, with three blinks in them.

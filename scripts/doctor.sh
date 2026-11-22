@@ -54,4 +54,4 @@ if [ "$missing" -eq 1 ]; then
     [ "$quiet" -eq 1 ] && echo "Run 'make doctor' to check everything this project needs."
     exit 1
 fi
-[ "$quiet" -eq 1 ] || echo "Everything is there. Start with:  make demo   (or make recorder, to train on your own eyes)"
+[ "$quiet" -eq 1 ] || echo "Everything is there. Start with:  make demo   (or make monitor, to use it on your own eyes)"

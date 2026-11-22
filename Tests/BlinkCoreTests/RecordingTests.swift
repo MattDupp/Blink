@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import BlinkCore
 
-@Suite("Files written by the recorder and the captures")
+@Suite("Files written by recorded sessions and captures")
 struct RecordingTests {
 
     private let target = CGRect(x: 1000, y: 200, width: 128, height: 128)

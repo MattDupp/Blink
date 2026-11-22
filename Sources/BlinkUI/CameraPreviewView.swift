@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The camera picture with the eye squares drawn over it. Both apps show it: the recorder
-/// to check the squares sit on the eyes, the monitor's Live View to show what is read.
+/// The camera picture with the eye squares drawn over it. Two windows show it: the setup,
+/// to check that the squares sit on the eyes, and Live View, to show what is read.
 ///
 /// It knows nothing about cameras or models: it is handed a picture, the frame's size and
 /// the squares, and draws them.

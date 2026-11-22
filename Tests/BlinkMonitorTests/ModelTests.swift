@@ -211,7 +211,7 @@ struct SourceTests {
         // A property is declared four spaces in; a local constant inside a function, eight.
         let stored = try Regex(#"^    (var|let) \w+(: Date)? = Date\(\)"#).anchorsMatchLineEndings()
         var offenders: [String] = []
-        for folder in ["Sources/BlinkMonitor", "Sources/BlinkRecorder", "Sources/BlinkUI"] {
+        for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
             let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
             for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
                 let text = try String(contentsOf: file, encoding: .utf8)

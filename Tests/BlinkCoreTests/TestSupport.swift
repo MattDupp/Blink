@@ -11,6 +11,40 @@ enum Fixture {
     static let projectRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
+    /// Where the private recordings and models are: in the project folder, unless
+    /// BLINK_DATA and BLINK_MODELS name other places (`make test DATA=... MODELS=...`),
+    /// as for the Python tools. They are never in the repository, so the tests that need
+    /// them skip themselves where they are missing.
+    static let dataHome: URL = ProcessInfo.processInfo.environment["BLINK_DATA"]
+        .map { URL(fileURLWithPath: $0, isDirectory: true).deletingLastPathComponent() } ?? projectRoot
+    static let models: URL = ProcessInfo.processInfo.environment["BLINK_MODELS"]
+        .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? projectRoot.appendingPathComponent("models", isDirectory: true)
+
+    /// The trainer needs a graphics processor, and is slow to trust on a machine never
+    /// tried: GitHub's virtual Macs are skipped (their graphics are emulated, and whether
+    /// MPSGraph trains there has not been checked).
+    static let canTrain = EyeTrainer.isAvailable && ProcessInfo.processInfo.environment["CI"] == nil
+
+    /// A session of painted eyes, written the way a recorded one is: `pictures` of each
+    /// kind. Returns its folder.
+    @discardableResult
+    static func paintedSession(in root: URL, name: String, pictures: Int, seed: UInt64 = 1) throws -> URL {
+        let writer = try SessionWriter(root: root, session: name, condition: "painted")
+        var random = SeededRandom(seed: seed)
+        let square = CGRect(x: 800, y: 400, width: 128, height: 128)
+        let eye = EyeRegion(side: .imageLeft, cropRect: square, center: CGPoint(x: square.midX, y: square.midY))
+        let other = EyeRegion(side: .imageRight, cropRect: square.offsetBy(dx: 260, dy: 0), center: CGPoint(x: square.midX + 260, y: square.midY))
+        let located = LocatedEyes(faceRect: .zero, left: eye, right: other, interocularDistance: 260, roll: 0, yaw: nil)
+        for index in 0..<pictures * 2 {
+            let open = index % 2 == 0
+            guard let image = PaintedEye.random(open: open, using: &random).image() else { continue }
+            writer.save(EyeSample(image: image, label: open ? .open : .closed, variant: "painted", phaseIndex: open ? 0 : 1,
+                                  frameIndex: index, time: Double(index) / 30, eye: eye, located: located,
+                                  frameSize: CGSize(width: 1920, height: 1080)))
+        }
+        return writer.folder
+    }
+
     /// A new empty folder, removed by the caller.
     static func temporaryFolder() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("blink-tests-\(UUID().uuidString)", isDirectory: true)

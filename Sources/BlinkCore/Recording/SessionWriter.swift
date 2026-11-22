@@ -104,12 +104,62 @@ public final class SessionWriter {
     }
 }
 
+/// One recorded session, as counted on disk.
+public struct SessionSummary: Equatable {
+    /// The folder's name: the date and time the session began (20261120-101147).
+    public let name: String
+    public let folder: URL
+    public let open: Int
+    public let closed: Int
+
+    public var pictures: Int { open + closed }
+
+    public init(name: String, folder: URL, open: Int, closed: Int) {
+        self.name = name
+        self.folder = folder
+        self.open = open
+        self.closed = closed
+    }
+}
+
 /// The sessions on disk: which is the latest, and how to throw one away.
 ///
 /// A session is one folder, and nothing else refers to it: its pictures and its
 /// manifest.csv live inside. So discarding a session is removing ONE folder - never
 /// emptying it by hand, which leaves a session with a manifest and no pictures behind.
 public enum SessionStore {
+
+    /// Where the app keeps the sessions it records, unless it is told another folder:
+    /// ~/Library/Application Support/BlinkMonitor/sessions.
+    public static var standardRoot: URL {
+        HistoryStore.applicationFolder.appendingPathComponent("sessions", isDirectory: true)
+    }
+
+    /// Every session that holds a manifest, oldest first, with its pictures counted.
+    public static func sessions(in root: URL) -> [SessionSummary] {
+        let files = FileManager.default
+        let folders = (try? files.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        return folders
+            .filter { $0.hasDirectoryPath && files.fileExists(atPath: $0.appendingPathComponent("manifest.csv").path) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .map { folder in
+                func count(_ label: EyeLabel) -> Int {
+                    let names = (try? files.contentsOfDirectory(atPath: folder.appendingPathComponent(label.rawValue).path)) ?? []
+                    return names.filter { $0.hasSuffix(".png") }.count
+                }
+                return SessionSummary(name: folder.lastPathComponent, folder: folder, open: count(.open), closed: count(.closed))
+            }
+    }
+
+    /// The disk space of everything under a folder, in bytes.
+    public static func bytes(under folder: URL) -> Int {
+        let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey])
+        var total = 0
+        for case let file as URL in files ?? FileManager.DirectoryEnumerator() {
+            total += (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        }
+        return total
+    }
 
     /// The most recent session folder. Their names are dates (20261120-101147), so the
     /// last one in alphabetical order is the newest.

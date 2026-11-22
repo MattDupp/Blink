@@ -270,3 +270,48 @@ def test_sync_removes_only_the_lines_without_a_picture(tmp_path):
     files = [line["file"] for line in csv.DictReader((folder / "manifest.csv").open())]
     assert files == ["open/a.png", "closed/c.png"]
     assert (folder / "open/unlisted.png").is_file()  # a picture is never deleted
+
+
+# --- the app's own model format ---------------------------------------------------------------
+
+
+def test_the_weights_file_holds_the_same_network(tmp_path):
+    """convert.py also writes the model as the app's own code reads it: batch normalisations
+    folded into their convolutions, as flat 32-bit numbers. Folded weights must give the
+    network's own answers."""
+    import numpy as np
+    import torch
+
+    from convert import write_weights
+    from model import EyeNet
+
+    torch.manual_seed(3)
+    network = EyeNet().eval()
+    with torch.no_grad():  # a network as training leaves it: no normalisation is the identity
+        for stage in network.features:
+            stage[1].running_mean.uniform_(-0.5, 0.5)
+            stage[1].running_var.uniform_(0.5, 2.0)
+            stage[1].weight.uniform_(0.5, 1.5)
+            stage[1].bias.uniform_(-0.5, 0.5)
+    write_weights(network, tmp_path / "eyenet.weights")
+
+    data = (tmp_path / "eyenet.weights").read_bytes()
+    declared = (PROJECT / "Sources/BlinkCore/Model/EyeNetwork.swift").read_text()
+    assert data[:8] == b"EYENET01" and 'Data("EYENET01".utf8)' in declared
+    numbers = np.frombuffer(data[8:], dtype="<f4")
+    assert len(numbers) == 60_289
+
+    # The same forward pass from the file alone: convolution with a bias, no normalisation.
+    pictures = torch.rand(4, 3, 64, 64)
+    x, start = network.preprocess(pictures), 0
+    for inputs, outputs in [(1, 16), (16, 32), (32, 64), (64, 64)]:
+        weight = torch.tensor(numbers[start : start + outputs * inputs * 9]).reshape(outputs, inputs, 3, 3)
+        start += outputs * inputs * 9
+        bias = torch.tensor(numbers[start : start + outputs])
+        start += outputs
+        x = torch.nn.functional.max_pool2d(
+            torch.relu(torch.nn.functional.conv2d(x, weight, bias, padding=1)), 2
+        )
+    score = x.mean(dim=(2, 3)) @ torch.tensor(numbers[start : start + 64]) + float(numbers[start + 64])
+    with torch.no_grad():
+        assert torch.allclose(score, network(pictures), atol=1e-4)
