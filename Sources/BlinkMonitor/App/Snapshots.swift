@@ -35,6 +35,8 @@ enum Snapshots {
             let model = SampleData.model(now: now, scene: scene)
             let state = SettingsState()
             state.tab = tab
+            // (The pictures have no camera to ask: one is stated.)
+            state.cameras = [CameraOption(id: "own", name: "FaceTime HD Camera", builtIn: true)]
             configure(state, model)
             // A folder that does not exist: the screenshots state what is on disk instead.
             let nowhere = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-setup", isDirectory: true)

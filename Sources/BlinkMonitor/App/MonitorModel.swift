@@ -234,7 +234,7 @@ final class MonitorModel: ObservableObject {
         if isDemo { return "Demo: the camera is off, and the blinks are made up." }
         if setupStage != nil { return "Setup is at work: nothing is counted meanwhile." }
         if lifecycle == .running && (isPaused || resting) { return "Paused: the camera is off." }
-        if lifecycle == .running && cameraSilent { return "The camera is not sending pictures." }
+        if lifecycle == .running && cameraSilent { return CameraNote.silent }
         return CameraNote.text(for: lifecycle, appName: "Blink Monitor")
     }
 

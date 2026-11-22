@@ -1,5 +1,6 @@
 import SwiftUI
 import BlinkCore
+import BlinkUI
 
 /// What the blink break says at its end. It counts every blink the camera sees, slow or
 /// not, so it says "10 blinks": "10 full blinks" claimed something it does not check.
@@ -89,7 +90,7 @@ struct BlinkBreakView: View {
         case .paused:
             return "The camera is paused, so nothing is counted. Resume from the menu bar."
         case .cameraSilent:
-            return "The camera is not sending pictures, so nothing is counted."
+            return CameraNote.silent + " Nothing is counted."
         case .needsSetup, .settingUp:
             return "Blink Monitor is not set up yet, so nothing is counted."
         case .starting, .cameraRefused, .failed:

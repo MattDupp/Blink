@@ -200,7 +200,7 @@ private struct WelcomePage: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 WelcomePoint(symbol: "camera", title: "It watches your eyes through the camera",
-                             text: "A small model reads each eye 30 times a second and counts the moments they close.")
+                             text: "A small model, which is a program that has learned what your open and closed eyes look like, reads each eye 30 times a second and counts the moments they close.")
                 WelcomePoint(symbol: "graduationcap", title: "First it learns your eyes",
                              text: "Eyes, glasses and lamps differ, so the model is trained on yours, on this Mac. You record your eyes twice, two minutes each, and it learns from the pictures.")
                 WelcomePoint(symbol: "lock.shield", title: "Nothing leaves this Mac",
@@ -331,8 +331,8 @@ private struct CameraPage: View {
         let watching = model.camera == .on
         var checks: [Check] = []
         if watching && model.cameraSilent {
-            checks.append(Check(state: .warning, title: "The camera is not sending pictures",
-                                detail: "With the lid closed that is expected. Open it: the Mac's own camera has to face you."))
+            checks.append(Check(state: .warning, title: String(CameraNote.silent.dropLast()),
+                                detail: "That is normal with the lid closed. Open it, or choose another camera: the camera in use has to face you."))
         } else if model.faceInView {
             checks.append(Check(state: .good, title: "Your face is in view", detail: "Stay where you are comfortable: that is where it will watch you."))
         } else if watching && model.faceMissing {
@@ -406,8 +406,8 @@ private struct CameraTrouble {
     init?(_ state: SetupModel.CameraState) {
         switch state {
         case .refused:
-            title = "Blink Monitor is not allowed to use the camera"
-            text = "Allow it in System Settings > Privacy & Security > Camera. macOS may then ask to quit and reopen "
+            title = String(CameraNote.blocked(appName: "Blink Monitor").dropLast())
+            text = CameraNote.unblock(appName: "Blink Monitor") + " macOS may then ask to quit and reopen "
                 + "Blink Monitor: say yes, the setup goes on from this page."
             refused = true
         case .failed(let reason):
@@ -469,9 +469,9 @@ private struct SetupCamera: View {
         if model.isDemo { return "Demo: there is no camera picture. The eyes on the right are painted." }
         switch model.camera {
         case .asking: return "macOS is asking for the camera…"
-        case .refused: return "Blink Monitor is not allowed to use the camera."
+        case .refused: return CameraNote.blocked(appName: "Blink Monitor")
         case .failed: return "The camera could not be started."
-        case .off, .on: return model.cameraSilent ? "The camera is not sending pictures." : "Starting the camera…"
+        case .off, .on: return model.cameraSilent ? CameraNote.silent : "Starting the camera…"
         }
     }
 }

@@ -120,8 +120,8 @@ extension MonitorStatus {
         case .settingUp(.testing):
             return "Setup is testing your model. Nothing is counted meanwhile."
         case .cameraRefused:
-            return "Camera access was refused. Allow Blink Monitor in System Settings > Privacy & Security > Camera. "
-                + "If nothing changes after that, quit Blink Monitor and open it again."
+            return CameraNote.blocked(appName: "Blink Monitor") + " " + CameraNote.unblock(appName: "Blink Monitor")
+                + " If nothing changes after that, quit Blink Monitor and open it again."
         case .failed(let reason):
             return reason
         case .paused(let until):
@@ -129,7 +129,7 @@ extension MonitorStatus {
             return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume")
                 + ". Nothing is counted, and no blink reminder or look-away break comes. Routines still remind you."
         case .cameraSilent:
-            return "The camera is not sending pictures, so nothing is counted. That is normal with the lid closed. Otherwise the camera restarts by itself."
+            return CameraNote.silent + " Nothing is counted. " + CameraNote.silentWhy
         case .noFace:
             return "No face in view, so this time is not counted. If you are here: face the camera and check the light."
         case .watching(let rate):

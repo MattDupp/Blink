@@ -693,6 +693,8 @@ private struct ActionTile: View {
     let title: String
     var tint: Color?
     let action: () -> Void
+    /// The keyboard is on this tile (with keyboard navigation switched on in macOS).
+    @FocusState private var focused: Bool
 
     var body: some View {
         Button(action: action) {
@@ -711,6 +713,13 @@ private struct ActionTile: View {
             .padding(.vertical, 9)
         }
         .buttonStyle(TileStyle(tint: tint))
+        .focused($focused)
+        // The tile draws itself, so it draws its own focus ring too.
+        .overlay {
+            if focused {
+                RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor, lineWidth: 2)
+            }
+        }
     }
 }
 

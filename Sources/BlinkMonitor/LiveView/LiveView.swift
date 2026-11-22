@@ -167,8 +167,10 @@ private struct Counters: View {
         return "left \(answer(.imageLeft))   right \(answer(.imageRight))"
     }
 
+    /// "11 min 42 s": a duration, which "11:42" read as a time of day.
     private func clock(_ seconds: Double) -> String {
-        String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+        let whole = Int(seconds)
+        return whole < 60 ? "\(whole) s" : "\(whole / 60) min \(whole % 60) s"
     }
 }
 
