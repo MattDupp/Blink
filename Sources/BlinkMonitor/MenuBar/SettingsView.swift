@@ -165,11 +165,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 Row("Remind me when I blink too little",
-                    detail: "When your rate stays under the limit for three minutes. Never more than one every five minutes.") {
+                    detail: "When your rate stays under the limit for three minutes. Left unanswered it backs off: the next after 5, 15, 30, then 60 minutes, with a sound for the first two only. A blink break answers it.") {
                     Toggle("Remind me when I blink too little", isOn: $preferences.remindersOn)
                 }
                 Divider()
-                Row("See what it looks like", detail: "Shows the reminder now, with its two buttons.") {
+                Row("See what it looks like", detail: "Shows a reminder now, marked as a test. Its two buttons show when the pointer is over it, and on the test they do nothing.") {
                     Button("Send a Test Reminder") { reminders.sendTest() }
                 }
             }

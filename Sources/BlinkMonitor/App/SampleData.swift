@@ -33,6 +33,8 @@ enum SampleData {
         case cameraRefused
         /// The model could not be read from disk.
         case problem
+        /// The usual rate was just measured, under the starting limit: the panel offers to follow it.
+        case ownRate
         /// The demo: `watching`, on made-up eyes.
         case demo
         /// A new Mac: no model of your eyes yet, the setup window closed.
@@ -124,6 +126,8 @@ enum SampleData {
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.cameraSilent = true
             initial.live = live.withCameraOff
+        case .ownRate:
+            preferences.reference = Reference(rate: 7.2, measuredOn: now.addingTimeInterval(-3600), minutes: 214)
         case .noFace:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.live.faceFound = false

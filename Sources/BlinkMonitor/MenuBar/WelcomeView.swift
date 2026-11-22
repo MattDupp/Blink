@@ -34,7 +34,7 @@ struct WelcomeView: View {
                 WelcomePoint(symbol: "light.beacon.max", title: "The green camera light stays on",
                       text: "That is macOS telling you the camera is in use. Pause, in the menu, turns the camera off for real; so does closing the lid or locking the screen.")
                 WelcomePoint(symbol: "bell", title: "A nudge when you blink too little",
-                      text: "People blink far less at a screen. When your rate stays low for a few minutes you get one notification, never more than one every five minutes.")
+                      text: "People blink far less at a screen. When your rate stays low for a few minutes you get a notification. Left unanswered, it comes less and less often: after 5, 15, 30, then 60 minutes.")
             }
 
             // An app with no window and no Dock icon has to say where it went.

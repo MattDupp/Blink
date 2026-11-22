@@ -9,7 +9,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// What the app can tell you.
     enum Notice {
         /// You blink too little: `recent` is the rate over the last three minutes.
-        case lowRate(recent: Double)
+        /// `sound`: false once the reminder has gone unanswered twice (`ReminderPolicy`).
+        case lowRate(recent: Double, sound: Bool)
+        /// "Send a Test Reminder": the same banner, said to be a test, whose buttons do nothing.
+        case lowRateTest
         /// A look-away break starts (the words come from `BreakWords`). `canPostpone`:
         /// the banner still offers "In 5 Minutes".
         case screenBreak(title: String, body: String, canPostpone: Bool)
@@ -25,6 +28,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private enum Identifier {
         static let lowRate = "low-blink-rate"
+        static let lowRateTest = "low-blink-rate-test"
         static let screenBreak = "screen-break"
         static let blinkBreak = "start-blink-break"
         static let snooze = "snooze-one-hour"
@@ -76,7 +80,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let skip = UNNotificationAction(identifier: Identifier.skipBreak, title: "Skip", options: [])
         let screenBreak = UNNotificationCategory(identifier: Identifier.screenBreak, actions: [later, skip], intentIdentifiers: [])
         let screenBreakLast = UNNotificationCategory(identifier: Identifier.screenBreakLast, actions: [skip], intentIdentifiers: [])
-        center.setNotificationCategories(Set([lowRate, screenBreak, screenBreakLast] + extraCategories))
+        // The test banner looks the same, and its buttons carry identifiers nothing acts
+        // on: a test must not start a snooze of an hour.
+        let lowRateTest = UNNotificationCategory(identifier: Identifier.lowRateTest, actions: [
+            UNNotificationAction(identifier: "test-blink-break", title: "Start Blink Break", options: []),
+            UNNotificationAction(identifier: "test-snooze", title: "Snooze 1 Hour", options: []),
+        ], intentIdentifiers: [])
+        center.setNotificationCategories(Set([lowRate, lowRateTest, screenBreak, screenBreakLast] + extraCategories))
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             if let error { Log.app.error("Notifications: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
@@ -108,19 +118,29 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard allowed, let center else {
             // No right to show a banner: a soft sound is better than silence. A break has
             // a sound of its own for its start: "Glass" is the one that says it is over.
-            if case .screenBreak = notice { NSSound(named: "Ping")?.play() } else { NSSound(named: "Glass")?.play() }
+            switch notice {
+            case .screenBreak: NSSound(named: "Ping")?.play()
+            case .lowRate(_, let sound): if sound { NSSound(named: "Glass")?.play() }
+            case .lowRateTest: NSSound(named: "Glass")?.play()
+            }
             return
         }
         let content = UNMutableNotificationContent()
         content.sound = .default
         let identifier: String
         switch notice {
-        case .lowRate(let recent):
+        case .lowRate(let recent, let sound):
             identifier = Identifier.lowRate
             content.categoryIdentifier = Identifier.lowRate
             content.title = "Time to blink"
             content.body = String(format: "About %.0f blinks a minute over the last 3 minutes. "
                                   + "Ten slow, full blinks help.", recent)
+            if !sound { content.sound = nil }
+        case .lowRateTest:
+            identifier = Identifier.lowRateTest
+            content.categoryIdentifier = Identifier.lowRateTest
+            content.title = "Time to blink (this is a test)"
+            content.body = "This is how a reminder looks. Move the pointer over it to see its buttons. On this test they do nothing."
         case .screenBreak(let title, let body, let canPostpone):
             identifier = Identifier.screenBreak
             content.categoryIdentifier = canPostpone ? Identifier.screenBreak : Identifier.screenBreakLast
@@ -130,6 +150,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // One fixed identifier per kind: a new banner replaces the previous one instead of
         // piling up in Notification Centre.
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
+    /// The blink reminder was answered (a blink break was done): its banner would now ask
+    /// for something that is done.
+    func withdrawLowRate() {
+        center?.removeDeliveredNotifications(withIdentifiers: [Identifier.lowRate])
     }
 
     /// The break is over: its banner, if it is still on screen or in Notification Centre,
@@ -160,6 +186,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     // A button of a banner, or the banner itself, was pressed.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
+        // The test banner: nothing it carries does anything.
+        if response.notification.request.content.categoryIdentifier == Identifier.lowRateTest { return completionHandler() }
         let aboutLowRate = response.notification.request.content.categoryIdentifier == Identifier.lowRate
         let action: Action?
         switch response.actionIdentifier {

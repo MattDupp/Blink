@@ -108,9 +108,12 @@ and shipping it inside a real app.
   answer as a curve, and a sound at each blink it counts.
 - Keeps a **minute-by-minute history** (numbers only): today, the last hour, any of the last
   seven days hour by hour, the week as a heat map, and a few sentences on what stands out.
-- **Reminds you** when your rate stays low for three minutes; at most one reminder every
-  five minutes, none for the time you were away. The banner has two buttons: start a blink
-  break, or snooze for an hour.
+- **Reminds you** when your rate stays low for three minutes, and never for the time you
+  were away. A reminder left unanswered backs off: the next comes after 5, 15, 30, then 60
+  minutes, and only the first two make a sound. A blink break answers it: none for 20
+  minutes. The banner has two buttons: start a blink break, or snooze for an hour.
+  If your usual rate turns out to be under the starting limit of 10, the panel says so
+  once and offers to follow your own rate.
 - **Blink break**: ten slow, full blinks, counted by the camera, with a sound at each one
   because your eyes are closed.
 - **A limit that fits you, and does not follow you down.** The app measures your usual rate

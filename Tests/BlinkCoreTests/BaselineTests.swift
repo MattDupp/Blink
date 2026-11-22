@@ -157,4 +157,15 @@ struct BaselineTests {
         #expect(map.count == 3 && map.allSatisfy { $0.count == 24 })
         #expect(map[0][9] == 16 && map[1][9] == 8 && map[2].allSatisfy { $0 == nil })
     }
+
+    @Test("Follow my own rate: the floor that puts the limit at 70% of the usual rate, never under 1")
+    func floorFollowing() {
+        let usual = Reference(rate: 7.2, measuredOn: Date(timeIntervalSince1970: 0), minutes: 200)
+        #expect(Baseline.limitAboveUsual(reference: usual, limit: 10))
+        let floor = Baseline.floorFollowing(reference: usual)
+        #expect(floor == 5)
+        let limit = Baseline.limit(reference: usual, automatic: true, floor: floor)
+        #expect(limit == 5 && !Baseline.limitAboveUsual(reference: usual, limit: limit))
+        #expect(Baseline.floorFollowing(reference: Reference(rate: 0.9, measuredOn: usual.measuredOn, minutes: 200)) == 1)
+    }
 }

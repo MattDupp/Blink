@@ -104,6 +104,7 @@ enum Snapshots {
             ("panel-learning", panel(.learning) { $0.hoveredMinute = 14 }),
             ("panel-first-minute", panel(.firstMinute)),
             ("panel-no-picture", panel(.noPicture)),
+            ("panel-own-rate", panel(.ownRate)),
             ("panel-no-face", panel(.noFace)),
             ("panel-camera-refused", panel(.cameraRefused)),
             ("panel-problem", panel(.problem)),

@@ -113,6 +113,13 @@ public enum Baseline {
         return Double(limit) > reference.rate
     }
 
+    /// The floor that makes the limit follow your own usual rate: the share of the
+    /// reference that the automatic limit uses, and never under 1. It is what "Follow my
+    /// own rate" sets when your usual rate was measured under the limit.
+    public static func floorFollowing(reference: Reference) -> Int {
+        max(1, Int((reference.rate * shareOfReference).rounded()))
+    }
+
     /// How far the recent minutes are under the reference, as a share of it
     /// (0.22 = 22% less; negative = more than the reference). Nil when the recent minutes
     /// are too few to say.

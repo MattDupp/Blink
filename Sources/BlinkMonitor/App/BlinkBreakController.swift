@@ -15,6 +15,8 @@ final class BlinkBreakController: ObservableObject {
 
     /// The exercise is done and has been shown as done for a moment: close its window.
     var onFinished: () -> Void = {}
+    /// The last blink of the exercise was just counted.
+    var onDone: () -> Void = {}
 
     private let countSound = NSSound(named: "Pop")
     private let doneSound = NSSound(named: "Glass")
@@ -45,6 +47,7 @@ final class BlinkBreakController: ObservableObject {
             return
         }
         doneSound?.play()
+        onDone()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             // Still showing that same finished exercise? (It may have been closed by hand.)
             guard let self, self.exercise == current else { return }

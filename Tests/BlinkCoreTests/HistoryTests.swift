@@ -181,6 +181,56 @@ struct HistoryTests {
         #expect(fiveMinutesLater)
     }
 
+    @Test("Unanswered, the reminder backs off: 5, 15, 30, then 60 minutes, and only the first two make a sound")
+    func backOff() {
+        var policy = ReminderPolicy()
+        // A whole afternoon under the limit, asked once a minute as the app does.
+        var shown: [(minute: Int, sound: Bool)] = []
+        for minute in 0...200 {
+            if let due = policy.reminder(rate: 6, threshold: 10, now: afterThree.addingTimeInterval(Double(minute) * 60)) {
+                shown.append((minute, due.sound))
+            }
+        }
+        #expect(shown.map(\.minute) == [0, 5, 20, 50, 110, 170])
+        #expect(shown.map(\.sound) == [true, true, false, false, false, false])
+    }
+
+    @Test("Above the limit for three minutes, the low stretch is over: the next one starts at five minutes, with its sound")
+    func backOffStartsOver() {
+        var policy = ReminderPolicy()
+        func ask(_ minute: Int, rate: Double?) -> ReminderPolicy.Due? {
+            policy.reminder(rate: rate, threshold: 10, now: afterThree.addingTimeInterval(Double(minute) * 60))
+        }
+        #expect(ask(0, rate: 6)?.sound == true)
+        #expect(ask(5, rate: 6)?.sound == true)
+        #expect(ask(20, rate: 6)?.sound == false)
+        // Two minutes above is a pause, not a recovery: the long wait still holds.
+        #expect(ask(21, rate: 12) == nil && ask(22, rate: 12) == nil)
+        #expect(ask(23, rate: 6) == nil)
+        #expect(policy.unanswered == 3)
+        // Three minutes above: over. Away from the screen in between changes nothing.
+        #expect(ask(30, rate: 12) == nil && ask(31, rate: nil) == nil && ask(33, rate: 12) == nil)
+        #expect(policy.unanswered == 0)
+        // Low again, an hour after the last reminder: a first reminder, then five minutes.
+        #expect(ask(80, rate: 6)?.sound == true)
+        #expect(ask(84, rate: 6) == nil)
+        #expect(ask(85, rate: 6)?.sound == true)
+    }
+
+    @Test("A blink break that was done answers the reminder: nothing for 20 minutes, then it starts over")
+    func quietAfterBlinkBreak() {
+        var policy = ReminderPolicy()
+        func ask(_ minute: Int) -> ReminderPolicy.Due? {
+            policy.reminder(rate: 6, threshold: 10, now: afterThree.addingTimeInterval(Double(minute) * 60))
+        }
+        #expect(ask(0) != nil)
+        policy.blinkBreakDone(at: afterThree.addingTimeInterval(60))
+        #expect(ask(5) == nil && ask(10) == nil && ask(20) == nil)
+        #expect(ask(21)?.sound == true)
+        #expect(ask(25) == nil)
+        #expect(ask(26)?.sound == true)
+    }
+
     @Test("While snoozed there is no reminder; afterwards they come back")
     func snooze() {
         var policy = ReminderPolicy()

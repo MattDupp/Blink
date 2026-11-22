@@ -162,6 +162,7 @@ final class MonitorModel: ObservableObject {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
         routines.connect(to: self)
+        blinkBreak.onDone = { [weak self] in self?.reminders.blinkBreakDone() }
     }
 
     var isDemo: Bool { demoCamera != nil }

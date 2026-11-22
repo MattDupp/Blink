@@ -25,6 +25,7 @@ final class Preferences: ObservableObject {
         static let longBreakMinutes = "longBreakMinutes"
         static let breakTally = "breakTally"
         static let welcomed = "welcomed"
+        static let ownRateOfferAnswered = "ownRateOfferAnswered"
         static let paused = "paused"
         static let pausedUntil = "pausedUntil"
     }
@@ -115,6 +116,23 @@ final class Preferences: ObservableObject {
         set { defaults.set(newValue, forKey: Key.welcomed) }
     }
 
+    /// "Follow my own rate" was offered in the panel and answered, one way or the other:
+    /// it is offered once.
+    @Published var ownRateOfferAnswered: Bool { didSet { defaults.set(ownRateOfferAnswered, forKey: Key.ownRateOfferAnswered) } }
+
+    /// The offer is to be shown: the usual rate was measured UNDER the limit, so the app
+    /// would say "Low" most of the time (`Baseline.limitAboveUsual`).
+    var offersOwnRate: Bool {
+        automaticLimit && !ownRateOfferAnswered && floor > Self.floorChoices.lowerBound
+            && Baseline.limitAboveUsual(reference: reference, limit: limit)
+    }
+
+    /// "Follow my own rate": the floor goes down to where the limit is 70% of the usual rate.
+    func followOwnRate() {
+        if let reference { floor = min(floor, Baseline.floorFollowing(reference: reference)) }
+        ownRateOfferAnswered = true
+    }
+
     /// Today's look-away breaks, counted: they survive a relaunch.
     var breakTally: BreakTally? {
         get { defaults.data(forKey: Key.breakTally).flatMap { try? JSONDecoder().decode(BreakTally.self, from: $0) } }
@@ -139,6 +157,7 @@ final class Preferences: ObservableObject {
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
         floor = defaults.object(forKey: Key.floor) as? Int ?? PublishedRates.startingFloor
+        ownRateOfferAnswered = defaults.bool(forKey: Key.ownRateOfferAnswered)
         breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
         // Whoever chose a time before the other numbers existed keeps it, with the classic
         // 20 seconds and no long break: what the app did until then.

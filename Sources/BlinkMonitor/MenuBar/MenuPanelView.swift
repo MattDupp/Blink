@@ -232,8 +232,9 @@ private struct Notes: View {
 
     var body: some View {
         let lines = self.lines
-        if !lines.isEmpty || reminders.snoozedUntil != nil || reminders.breaks.current != nil {
+        if !lines.isEmpty || reminders.snoozedUntil != nil || reminders.breaks.current != nil || preferences.offersOwnRate {
             VStack(alignment: .leading, spacing: 6) {
+                if preferences.offersOwnRate, let reference = preferences.reference { ownRateOffer(reference) }
                 if let current = reminders.breaks.current {
                     // A look-away break is running. Its banner has the same button.
                     HStack(spacing: 6) {
@@ -256,6 +257,28 @@ private struct Notes: View {
                 }
             }
         }
+    }
+
+    /// Said once, when the usual rate turns out to be under the limit. The starting limit
+    /// of 10 comes from a study; many people sit under it all day, and for them the app
+    /// would say "Low" and remind without end. Their own rate is the better yardstick.
+    private func ownRateOffer(_ reference: Reference) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            NoteLine(symbol: "info.circle",
+                     text: String(format: "Your usual rate is %.0f blinks a minute, under the limit of %d. "
+                                  + "With that limit the app would say Low most of the time. "
+                                  + "Following your own rate puts the limit at %d: it then tells you when you blink less than you usually do.",
+                                  reference.rate, preferences.limit, Baseline.floorFollowing(reference: reference)),
+                     tint: .primary)
+            HStack(spacing: 8) {
+                Button("Follow My Own Rate") { preferences.followOwnRate() }
+                Button("Keep \(preferences.limit)") { preferences.ownRateOfferAnswered = true }
+            }
+            .controlSize(.small)
+            .padding(.leading, 20)
+        }
+        .padding(8)
+        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var lines: [(symbol: String, text: String, tint: Color)] {

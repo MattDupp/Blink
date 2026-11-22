@@ -98,7 +98,7 @@ final class ReminderController: ObservableObject {
     func sendTest() {
         notifier.requestPermission { [weak self] granted in
             self?.notifications = granted ? .allowed : .refused
-            self?.notifier.show(.lowRate(recent: 6))
+            self?.notifier.show(.lowRateTest)
         }
     }
 
@@ -112,9 +112,19 @@ final class ReminderController: ObservableObject {
     /// A minute just ended: show a reminder if one is due.
     func minuteEnded(minutes: [MinuteRecord], now: Date = Date()) {
         if let snoozedUntil, now >= snoozedUntil { self.snoozedUntil = nil }
-        guard preferences.remindersOn, let low = lowRate(in: minutes, now: now),
-              policy.reminderDue(rate: low, threshold: Double(preferences.limit), now: now) else { return }
-        notifier.show(.lowRate(recent: low))
+        // The policy is asked every minute, low or not: it is how it learns that the rate
+        // came back above the limit, which ends its back-off.
+        let rate = policy.recentRate(records: minutes, now: now)
+        guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now),
+              preferences.remindersOn, let rate else { return }
+        notifier.show(.lowRate(recent: rate, sound: due.sound))
+    }
+
+    /// A blink break was finished: the reminder that asked for it is answered. Its banner
+    /// is taken back, and none comes for 20 minutes (`ReminderPolicy.blinkBreakDone`).
+    func blinkBreakDone(now: Date = Date()) {
+        policy.blinkBreakDone(at: now)
+        notifier.withdrawLowRate()
     }
 
     /// Every update from the camera: the look-away breaks follow who is at the screen.
