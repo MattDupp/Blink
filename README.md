@@ -159,7 +159,7 @@ and shipping it inside a real app.
   <img src="docs/img/settings-general-light.png" alt="Settings, General tab" width="420">
 </p>
 <p align="center">
-  <img src="docs/img/live-view-light.png" alt="Live View: the camera area, the model's answer as a curve with three blinks, the counters and the cost per frame" width="700">
+  <img src="docs/img/live-view-light.png" alt="Live View: the camera area, the model's answer as a curve with three blinks, and the counters" width="700">
 </p>
 <p align="center">
   <img src="docs/img/history-day-dark.png" alt="History in dark mode, on an earlier day, with the decline against the reference reported" width="480">
@@ -364,7 +364,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a session) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Your Model shows them and deletes them, for good.
 - **What counting keeps:** one line per minute (time watched, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
-- Other pictures are written only by the capture buttons of the Live View window, when you press them. A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
+- Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Your Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
 - The disk image contains no model either. `make dmg` checks the app before packing it and the image afterwards, and refuses to build one that holds a model.
 - The app is signed with macOS's hardened runtime and asks for one thing, the camera, so another program cannot load its code into it to borrow that permission.
@@ -437,7 +437,8 @@ The app uses, in this order: a model named at launch (`--model=`), the model tra
 the app, the model built in by `make monitor`. Settings > Your Model says which.
 
 **Make it better with your own blinks.** The recorded pictures are eyes held open or
-closed; a real blink is caught half-way and blurred. Once the app runs, open Live View,
+closed; a real blink is caught half-way and blurred. Once the app runs (started by
+`make monitor`, which shows Live View's record buttons), open Live View,
 press *Record Freely (60 s)* a few times while you work, then:
 
 ```bash

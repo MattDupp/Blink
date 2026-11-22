@@ -148,7 +148,8 @@ Eyes held open or closed are not blinks. In a real blink the lid is caught half-
 blurred, and the first model missed them on the darker side of the face
 ([Lessons](LESSONS.md), number 2).
 
-The app's Live View window can record every frame for 30 or 60 seconds, with the
+Started by `make monitor`, the app's Live View window has two record buttons. (The
+downloaded app hides them, and the "cost per frame" table with them.) They record every frame for 30 or 60 seconds, with the
 model's answer for each. From those captures:
 
 - `training/label_captures.py` labels frames with the rule "both eyes blink together":

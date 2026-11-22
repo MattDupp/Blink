@@ -374,4 +374,22 @@ struct SourceTests {
         #expect(MonitorStatus.watching(rate: 13).headline == nil)
         #expect(MonitorStatus.watching(rate: 13).explanation(limit: 10) == "Your rate over the last minute. Your limit is 10.")
     }
+
+    @Test("Deleting the recordings and the model also removes the captures saved from Live View")
+    @MainActor func deleteIncludesCaptures() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("blink-delete-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let sessions = base.appendingPathComponent("sessions", isDirectory: true)
+        let captures = base.appendingPathComponent("captures", isDirectory: true)
+        for folder in [sessions, captures.appendingPathComponent("20270101-100000-free", isDirectory: true)] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
+                                 modelStore: ModelStore(base: base))
+        try await model.deleteModelAndRecordings(sessions: sessions, own: true, captures: captures)
+        #expect(!FileManager.default.fileExists(atPath: sessions.path))
+        #expect(!FileManager.default.fileExists(atPath: captures.path))
+        // The record buttons belong to whoever started the app with a folder for captures.
+        #expect(!Options.developerTools)
+    }
 }

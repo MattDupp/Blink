@@ -168,6 +168,11 @@ enum Snapshots {
             ("settings-breaks-long", settings(.breaks, scene: .lookingAway)),
             ("settings-breaks-off", settings(.breaks)),
             ("settings-data", settings(.data)),
+            ("settings-data-captures", settings(.data) { state, _ in
+                var disk = recorded
+                (disk.captures, disk.captureMegabytes) = (3, 41)
+                (state.onDisk, state.onDiskIsStated) = (disk, true)
+            }),
             ("settings-sources", settings(.sources)),
             // The list scrolls in the window: here it is whole, to be read.
             ("sources-list", AnyView(SourcesList().frame(width: 480))),
@@ -202,7 +207,9 @@ enum Snapshots {
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
             ("welcome", AnyView(WelcomeView(start: {}))),
-            ("live-view", AnyView(LiveView(model: watching, captures: watching.captures))),
+            ("live-view", AnyView(LiveView(model: watching, captures: watching.captures, developerTools: false))),
+            // As whoever works on the app sees it (started with a folder for captures).
+            ("live-view-developer", AnyView(LiveView(model: watching, captures: watching.captures, developerTools: true))),
         ]
     }
 }

@@ -76,8 +76,22 @@ enum Options {
     /// Where the Live View window saves its captures: the folder given at launch
     /// (`make monitor` passes the project's data/live), else next to the app's own files.
     static var captureRoot: URL {
-        if let folder = LaunchArguments.folder("capture-dir") { return folder }
-        return HistoryStore.applicationFolder.appendingPathComponent("captures", isDirectory: true)
+        LaunchArguments.folder("capture-dir") ?? ownCaptureRoot
+    }
+
+    /// The captures folder among the app's own files. Versions before the record buttons
+    /// were hidden saved there; Settings lists it and deletes it with the recordings.
+    static var ownCaptureRoot: URL {
+        HistoryStore.applicationFolder.appendingPathComponent("captures", isDirectory: true)
+    }
+
+    /// THE TOOLS OF WHOEVER WORKS ON THE APP: Live View's two record buttons and its
+    /// "cost per frame" table. They show only when the app was started with a folder for
+    /// captures (`make monitor` passes one). An ordinary user never sees a button that
+    /// saves pictures of their eyes to a folder: Settings promises that deleting "removes
+    /// every picture of your eyes", and that has to be true.
+    static var developerTools: Bool {
+        LaunchArguments.folder("capture-dir") != nil || wholeFrameRoot != nil
     }
 
     /// Set when captures must also keep the whole camera picture of every frame: the
@@ -270,7 +284,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.routines.session.onClose = { routineTimer.close() }
 
         let settingsState = SettingsState()
-        let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions)
+        let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions,
+                                       capturesRoot: demo ? nil : Options.ownCaptureRoot)
         let settings = WindowController(title: "Blink Monitor - Settings") { [weak self] in
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
                          loginItem: model.loginItem, state: settingsState, files: recordings,

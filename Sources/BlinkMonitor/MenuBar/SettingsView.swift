@@ -19,6 +19,9 @@ struct SettingsFiles {
     /// False when the sessions folder was named at launch: a developer's data, which
     /// Settings does not delete.
     var ownSessions = true
+    /// The app's own captures folder (what Live View's record buttons saved). Nil in the
+    /// demo. A folder named at launch (`--capture-dir`) is a developer's and is not this.
+    var capturesRoot: URL?
 }
 
 /// What the Settings window remembers while it is open.
@@ -40,6 +43,9 @@ final class SettingsState: ObservableObject {
         var sessions = 0
         var pictures = 0
         var megabytes = 0.0
+        /// Captures in the app's own folder (saved from Live View), and their size.
+        var captures = 0
+        var captureMegabytes = 0.0
         /// A model trained here that has not passed (or been excused from) its test.
         var untested = false
     }
@@ -71,8 +77,13 @@ final class SettingsState: ObservableObject {
         guard !onDiskIsStated else { return }
         let sessions = SessionStore.sessions(in: files.sessionsRoot)
         let bytes = SessionStore.bytes(under: files.sessionsRoot) + SessionStore.bytes(under: files.store.folder)
+        let captures = files.capturesRoot.map { root in
+            ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []).filter(\.hasDirectoryPath)
+        } ?? []
+        let captureBytes = files.capturesRoot.map { captures.isEmpty ? 0 : SessionStore.bytes(under: $0) } ?? 0
         onDisk = OnDisk(sessions: sessions.count, pictures: sessions.reduce(0) { $0 + $1.pictures },
                         megabytes: Double(bytes) / 1_000_000,
+                        captures: captures.count, captureMegabytes: Double(captureBytes) / 1_000_000,
                         untested: files.store.info().map { !$0.isAccepted } ?? false)
     }
 }
@@ -327,6 +338,11 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the time your eyes were watched and the number of blinks.")
                     DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. Your Model shows them and deletes them.")
+                    if state.onDisk.captures > 0 {
+                        DataPoint(symbol: "record.circle", text: "Kept from Live View: \(state.onDisk.captures) capture\(state.onDisk.captures == 1 ? "" : "s") of your eyes"
+                                  + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
+                                  + "recorded with its record buttons. Your Model deletes them with the recordings.")
+                    }
                     DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each frame is analysed in memory and dropped.")
                     DataPoint(symbol: "wifi.slash", text: "Nothing leaves this Mac. The app makes no network connection.")
                 }
@@ -336,6 +352,12 @@ struct SettingsView: View {
             Card {
                 Row("History file", detail: "\(history.minutes.count.formatted()) minutes over the last \(HistoryController.daysKept) days. Any spreadsheet opens it.") {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
+                }
+                if state.onDisk.captures > 0, let captures = files.capturesRoot {
+                    Divider()
+                    Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View. Settings > Your Model > Delete removes them.") {
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([captures]) }
+                    }
                 }
                 Divider()
                 if state.confirmingErase {
@@ -394,7 +416,7 @@ struct SettingsView: View {
                     } else {
                         Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. For good, not to the Trash.") {
                             Button("Delete...") { state.confirmingDelete = true }
-                                .disabled(state.onDisk.sessions == 0 && !isTrainedHere && !state.onDisk.untested)
+                                .disabled(state.onDisk.sessions == 0 && state.onDisk.captures == 0 && !isTrainedHere && !state.onDisk.untested)
                         }
                     }
                 }
@@ -443,15 +465,17 @@ struct SettingsView: View {
 
     private var onDiskDetail: String {
         let disk = state.onDisk
-        guard disk.sessions > 0 else { return "No recording on this Mac." }
+        let captures = disk.captures == 0 ? "" : " Also \(disk.captures) capture\(disk.captures == 1 ? "" : "s") from Live View"
+            + String(format: ", %.0f MB.", disk.captureMegabytes)
+        guard disk.sessions > 0 else { return disk.captures == 0 ? "No recording on this Mac." : "No session on this Mac.\(captures)" }
         return "\(disk.sessions) session\(disk.sessions == 1 ? "" : "s"), \(disk.pictures.formatted()) small pictures of your eyes, "
-            + String(format: "%.0f MB. ", disk.megabytes)
+            + String(format: "%.0f MB.", disk.megabytes) + captures + " "
             + (files.ownSessions ? "In a folder only your account can read." : "In \(files.sessionsRoot.path), named at launch.")
     }
 
     private var deleteWarning: String {
         var text = files.ownSessions
-            ? "Every recording and the model trained on them. This cannot be undone."
+            ? "Every recording\(state.onDisk.captures > 0 ? ", every capture from Live View," : "") and the model trained on them. This cannot be undone."
             : "The model trained here. The recordings are in a folder named at launch and are left alone."
         if isTrainedHere {
             text += FileManager.default.fileExists(atPath: ModelSource.builtInModel.path)
@@ -466,7 +490,8 @@ struct SettingsView: View {
         actions.closeSetup()
         Task {
             do {
-                try await model.deleteModelAndRecordings(sessions: files.sessionsRoot, own: files.ownSessions)
+                try await model.deleteModelAndRecordings(sessions: files.sessionsRoot, own: files.ownSessions,
+                                                         captures: files.capturesRoot)
                 state.deleteProblem = nil
             } catch {
                 state.deleteProblem = "It could not be deleted: \(error.localizedDescription)"

@@ -379,9 +379,12 @@ final class MonitorModel: ObservableObject {
 
     /// Deletes what setup made: the model trained here and, unless their folder was named
     /// at launch (a developer's own data), the recordings it learned from. For good.
-    func deleteModelAndRecordings(sessions root: URL, own: Bool) async throws {
+    /// `captures`: the app's own captures folder (what Live View's record buttons saved,
+    /// when it still showed them to everyone): pictures of eyes too, so it goes as well.
+    func deleteModelAndRecordings(sessions root: URL, own: Bool, captures: URL? = nil) async throws {
         try modelStore.delete()
         if own, FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
+        if let captures, FileManager.default.fileExists(atPath: captures.path) { try FileManager.default.removeItem(at: captures) }
         await modelChanged()
     }
 
@@ -579,7 +582,7 @@ final class MonitorModel: ObservableObject {
     }
 
     func startCapture(cued: Bool) {
-        guard canCapture, let pipeline else { return }
+        guard Options.developerTools, canCapture, let pipeline else { return }
         // Asked at launch to keep whole frames: those captures go to their own folder.
         captures.start(cued: cued, pipeline: pipeline, root: Options.wholeFrameRoot ?? Options.captureRoot,
                        wholeFrames: Options.wholeFrameRoot != nil)

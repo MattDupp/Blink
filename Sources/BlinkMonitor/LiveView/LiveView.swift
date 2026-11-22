@@ -10,6 +10,9 @@ import BlinkUI
 struct LiveView: View {
     @ObservedObject var model: MonitorModel
     @ObservedObject var captures: CaptureController
+    /// The record buttons and the cost table: for whoever works on the app
+    /// (`Options.developerTools`), not for whoever uses it.
+    var developerTools = Options.developerTools
 
     var body: some View {
         VStack(spacing: 14) {
@@ -22,11 +25,11 @@ struct LiveView: View {
                     TraceView(model: model)
                         .frame(height: 150)
                 }
-                Counters(model: model)
+                Counters(model: model, developerTools: developerTools)
                     .frame(width: 290)
             }
-            CaptureBanner(captures: captures)
-            if let folder = Options.wholeFrameRoot {
+            if developerTools { CaptureBanner(captures: captures) }
+            if developerTools, let folder = Options.wholeFrameRoot {
                 // Said for as long as the mode is on, not only while a capture runs.
                 Text("Captures also keep the whole camera picture (your face), in \(folder.path), as asked when the app was started.")
                     .font(.callout)
@@ -36,12 +39,14 @@ struct LiveView: View {
             HStack(spacing: 10) {
                 Toggle("Sound at each blink", isOn: $model.soundOn)
                 Spacer()
-                Button("Record Cued Blinks (30 s)") { model.startCapture(cued: true) }
-                    .disabled(!model.canCapture)
-                    .help("A tick every 1.5 s, 20 times: blink once at each. Every frame is saved.")
-                Button("Record Freely (60 s)") { model.startCapture(cued: false) }
-                    .disabled(!model.canCapture)
-                    .help("Carry on normally for a minute. Every frame is saved.")
+                if developerTools {
+                    Button("Record Cued Blinks (30 s)") { model.startCapture(cued: true) }
+                        .disabled(!model.canCapture)
+                        .help("A tick every 1.5 s, 20 times: blink once at each. Every frame is saved.")
+                    Button("Record Freely (60 s)") { model.startCapture(cued: false) }
+                        .disabled(!model.canCapture)
+                        .help("Carry on normally for a minute. Every frame is saved.")
+                }
                 Button("Reset Counters") { model.resetCounters() }
             }
         }
@@ -84,6 +89,7 @@ private struct CaptureBanner: View {
 
 private struct Counters: View {
     @ObservedObject var model: MonitorModel
+    var developerTools = false
 
     var body: some View {
         let counters = model.live.counters
@@ -111,7 +117,7 @@ private struct Counters: View {
             }
 
             // The pipeline's own cost, averaged over the last two seconds.
-            if let timings = model.timings {
+            if developerTools, let timings = model.timings {
                 Group {
                     SectionTitle("Cost per frame")
                         .padding(.top, 4)
