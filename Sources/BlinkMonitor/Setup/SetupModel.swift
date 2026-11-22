@@ -119,6 +119,16 @@ final class SetupModel: ObservableObject {
     /// The step that waits behind the welcome-back page. Nil: no such page.
     @Published private(set) var welcomeBack: Step?
     @Published private(set) var camera = CameraState.off
+    /// The cameras this Mac offers, for the camera page (empty in the demo).
+    @Published private(set) var cameras: [CameraOption] = []
+    /// The camera chosen for the app: nil is Automatic.
+    var chosenCamera: String? { monitor.preferences.cameraID }
+
+    /// The camera page's pop-up: the choice is the app's, the same as in Settings.
+    func chooseCamera(_ id: String?) {
+        monitor.setCamera(id)
+        objectWillChange.send()
+    }
     /// The complete sessions on disk, oldest first.
     @Published private(set) var sessions: [SessionSummary] = []
     /// The model trained here, when there is one.
@@ -351,6 +361,7 @@ final class SetupModel: ObservableObject {
             releaseCamera()
             monitor.leaveSetup()
         case .camera:
+            if !isDemo { cameras = monitor.cameraOptions() }
             useCamera(for: .checkingCamera)
         case .record:
             useCamera(for: .recording)

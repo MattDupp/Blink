@@ -20,6 +20,22 @@ struct SettingsActions {
     var deleteEverythingAndQuit: (() -> Void)?
 }
 
+/// What the app says about the choice of a camera (`CameraChoice`).
+enum CameraWords {
+    static func detail(inUse name: String?) -> String {
+        "Automatic uses the Mac's own camera, and another one when that sends no picture for "
+            + "\(Int(CameraChoice.silenceBeforeFallback)) seconds, as with the lid closed. "
+            + "Your model learned your eyes on one camera: after changing, test it again under Model."
+            + (name.map { " In use: \($0)." } ?? "")
+    }
+
+    /// In the panel, after Automatic moved to another camera.
+    static func moved(to name: String) -> String {
+        "The Mac's own camera sent no picture, so Blink Monitor is using “\(name)”. "
+            + "Your model learned your eyes on another camera: test it again in Settings > Model."
+    }
+}
+
 /// The project's pages. The app itself connects to nothing: these open in the browser.
 enum ProjectLinks {
     static let home = URL(string: "https://github.com/MattDupp/blink-monitor")!
@@ -115,6 +131,8 @@ final class SettingsState: ObservableObject {
     @Published var tab = Tab.general
     @Published var measurement: Measurement?
     @Published var onDisk = OnDisk()
+    /// The cameras this Mac offers: asked when the window opens.
+    @Published var cameras: [CameraOption] = []
     /// Set by the screenshots, which state what is on disk instead of counting it.
     var onDiskIsStated = false
     @Published var deleteProblem: String?
@@ -127,6 +145,7 @@ final class SettingsState: ObservableObject {
     /// Counts what is on disk again.
     func refresh(_ files: SettingsFiles) {
         guard !onDiskIsStated else { return }
+        cameras = CameraCapture.options()
         let sessions = SessionStore.sessions(in: files.sessionsRoot)
         let bytes = SessionStore.bytes(under: files.sessionsRoot) + SessionStore.bytes(under: files.store.folder)
         let captures = files.capturesRoot.map { root in
@@ -250,9 +269,26 @@ struct SettingsView: View {
                 Toggle("The menu-bar eye blinks with you", isOn: $preferences.blinkBack)
             }
             Divider()
-            Row("Live View", detail: "The camera with your eyes framed, and each blink as it is counted."
-                    + (model.cameraName.map { " Camera: \($0)." } ?? "")) {
+            Row("Live View", detail: "The camera with your eyes framed, and each blink as it is counted.") {
                 Button("Open Live View") { actions.openLiveView() }
+            }
+            if !model.isDemo {
+                Divider()
+                Row("Camera", detail: CameraWords.detail(inUse: model.cameraName)) {
+                    if state.cameras.count > 1 {
+                        // "" stands for Automatic: a picker's tag cannot be nil.
+                        Picker("Camera", selection: Binding(get: { preferences.cameraID ?? "" },
+                                                            set: { model.setCamera($0.isEmpty ? nil : $0) })) {
+                            Text("Automatic").tag("")
+                            Divider()
+                            ForEach(state.cameras) { Text($0.name).tag($0.id) }
+                        }
+                        .fixedSize()
+                    } else {
+                        Text(state.cameras.first?.name ?? model.cameraName ?? "None found")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }

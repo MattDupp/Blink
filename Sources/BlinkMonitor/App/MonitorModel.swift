@@ -177,6 +177,26 @@ final class MonitorModel: ObservableObject {
 
     /// The camera in use, as macOS names it.
     var cameraName: String? { isDemo ? nil : camera.deviceName }
+    /// Automatic moved to this camera because the other sent no picture. Said in the
+    /// panel until a camera is chosen: the model was trained on another one.
+    @Published private(set) var cameraMovedTo: String?
+    /// The cameras tried during the silence in progress (`CameraChoice.fallback`).
+    private var camerasTried: Set<String> = []
+    /// The cameras this Mac offers. A closure, so that a test can state them.
+    var cameraOptions: () -> [CameraOption] = { CameraCapture.options() }
+
+    /// The Camera row of Settings and of the setup: `id` nil is Automatic.
+    func setCamera(_ id: String?) {
+        guard !isDemo else { return }
+        preferences.cameraID = id
+        camera.wantedCamera = id
+        cameraMovedTo = nil
+        camerasTried = []
+        guard cameraBuilt, let picked = CameraChoice.pick(from: cameraOptions(), wanted: id) else { return }
+        let camera = self.camera
+        lastFrame = Date()          // the new camera needs a moment: not "silent" yet
+        DispatchQueue.global(qos: .userInitiated).async { camera.use(camera: picked.id) }
+    }
 
     // MARK: - What the windows say
 
@@ -286,6 +306,7 @@ final class MonitorModel: ObservableObject {
             return
         }
         let frames = self.frames
+        camera.wantedCamera = preferences.cameraID
         try await camera.start { pixelBuffer, time in
             switch frames.withLock({ $0 }) {
             case .nobody: break
@@ -444,8 +465,26 @@ final class MonitorModel: ObservableObject {
         let expected = lifecycle == .running && !isPaused && !asleep && setupStage == nil
         let silent = expected && now.timeIntervalSince(lastFrame ?? now) > Self.silenceSeconds
         if silent != cameraSilent { cameraSilent = silent }
-        guard silent else { return }
+        guard silent else {
+            if !camerasTried.isEmpty { camerasTried = [] }      // pictures again: the next silence starts afresh
+            return
+        }
         if live.faceFound { live = live.withCameraOff }
+        // AUTOMATIC: ten seconds without a picture (a closed lid, docked) and the app
+        // tries the next camera, once round. A camera the user chose is never left.
+        let options = isDemo ? [] : cameraOptions()
+        // (Before the camera has said which one it is, it is the one Automatic starts with.)
+        let current = camera.deviceID ?? CameraChoice.pick(from: options, wanted: nil)?.id
+        if let next = CameraChoice.fallback(from: options, current: current, wanted: preferences.cameraID,
+                                            silentSeconds: now.timeIntervalSince(lastFrame ?? now), tried: camerasTried) {
+            if let current { camerasTried.insert(current) }
+            camerasTried.insert(next.id)
+            cameraMovedTo = next.name
+            lastFrame = now
+            let camera = self.camera
+            DispatchQueue.global(qos: .userInitiated).async { camera.use(camera: next.id) }
+            return
+        }
         let source = self.source
         DispatchQueue.global(qos: .utility).async { source.recover() }
     }

@@ -475,7 +475,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | What you see | Why, and what to do |
 |---|---|
 | "Setup" in the panel, and "!" in the menu bar | The app has no model of your eyes yet. *Set Up Blink Monitor* (or *Continue Setup*) in the panel opens the window where you left it. |
-| "No face found" in the setup | The Mac's own camera has to face you: the lid open, you in front of it. |
+| "No face found" in the setup | The camera in use has to face you. With more than one camera, the camera page of the setup and Settings > General let you choose. |
 | "The camera lost your face for about 42% of that recording" | Your face left the picture during some poses. The recording is not kept: record it again. |
 | "The training stopped" | Press *Try Again*. Your recordings are untouched and no half-made model is installed. If it stops a second time, the window shows what the trainer said. |
 | The test counts fewer than 8 of 10 | Test again first: a missed tick is the usual reason. If it fails twice, record one more where you sit now: the model then learns from eyes in that light. |
@@ -517,7 +517,7 @@ docs/                    how it works, the research on blink rates, lessons, dev
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.
 - **Processor use.** About 32% of one core while it watches you (see Results).
 - **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look. A break with your face in view is taken on trust. How far a head must turn before the camera loses the face has not been measured.
-- **The Mac's own camera has to face you.** If you work on an external display with the MacBook to one side, it sees you in profile or not at all, and the panel says "No face". There is no camera picker yet.
+- **The camera has to face you.** If you work on an external display with the MacBook to one side, its camera sees you in profile or not at all, and the panel says "No face". Settings > General > Camera chooses another one. Left on Automatic, the app uses the Mac's own camera and moves to another after 10 seconds without a picture, as with the lid closed. A model learned your eyes through one camera: test it again after changing. Choosing a camera and the automatic move have not been tried on a real second camera yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.
 - **Looking down** at the keyboard looks like closed eyes from the camera's angle. A closure longer than 0.6 s is not counted as a blink, which covers most of it.
 - **Incomplete blinks** (the lid comes down part of the way) are not measured yet. Studies link them to dry eye more than they link the rate ([the research](docs/BLINK-RATE.md)).

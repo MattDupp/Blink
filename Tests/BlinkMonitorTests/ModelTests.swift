@@ -68,6 +68,29 @@ struct ModelTests {
         #expect(model.status(now: start.addingTimeInterval(8)) == .watching(rate: 13))
     }
 
+    @Test("On Automatic, ten seconds without a picture and the app tries another camera, once; a chosen camera is kept")
+    func cameraFallback() {
+        let own = CameraOption(id: "own", name: "FaceTime HD Camera", builtIn: true)
+        let desk = CameraOption(id: "desk", name: "Studio Display Camera", builtIn: false)
+        let model = running()
+        model.cameraOptions = { [own, desk] }
+        let start = Date()
+        model.apply(frame(), now: start)
+        model.checkCamera(now: start.addingTimeInterval(6))
+        #expect(model.cameraSilent && model.cameraMovedTo == nil, "silent, but not for ten seconds yet")
+        model.checkCamera(now: start.addingTimeInterval(11))
+        #expect(model.cameraMovedTo == "Studio Display Camera")
+        #expect(CameraWords.moved(to: "Studio Display Camera").contains("test it again"))
+
+        // A camera chosen by hand: the note goes, and silence no longer moves anything.
+        model.setCamera("own")
+        #expect(model.cameraMovedTo == nil && model.preferences.cameraID == "own")
+        model.checkCamera(now: Date().addingTimeInterval(60))
+        #expect(model.cameraMovedTo == nil)
+        model.setCamera(nil)
+        #expect(model.preferences.cameraID == nil)
+    }
+
     @Test("A paused camera is not a silent one")
     func pausedIsNotSilent() {
         let model = running()

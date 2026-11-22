@@ -91,6 +91,28 @@ struct MonitoringTests {
         #expect(BlinkStats().snapshot(now: 0) == BlinkStats.Snapshot())
     }
 
+    @Test("Automatic takes the Mac's own camera and moves on after ten silent seconds; a chosen camera is never left")
+    func cameraChoice() {
+        let own = CameraOption(id: "own", name: "FaceTime HD Camera", builtIn: true)
+        let desk = CameraOption(id: "desk", name: "Studio Display Camera", builtIn: false)
+        let third = CameraOption(id: "third", name: "Webcam", builtIn: false)
+        #expect(CameraChoice.pick(from: [desk, own], wanted: nil) == own)
+        #expect(CameraChoice.pick(from: [desk, third], wanted: nil) == desk, "a Mac with no camera of its own takes the first")
+        #expect(CameraChoice.pick(from: [own, desk], wanted: "desk") == desk)
+        #expect(CameraChoice.pick(from: [own], wanted: "desk") == own, "a chosen camera that was unplugged")
+        #expect(CameraChoice.pick(from: [], wanted: nil) == nil)
+
+        // Lid closed, docked: the Mac's own camera says nothing.
+        #expect(CameraChoice.fallback(from: [own, desk], current: "own", wanted: nil, silentSeconds: 9) == nil)
+        #expect(CameraChoice.fallback(from: [own, desk], current: "own", wanted: nil, silentSeconds: 10) == desk)
+        #expect(CameraChoice.fallback(from: [own, desk], current: "own", wanted: "own", silentSeconds: 60) == nil)
+        #expect(CameraChoice.fallback(from: [own], current: "own", wanted: nil, silentSeconds: 60) == nil)
+        // Once round, then it stays: no swapping for ever in the dark.
+        #expect(CameraChoice.fallback(from: [own, desk, third], current: "desk", wanted: nil, silentSeconds: 10, tried: ["own", "desk"]) == third)
+        #expect(CameraChoice.fallback(from: [own, desk, third], current: "third", wanted: nil, silentSeconds: 10,
+                                      tried: ["own", "desk", "third"]) == nil)
+    }
+
     @Test("Quit asks only when something would be lost: a timer, a recording, a training")
     func quitQuestion() {
         #expect(QuitQuestion.question(.init()) == nil, "an ordinary quit is immediate")

@@ -80,7 +80,8 @@ struct MenuPanelView: View {
                 if !bare {
                     ActionTiles(model: model, state: state, status: status, actions: actions)
                         .padding(.top, 4)
-                    Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
+                    Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now,
+                      cameraMovedTo: model.cameraMovedTo)
                 }
             }
             .padding(16)
@@ -264,6 +265,8 @@ private struct Notes: View {
     @ObservedObject var reminders: ReminderController
     @ObservedObject var preferences: Preferences
     let now: Date
+    /// Automatic moved to this camera (`CameraChoice`): said until a camera is chosen.
+    var cameraMovedTo: String?
 
     var body: some View {
         let lines = self.lines
@@ -343,6 +346,7 @@ private struct Notes: View {
         // Before the app can count, there is no rate to learn and nothing to compare.
         if status == .needsSetup { return lines }
         if case .settingUp = status { return lines }
+        if let cameraMovedTo { lines.append(("camera", CameraWords.moved(to: cameraMovedTo), .primary)) }
         if preferences.breakNudgesOn, let tally = BreakWords.takenToday(reminders.breaks.tally(now: now)) {
             lines.append(("checkmark.circle", tally, .secondary))
         }

@@ -290,6 +290,23 @@ private struct CameraPage: View {
                     .frame(width: SetupCamera.width)
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(checks, id: \.title) { CheckRow(check: $0) }
+                        // With more than one camera, this is the moment to choose: the
+                        // model learns your eyes as THIS camera shows them.
+                        if model.cameras.count > 1 {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Picker("Camera", selection: Binding(get: { model.chosenCamera ?? "" },
+                                                                    set: { model.chooseCamera($0.isEmpty ? nil : $0) })) {
+                                    Text("Automatic").tag("")
+                                    Divider()
+                                    ForEach(model.cameras) { Text($0.name).tag($0.id) }
+                                }
+                                .fixedSize()
+                                Text("Record with the camera you will sit in front of. Automatic is the Mac's own.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                     }
                 }
             }

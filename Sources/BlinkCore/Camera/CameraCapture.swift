@@ -35,6 +35,14 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
 
     /// The camera in use, as macOS names it ("FaceTime HD Camera"). Nil before `start`.
     public private(set) var deviceName: String?
+    /// The same camera, as macOS knows it (`CameraOption.id`).
+    public private(set) var deviceID: String?
+    /// The camera the user chose; nil for Automatic (`CameraChoice`). Set before `start`.
+    public var wantedCamera: String? {
+        get { wantedDevice.withLock { $0 } }
+        set { wantedDevice.withLock { $0 = newValue } }
+    }
+    private let wantedDevice = Locked<String?>(nil)
 
     private let session = AVCaptureSession()
     /// The camera is meant to be running (it was started, and not stopped since).
@@ -81,8 +89,9 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     private func startSession(onFrame: @escaping FrameHandler) throws {
         self.onFrame = onFrame
 
-        guard let device = Self.pickCamera() else { throw CameraError.noCamera }
+        guard let device = Self.pickCamera(wanted: wantedCamera) else { throw CameraError.noCamera }
         deviceName = device.localizedName
+        deviceID = device.uniqueID
         let input = try AVCaptureDeviceInput(device: device)
 
         session.beginConfiguration()
@@ -141,11 +150,56 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     /// as the default (Continuity Camera) - and, unless the app's Info.plist sets
     /// NSCameraUseContinuityCameraDeviceType, it even reports that phone as a "built-in
     /// wide angle camera". The app sets the key, so here a built-in camera is the Mac's.
-    private static func pickCamera() -> AVCaptureDevice? {
-        let found = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external],
-                                                     mediaType: .video, position: .unspecified).devices
-        return found.first { $0.deviceType == .builtInWideAngleCamera } ?? found.first
-            ?? AVCaptureDevice.default(for: .video)
+    private static func pickCamera(wanted: String? = nil) -> AVCaptureDevice? {
+        let found = devices()
+        let picked = CameraChoice.pick(from: found.map(Self.option), wanted: wanted)
+        return found.first { $0.uniqueID == picked?.id } ?? AVCaptureDevice.default(for: .video)
+    }
+
+    private static func devices() -> [AVCaptureDevice] {
+        AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external],
+                                         mediaType: .video, position: .unspecified).devices
+    }
+
+    private static func option(_ device: AVCaptureDevice) -> CameraOption {
+        CameraOption(id: device.uniqueID, name: device.localizedName, builtIn: device.deviceType == .builtInWideAngleCamera)
+    }
+
+    /// The cameras this Mac offers now, the Mac's own first.
+    public static func options() -> [CameraOption] {
+        let all = devices().map(option)
+        return all.filter(\.builtIn) + all.filter { !$0.builtIn }
+    }
+
+    /// Moves a camera that is built to another device: the user chose it, or the one in
+    /// use sent nothing (`CameraChoice.fallback`). Blocks for a moment, like `start`: call
+    /// it away from the main thread. Answers the name of the camera now in use, nil when
+    /// nothing changed (the device is gone, or would not be added).
+    @discardableResult
+    public func use(camera id: String) -> String? {
+        guard id != deviceID, let device = Self.devices().first(where: { $0.uniqueID == id }),
+              let input = try? AVCaptureDeviceInput(device: device) else { return nil }
+        session.beginConfiguration()
+        let old = session.inputs
+        old.forEach { session.removeInput($0) }
+        guard session.canAddInput(input) else {
+            old.forEach { if session.canAddInput($0) { session.addInput($0) } }
+            session.commitConfiguration()
+            return nil
+        }
+        session.addInput(input)
+        // A new input makes a new connection: it must not be mirrored either.
+        for output in session.outputs {
+            if let connection = output.connection(with: .video), connection.isVideoMirroringSupported {
+                connection.automaticallyAdjustsVideoMirroring = false
+                connection.isVideoMirrored = false
+            }
+        }
+        session.commitConfiguration()
+        deviceName = device.localizedName
+        deviceID = device.uniqueID
+        Log.app.notice("Camera changed to \(device.localizedName, privacy: .public)")
+        return device.localizedName
     }
 
     /// Turns the camera off (its green light goes out). The graph stays built.
