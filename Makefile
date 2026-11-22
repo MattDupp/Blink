@@ -41,7 +41,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor demo build test lint format recorder train improve evaluate compare replay monitor monitor-app one-copy uninstall dmg snapshots icon clean
+.PHONY: help doctor demo demo-tour build test lint format recorder train improve evaluate compare replay monitor monitor-app one-copy uninstall dmg snapshots icon clean
 
 help:  ## List the tasks
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -58,6 +58,16 @@ demo: App/AppIcon.icns  ## Try the whole app in a minute: made-up blinks, no cam
 	open build/BlinkMonitorDemo.app
 	@echo "The demo is running: look for the eye marked 'demo' in the menu bar. Quit it from its panel."
 	@echo "To use it on your own eyes:  make monitor"
+
+# For filming: the demo opens its main screens one after the other, in a fixed order
+# (Tour.swift). Start the screen recording first. PACE is the seconds of one beat.
+PACE ?= 4
+demo-tour: App/AppIcon.icns  ## The demo walks through its own screens, to be filmed (PACE=4 seconds a beat)
+	@scripts/doctor.sh mac swift
+	DEMO=1 scripts/bundle.sh BlinkMonitor
+	@pkill -x -f "$(CURDIR)/build/BlinkMonitorDemo.app/Contents/MacOS/BlinkMonitor" 2>/dev/null; true
+	open build/BlinkMonitorDemo.app --args --tour --tour-pace=$(PACE)
+	@echo "The tour starts in three seconds and takes 19 beats of $(PACE) seconds. Afterwards, quit the demo from its panel."
 
 # --- Checks -----------------------------------------------------------------------------
 

@@ -20,6 +20,8 @@ import BlinkCore
 ///       --demo                             made-up eyes: no camera, no model (make demo)
 ///       --play-setup                       with --demo: the setup goes through itself on painted
 ///                                          eyes, with no click (its steps are in the log)
+///       --tour [--tour-pace=<seconds>]     with --demo: the app walks through its main screens
+///                                          by itself, in a fixed order, to be filmed (`Tour`)
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
 ///     BlinkMonitor --train --sessions-dir=<folder> --model-out=<folder>
 ///                                          train a model and quit: the app starts itself this
@@ -121,6 +123,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusItem: StatusItemController
         let setup: SetupModel
         let windows: [String: WindowController]
+        /// What the History and Settings windows show: the tour turns their pages.
+        let historyState: HistoryState
+        let settingsState: SettingsState
         var welcome: WindowController?
         let isDemo: Bool
     }
@@ -209,6 +214,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showSetup(.resume)
             Task { await running.setup.play() }
         }
+        if LaunchArguments.has("tour"), running?.isDemo == true {
+            Task { await playTour(pace: Tour.pace(asked: LaunchArguments.value(of: "tour-pace"))) }
+        }
+    }
+
+    /// The demo walks through its main screens by itself (`Tour`), one window at a time,
+    /// and writes each step to the log. Only in the demo: it opens and closes windows.
+    private func playTour(pace: Double) async {
+        // The panel opens by itself when the demo starts: let that happen first.
+        try? await Task.sleep(nanoseconds: 3_000_000_000)
+        Log.app.notice("Tour: starts, \(Tour.Step.allCases.count, privacy: .public) steps, \(Int(Tour.length(pace: pace)), privacy: .public) s")
+        for (step, seconds) in Tour.plan(pace: pace) {
+            // Left the demo, or quit, in the middle of a take: the tour stops.
+            guard let running, running.isDemo else { return }
+            let windows = running.windows
+            func only(_ name: String?) {
+                running.statusItem.closePanel()
+                for (other, window) in windows where other != name { window.close() }
+                if let name { windows[name]?.show() }
+            }
+            Log.app.notice("Tour: \(step.rawValue, privacy: .public)")
+            switch step {
+            case .panel:
+                only(nil)
+                running.statusItem.showPanel()
+            case .blinkBreak: only("blink-break")
+            case .history: only("history")
+            case .historyEarlierWeek: running.historyState.week = 2
+            case .historyBack: running.historyState.week = 0
+            case .settingsGeneral:
+                only("settings")
+                running.settingsState.tab = .general
+            case .settingsBlinkRate: running.settingsState.tab = .reminders
+            case .settingsBreaks: running.settingsState.tab = .breaks
+            case .settingsRoutines: running.settingsState.tab = .routines
+            case .settingsPrivacy: running.settingsState.tab = .data
+            case .settingsAbout: running.settingsState.tab = .sources
+            case .liveView: only("live-view")
+            case .end:
+                only(nil)
+                running.statusItem.showPanel()
+            }
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+        Log.app.notice("Tour: over")
     }
 
     // MARK: - One model and its windows
@@ -354,6 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var running = Running(model: model, statusItem: statusItem, setup: setupModel,
                               windows: ["history": history, "live-view": liveView, "blink-break": blinkBreak,
                                         "settings": settings, "setup": setup, "routine-timer": routineTimer],
+                              historyState: historyState, settingsState: settingsState,
                               welcome: nil, isDemo: demo)
 
         // An app with no window has to show where it lives: the first time (and in the

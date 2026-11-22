@@ -240,6 +240,32 @@ window closed in the middle loses nothing that was finished.
   saved, trained on and tested by the real code. The demo offers it (*See the Setup*),
   and `--demo --play-setup` goes through it with no click, writing its steps to the log.
 
+## Filming the app
+
+The demo can walk through its own screens, so that nobody clicks while the screen is
+recorded and every take is the same. It shows the whole app without a face: the eyes are
+drawn and the history is made up.
+
+```bash
+make demo-tour
+```
+
+Start macOS's screen recording first (Shift-Command-5), then run the command. Three
+seconds after it starts, the demo opens its panel, a blink break, History (the last seven
+days, an earlier week and back), Settings tab by tab, Live View, and ends on the panel:
+19 beats of 4 seconds, 76 seconds in all. `make demo-tour PACE=6` gives each beat 6
+seconds. The list is `Tour`, in `Sources/BlinkMonitor/App/Tour.swift`. The demo keeps
+running afterwards: quit it from its panel.
+
+Each step is written to the log as it begins, so a take can be checked without watching it:
+
+```bash
+/usr/bin/log show --last 3m --predicate 'subsystem == "local.blinkmonitor" AND eventMessage BEGINSWITH "Tour"'
+```
+
+On a demo that is already built, without `make`:
+`build/BlinkMonitorDemo.app/Contents/MacOS/BlinkMonitor --tour --tour-pace=4`.
+
 ## Tests
 
 - **Swift** (`Tests/BlinkCoreTests`): geometry and cropping on frames painted in memory,

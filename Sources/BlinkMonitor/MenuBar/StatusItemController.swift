@@ -100,6 +100,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         Log.app.notice("Panel opened by itself: \(self.popover.isShown, privacy: .public)")
     }
 
+    /// Closes the panel, if it is open (the tour does, between two screens).
+    func closePanel() {
+        popover.performClose(nil)
+    }
+
     /// Takes the item out of the menu bar: the app is replacing this model by another
     /// (entering or leaving the demo), which gets an item of its own.
     func remove() {
