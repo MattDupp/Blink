@@ -27,6 +27,21 @@ public enum Insights {
             .map { (hour: $0.0, rate: $0.1) }
     }
 
+    /// The hours of the day worth drawing: from the first to the last hour with anything
+    /// recorded, with an hour of margin on each side. The whole day when nothing is
+    /// recorded. Most of a 24-hour axis was empty, and squeezed the hours that matter.
+    public static func hoursUsed(records: [MinuteRecord], calendar: Calendar = .current) -> ClosedRange<Int> {
+        let hours = records.filter { $0.observedSeconds >= 1 }.map { calendar.component(.hour, from: $0.start) }
+        guard let first = hours.min(), let last = hours.max() else { return 0...23 }
+        return max(0, first - 1)...min(23, last + 1)
+    }
+
+    /// Is this rate drawn as under the limit? Judged on the figure as it is WRITTEN, with
+    /// one decimal: a bar labelled "10.0" was orange under a limit of 10.
+    public static func isUnder(_ rate: Double, limit: Double) -> Bool {
+        (rate * 10).rounded() / 10 < limit
+    }
+
     /// The rate of every hour of every day: `[day][hour]`, nil where less than 10 minutes
     /// were watched. `days`: the starts of the days wanted, in the order wanted.
     public static func heatMap(records: [MinuteRecord], days: [Date], calendar: Calendar = .current) -> [[Double?]] {

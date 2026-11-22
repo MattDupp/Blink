@@ -11,11 +11,15 @@ public struct CameraPreviewView: View {
     private let frameSize: CGSize
     private let eyeRects: [CGRect]
     private let tint: Color
+    private let dashed: Bool
     private let placeholder: String
 
     /// - eyeRects: in camera pixels (origin top-left), as `EyeLocator` gives them.
     /// - placeholder: shown while there is no picture (starting, paused, access refused).
-    public init(image: CGImage?, frameSize: CGSize, eyeRects: [CGRect], tint: Color = .green, placeholder: String) {
+    /// - dashed: the squares are drawn dashed (Live View, while the eyes read as closed):
+    ///   the state is then not said by colour alone.
+    public init(image: CGImage?, frameSize: CGSize, eyeRects: [CGRect], tint: Color = .green, dashed: Bool = false, placeholder: String) {
+        self.dashed = dashed
         self.image = image
         self.frameSize = frameSize
         self.eyeRects = eyeRects
@@ -37,7 +41,7 @@ public struct CameraPreviewView: View {
                             let factor = geometry.size.width / max(frameSize.width, 1)
                             ForEach(Array(eyeRects.enumerated()), id: \.offset) { _, rect in
                                 RoundedRectangle(cornerRadius: 3)
-                                    .stroke(tint, lineWidth: 2)
+                                    .stroke(tint, style: StrokeStyle(lineWidth: 2, dash: dashed ? [5, 4] : []))
                                     .frame(width: rect.width * factor, height: rect.height * factor)
                                     .position(x: rect.midX * factor, y: rect.midY * factor)
                             }

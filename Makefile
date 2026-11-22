@@ -196,8 +196,10 @@ dmg: App/AppIcon.icns  ## Build the installer: a disk image to open and drag fro
 # --- Extras -----------------------------------------------------------------------------
 
 snapshots: App/AppIcon.icns  ## Render every screen of the app with made-up data (build/screens)
+	@# English numbers and a 24-hour clock in the pictures, whatever this Mac is set to: the
+	@# README once showed "1 912".
 	scripts/bundle.sh BlinkMonitor
-	build/BlinkMonitor.app/Contents/MacOS/BlinkMonitor "--snapshots=$(CURDIR)/build/screens" >/dev/null
+	build/BlinkMonitor.app/Contents/MacOS/BlinkMonitor "--snapshots=$(CURDIR)/build/screens" -AppleLocale en_GB -AppleLanguages "(en)" >/dev/null
 	@# Every screen and state is rendered, to be looked at. Only the pictures the docs
 	@# show are kept in the repository: those are copied to docs/img.
 	@for name in $$(grep -ohE 'img/[a-z-]+-(light|dark)\.png' README.md docs/*.md | sort -u); do \

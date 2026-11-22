@@ -355,8 +355,8 @@ private struct Notes: View {
             if let drift = Baseline.drift(reference: reference, recent: history.minutes),
                drift >= Baseline.driftWorthSaying {
                 lines.append(("arrow.down.right",
-                              String(format: "This week you blink %.0f%% less than your usual rate (%.1f a minute, measured %@)",
-                                     drift * 100, reference.rate, Format.day(reference.measuredOn)), .orange))
+                              String(format: "This week you blink %.0f%% less than your usual rate (%@ a minute, measured %@)",
+                                     drift * 100, Format.rate(reference.rate), Format.day(reference.measuredOn)), .orange))
             }
         } else {
             lines.append(("gauge.with.needle",
@@ -400,7 +400,7 @@ private struct TodaySection: View {
             SectionTitle("Today")
             HStack(spacing: 8) {
                 StatTile(value: Format.duration(today.observedSeconds), caption: "at the screen")
-                StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
+                StatTile(value: today.ratePerMinute.map(Format.rate) ?? "--", caption: "blinks a minute")
                     .help("Today's average. \(today.blinks.formatted()) blinks counted today.")
                 StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--", caption: "above your limit")
                     .help("The share of today's minutes at or above your limit of \(limit) blinks a minute")
@@ -747,6 +747,22 @@ enum Format {
         guard minutes >= 60 else { return "\(minutes) min" }
         // "5 h 10" is not an English duration, and "3 h 00" says nothing more than "3 h".
         return minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes / 60) h \(minutes % 60) min"
+    }
+
+    /// A rate with one decimal, written the way this Mac writes numbers ("13.2", "13,2").
+    static func rate(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    /// An hour of the day as this Mac writes times: "14:00", or "2:00 PM".
+    static func hour(_ hour: Int, calendar: Calendar = .current) -> String {
+        calendar.date(bySettingHour: hour, minute: 0, second: 0, of: Date(timeIntervalSinceReferenceDate: 0)).map(time) ?? "\(hour):00"
+    }
+
+    /// The same, short, for an axis: "14", or "2 PM".
+    static func hourLabel(_ hour: Int, calendar: Calendar = .current) -> String {
+        calendar.date(bySettingHour: hour, minute: 0, second: 0, of: Date(timeIntervalSinceReferenceDate: 0))
+            .map { $0.formatted(.dateTime.hour()) } ?? "\(hour)"
     }
 
     /// "1 minute", "3 minutes": a number with its noun, so that no sentence says "1 minutes".

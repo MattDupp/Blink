@@ -146,6 +146,13 @@ struct BaselineTests {
 
         let lowest = Insights.lowestHours(records: records, calendar: calendar)
         #expect(lowest.map(\.hour) == [10, 9])
+
+        // The charts draw the hours that were used, with an hour of margin, not the whole clock.
+        #expect(Insights.hoursUsed(records: records, calendar: calendar) == 8...12)
+        #expect(Insights.hoursUsed(records: [], calendar: calendar) == 0...23)
+
+        // A rate is under the limit as it is WRITTEN: 9.96 reads "10.0" and is not under 10.
+        #expect(!Insights.isUnder(9.96, limit: 10) && Insights.isUnder(9.94, limit: 10) && !Insights.isUnder(10, limit: 10))
     }
 
     @Test("The heat map has one row per day asked for, in that order")

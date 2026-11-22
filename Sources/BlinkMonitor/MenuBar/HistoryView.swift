@@ -8,6 +8,10 @@ import BlinkUI
 final class HistoryState: ObservableObject {
     /// The day shown hour by hour (the start of that day); nil = today.
     @Published var selectedDay: Date?
+    /// The bar or cell under the pointer: its value is written under its chart.
+    @Published var hoveredDay: Int?
+    @Published var hoveredHour: Int?
+    @Published var hoveredCell: HeatMap.Cell?
 }
 
 /// The history window: your last seven days, any of them hour by hour, and the week as
@@ -35,6 +39,9 @@ struct HistoryView: View {
         let selected = state.selectedDay ?? today
         let weekRecords = days.flatMap { history.records(on: $0.day) }
         let week = DaySummary(records: weekRecords, threshold: limit)
+        // Both hour charts show the hours this week used, not the whole clock.
+        let hours = Insights.hoursUsed(records: weekRecords)
+        let hourly = history.hours(of: selected, threshold: limit)
 
         // 44: the title bar. On a screen too low for the whole window, it scrolls.
         return ScrollsWhenTall(reserved: 44) { VStack(alignment: .leading, spacing: 18) {
@@ -45,16 +52,22 @@ struct HistoryView: View {
                     SectionTitle("Last 7 days")
                     HStack(spacing: 8) {
                         StatTile(value: Format.duration(week.observedSeconds), caption: "at the screen")
-                        StatTile(value: week.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
+                        StatTile(value: week.ratePerMinute.map(Format.rate) ?? "--", caption: "blinks a minute")
                         StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--",
-                                 caption: "of minutes above your limit")
+                                 caption: "above your limit")
                     }
                     BarChart(bars: days.map { day in
                         BarChart.Bar(label: day.day.formatted(.dateTime.weekday(.abbreviated)), value: day.summary.ratePerMinute)
                     }, threshold: limit, showValues: true,
-                             selected: days.firstIndex { $0.day == selected }) { state.selectedDay = days[$0].day }
+                             selected: days.firstIndex { $0.day == selected }, hovered: state.hoveredDay,
+                             onHover: { state.hoveredDay = $0 }) { state.selectedDay = days[$0].day }
                         .frame(height: 140)
-                        .help("Click a day to see it hour by hour")
+                        .accessibilityLabel("Blink rate for each of the last seven days")
+                        .accessibilityValue(days.map { "\($0.day.formatted(.dateTime.weekday(.wide))) \($0.summary.ratePerMinute.map(Format.rate) ?? "nothing")" }
+                            .joined(separator: ", "))
+                    ChartCaption(state.hoveredDay.flatMap { days.indices.contains($0) ? days[$0] : nil }.map { day in
+                        Self.said(day.day.formatted(.dateTime.weekday(.wide)), day.summary)
+                    } ?? "Click a day to see its hours.")
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -63,16 +76,29 @@ struct HistoryView: View {
                         Spacer()
                         DayStepper(days: days.map(\.day), selected: selected) { state.selectedDay = $0 }
                     }
-                    BarChart(bars: history.hours(of: selected, threshold: limit).enumerated().map { hour, summary in
-                        BarChart.Bar(label: hour % 3 == 0 ? "\(hour)" : "", value: summary.ratePerMinute)
-                    }, threshold: limit, showValues: false)
+                    BarChart(bars: hours.map { hour in
+                        BarChart.Bar(label: Self.labelled(hour, in: hours) ? Format.hourLabel(hour) : "", value: hourly[hour].ratePerMinute)
+                    }, threshold: limit, showValues: false, hovered: state.hoveredHour, onHover: { state.hoveredHour = $0 })
                         .frame(height: 100)
+                        .accessibilityLabel("Blink rate for each hour of the day shown")
+                        .accessibilityValue(hours.compactMap { hour in hourly[hour].ratePerMinute.map { "\(Format.hour(hour)) \(Format.rate($0))" } }
+                            .joined(separator: ", "))
+                    ChartCaption(state.hoveredHour.flatMap { index in hours.dropFirst(index).first }.map { hour in
+                        Self.said(Format.hour(hour), hourly[hour])
+                    } ?? " ")
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle("The week, by hour of the day")
-                    HeatMap(days: days.map(\.day), rates: Insights.heatMap(records: weekRecords, days: days.map(\.day)),
-                            limit: limit, selected: selected)
+                    let rates = Insights.heatMap(records: weekRecords, days: days.map(\.day))
+                    HeatMap(days: days.map(\.day), rates: rates, hours: hours,
+                            limit: limit, selected: selected, hovered: state.hoveredCell,
+                            onHover: { state.hoveredCell = $0 }) { state.selectedDay = $0 }
+                    ChartCaption(state.hoveredCell.flatMap { cell -> String? in
+                        guard days.indices.contains(cell.row) else { return nil }
+                        let name = "\(days[cell.row].day.formatted(.dateTime.weekday(.abbreviated))) \(Format.hour(cell.hour))"
+                        return rates[cell.row][cell.hour].map { "\(name): \(Format.rate($0)) blinks a minute" } ?? "\(name): not counted"
+                    } ?? "Click a row to see that day. A dot marks an hour under your limit.")
                 }
 
                 let findings = self.findings(days: days, weekRecords: weekRecords, week: week)
@@ -103,45 +129,60 @@ struct HistoryView: View {
         .frame(width: 620)
     }
 
-    /// The few sentences the numbers support: your lowest hours, how you compare with your
-    /// reference, your best and lowest day, and where your week sits against published studies.
+    /// "Tuesday: 11.4 blinks a minute, 5 h 2 min at the screen."
+    static func said(_ name: String, _ summary: DaySummary) -> String {
+        guard let rate = summary.ratePerMinute else { return "\(name): not counted" }
+        return "\(name): \(Format.rate(rate)) blinks a minute, \(Format.duration(summary.observedSeconds)) at the screen"
+    }
+
+    /// Every third hour is named under the hour chart, counted from the first one drawn.
+    static func labelled(_ hour: Int, in hours: ClosedRange<Int>) -> Bool {
+        hours.count <= 8 || (hour - hours.lowerBound) % 3 == 0
+    }
+
+    /// The few sentences the numbers support, and that the charts above do not already
+    /// say: the hours when your rate is lowest, and a drift from your usual rate. (The
+    /// highest and lowest day repeated the chart, "matches your usual rate" said nothing,
+    /// and the studies line never changed: it is in Settings.)
     private func findings(days: [(day: Date, summary: DaySummary)], weekRecords: [MinuteRecord],
                           week: DaySummary) -> [(symbol: String, text: String, tint: Color)] {
         var findings: [(String, String, Color)] = []
 
-        let lowest = Insights.lowestHours(records: weekRecords)
+        // The two lowest hours, in the order of the day.
+        let lowest = Insights.lowestHours(records: weekRecords).sorted { $0.hour < $1.hour }
         if lowest.count == 2 {
-            findings.append(("clock", String(format: "Your lowest hours: %d:00 (%.1f a minute) and %d:00 (%.1f).",
-                                             lowest[0].hour, lowest[0].rate, lowest[1].hour, lowest[1].rate), .primary))
+            findings.append(("clock", "Your rate is lowest around \(Format.hour(lowest[0].hour)) and \(Format.hour(lowest[1].hour)) "
+                             + "(\(Format.rate(lowest[0].rate)) and \(Format.rate(lowest[1].rate)) a minute): the hours where a break counts most.",
+                             .primary))
         }
 
         if preferences.automaticLimit, let reference = preferences.reference,
            let drift = Baseline.drift(reference: reference, recent: weekRecords) {
-            let measured = String(format: "your usual rate of %.1f a minute, measured on %@", reference.rate, Format.day(reference.measuredOn))
+            let measured = "your usual rate of \(Format.rate(reference.rate)) a minute, measured on \(Format.day(reference.measuredOn))"
             if drift >= Baseline.driftWorthSaying {
                 findings.append(("arrow.down.right", String(format: "This week you blink %.0f%% less than %@. The limit has not moved.", drift * 100, measured), .orange))
             } else if drift <= -Baseline.driftWorthSaying {
                 findings.append(("arrow.up.right", String(format: "This week you blink %.0f%% more than %@.", -drift * 100, measured), .primary))
-            } else {
-                findings.append(("equal", "This week matches \(measured).", .primary))
             }
         }
-
-        let rated = days.compactMap { day in day.summary.ratePerMinute.map { (day: day.day, rate: $0) } }
-        if rated.count >= 2, let best = rated.max(by: { $0.rate < $1.rate }), let worst = rated.min(by: { $0.rate < $1.rate }) {
-            findings.append(("calendar", String(format: "Highest day: %@ (%.1f a minute). Lowest: %@ (%.1f).",
-                                                best.day.formatted(.dateTime.weekday(.wide)), best.rate,
-                                                worst.day.formatted(.dateTime.weekday(.wide)), worst.rate), .primary))
-        }
-
-        // Said in the same quiet colour wherever the week falls: a range from studies is
-        // neither good nor bad, and only your own limit turns anything orange. (The picture
-        // of the three ranges is in Settings: here it made this window taller than a
-        // 14-inch screen.)
-        if let comparison = PublishedRates.comparison(of: week) {
-            findings.append(("book", comparison.sentence + " " + PublishedRates.whereTheSourcesAre, .primary))
-        }
         return findings
+    }
+}
+
+/// The line under a chart: the value under the pointer, or what a click does. One line
+/// high whatever it says, so the window does not move under the pointer.
+private struct ChartCaption: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -197,20 +238,34 @@ private struct LegendStyle: LabelStyle {
 }
 
 /// One row per day, one cell per hour: the week at a glance. A cell's colour says on which
-/// side of the limit that hour was, its strength how far from it.
-private struct HeatMap: View {
+/// side of the limit that hour was, its strength how far from it, and a dot marks the hours
+/// under the limit, for eyes that do not tell the two colours apart. A click on a row
+/// shows that day hour by hour.
+struct HeatMap: View {
+
+    /// One cell: a row (a day) and an hour of the day.
+    struct Cell: Equatable {
+        var row: Int
+        var hour: Int
+    }
+
     let days: [Date]
-    /// `[day][hour]`, nil where too little was watched.
+    /// `[day][hour]`, nil where too little was counted.
     let rates: [[Double?]]
+    /// The hours drawn.
+    var hours: ClosedRange<Int> = 0...23
     let limit: Double
     let selected: Date
+    var hovered: Cell?
+    var onHover: (Cell?) -> Void = { _ in }
+    var onSelect: (Date) -> Void = { _ in }
 
     private let rowHeight: CGFloat = 17
     private let labelWidth: CGFloat = 38
 
     var body: some View {
         Canvas { context, size in
-            let cell = (size.width - labelWidth) / 24
+            let cell = (size.width - labelWidth) / CGFloat(hours.count)
             for (row, day) in days.enumerated() {
                 let y = CGFloat(row) * rowHeight
                 let label = Text(day.formatted(.dateTime.weekday(.abbreviated)))
@@ -218,24 +273,64 @@ private struct HeatMap: View {
                     .foregroundStyle(day == selected ? Color.primary : Color.secondary)
                 context.draw(label, at: CGPoint(x: 0, y: y + rowHeight / 2), anchor: .leading)
 
-                for hour in 0..<24 {
-                    let rect = CGRect(x: labelWidth + CGFloat(hour) * cell + 1, y: y + 1, width: cell - 2, height: rowHeight - 2)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(colour(rates[row][hour])))
+                for (column, hour) in hours.enumerated() {
+                    let rect = CGRect(x: labelWidth + CGFloat(column) * cell + 1, y: y + 1, width: cell - 2, height: rowHeight - 2)
+                    let rate = rates[row][hour]
+                    context.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(colour(rate)))
+                    if let rate, Insights.isUnder(rate, limit: limit) {
+                        let dot = CGRect(x: rect.midX - 1.5, y: rect.midY - 1.5, width: 3, height: 3)
+                        context.fill(Path(ellipseIn: dot), with: .color(.primary.opacity(0.75)))
+                    }
+                    if hovered == Cell(row: row, hour: hour) {
+                        context.stroke(Path(roundedRect: rect, cornerRadius: 3), with: .color(.primary.opacity(0.6)), lineWidth: 1.5)
+                    }
                 }
             }
-            for hour in stride(from: 0, to: 24, by: 3) {
-                context.draw(Text("\(hour)").font(.caption).foregroundStyle(.secondary),
-                             at: CGPoint(x: labelWidth + (CGFloat(hour) + 0.5) * cell, y: CGFloat(days.count) * rowHeight + 8))
+            for (column, hour) in hours.enumerated() where HistoryView.labelled(hour, in: hours) {
+                context.draw(Text(Format.hourLabel(hour)).font(.caption).foregroundStyle(.secondary),
+                             at: CGPoint(x: labelWidth + (CGFloat(column) + 0.5) * cell, y: CGFloat(days.count) * rowHeight + 8))
             }
         }
         .frame(height: CGFloat(days.count) * rowHeight + 16)
+        .overlay {
+            GeometryReader { geometry in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { point in
+                        let row = Int(point.y / rowHeight)
+                        if days.indices.contains(row) { onSelect(days[row]) }
+                    }
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point): onHover(cell(at: point, width: geometry.size.width))
+                        case .ended: onHover(nil)
+                        }
+                    }
+            }
+        }
         .accessibilityLabel("Blink rate for every hour of the last seven days")
+        .accessibilityValue(spoken)
+    }
+
+    /// The cell under a point, nil over the day names or under the last row.
+    private func cell(at point: CGPoint, width: CGFloat) -> Cell? {
+        let row = Int(point.y / rowHeight)
+        let column = Int((point.x - labelWidth) / ((width - labelWidth) / CGFloat(hours.count)))
+        guard point.x >= labelWidth, days.indices.contains(row), column >= 0, column < hours.count else { return nil }
+        return Cell(row: row, hour: hours.lowerBound + column)
+    }
+
+    /// The picture in words: how many of the hours counted were under the limit.
+    private var spoken: String {
+        let counted = rates.flatMap { $0 }.compactMap { $0 }
+        let under = counted.filter { Insights.isUnder($0, limit: limit) }.count
+        return "\(under) of \(counted.count) hours under your limit"
     }
 
     private func colour(_ rate: Double?) -> Color {
-        guard let rate else { return .primary.opacity(0.05) }       // not watched
+        guard let rate else { return .primary.opacity(0.05) }       // not counted
         let distance = min(1, abs(rate - limit) / max(limit, 1) * 2)
-        return (rate < limit ? Color.orange : Color.green).opacity(0.35 + 0.65 * distance)
+        return (Insights.isUnder(rate, limit: limit) ? Color.orange : Color.green).opacity(0.35 + 0.65 * distance)
     }
 }
 
@@ -252,6 +347,9 @@ struct BarChart: View {
     let threshold: Double
     let showValues: Bool
     var selected: Int?
+    /// The bar under the pointer, and the word that it changed.
+    var hovered: Int?
+    var onHover: ((Int?) -> Void)?
     var onSelect: ((Int) -> Void)?
 
     var body: some View {
@@ -268,6 +366,11 @@ struct BarChart: View {
                 context.fill(Path(roundedRect: column, cornerRadius: 6), with: .color(.primary.opacity(0.07)))
             }
 
+            if let hovered, hovered != selected, bars.indices.contains(hovered) {
+                let column = CGRect(x: CGFloat(hovered) * slot + 3, y: 0, width: slot - 6, height: size.height)
+                context.fill(Path(roundedRect: column, cornerRadius: 6), with: .color(.primary.opacity(0.04)))
+            }
+
             // The threshold first, so the bars are drawn over it.
             let lineY = plot.maxY - CGFloat(threshold / top) * plot.height
             var line = Path()
@@ -281,12 +384,12 @@ struct BarChart: View {
                     let height = max(3, CGFloat(value / top) * plot.height)
                     let rect = CGRect(x: centre - barWidth / 2, y: plot.maxY - height, width: barWidth, height: height)
                     context.fill(Path(roundedRect: rect, cornerRadius: min(4, barWidth / 3)),
-                                 with: .color(value < threshold ? .orange : .green))
+                                 with: .color(Insights.isUnder(value, limit: threshold) ? .orange : .green))
                     if showValues {
                         // Above the bar - or above the limit line, when that line would
                         // otherwise run through the figures.
                         let crossed = lineY < rect.minY && lineY > rect.minY - 18
-                        context.draw(Text(String(format: "%.1f", value)).font(.caption.weight(.semibold)),
+                        context.draw(Text(Format.rate(value)).font(.caption.weight(.semibold)),
                                      at: CGPoint(x: centre, y: (crossed ? lineY : rect.minY) - 9))
                     }
                 } else {
@@ -301,17 +404,31 @@ struct BarChart: View {
                                  at: CGPoint(x: centre, y: size.height - labelHeight / 2 + 1))
                 }
             }
+
+            // The dashed line says what it is, at its right end.
+            let name = context.resolve(Text("limit \(Int(threshold))").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary))
+            let measured = name.measure(in: size)
+            let plate = CGRect(x: size.width - measured.width - 6, y: lineY - measured.height - 3, width: measured.width + 4, height: measured.height + 1)
+            context.fill(Path(roundedRect: plate, cornerRadius: 3), with: .color(Color(nsColor: .windowBackgroundColor).opacity(0.94)))
+            context.draw(name, at: CGPoint(x: plate.midX, y: plate.midY), anchor: .center)
         }
         .overlay {
-            if let onSelect {
-                GeometryReader { geometry in
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture { point in
-                            let index = Int(point.x / (geometry.size.width / CGFloat(max(bars.count, 1))))
-                            if bars.indices.contains(index) { onSelect(index) }
+            GeometryReader { geometry in
+                let slot = geometry.size.width / CGFloat(max(bars.count, 1))
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { point in
+                        let index = Int(point.x / slot)
+                        if bars.indices.contains(index) { onSelect?(index) }
+                    }
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point):
+                            let index = Int(point.x / slot)
+                            onHover?(bars.indices.contains(index) ? index : nil)
+                        case .ended: onHover?(nil)
                         }
-                }
+                    }
             }
         }
     }

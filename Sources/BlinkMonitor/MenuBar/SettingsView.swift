@@ -263,7 +263,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
                 StudyRangesSection(yours: preferences.reference.map {
-                    .init(label: String(format: "your usual rate %.1f", $0.rate), rate: $0.rate)
+                    .init(label: "your usual rate \(Format.rate($0.rate))", rate: $0.rate)
                 }, limit: preferences.limit)
             }
             .padding(.horizontal, 14)
@@ -279,7 +279,7 @@ struct SettingsView: View {
             if let reference = preferences.reference {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(String(format: "Your usual rate: %.1f blinks a minute", reference.rate))
+                        Text("Your usual rate: \(Format.rate(reference.rate)) blinks a minute")
                         Text("Measured on \(Format.day(reference.measuredOn)) over \(Format.count(reference.minutes, "minute")). \(limitSentence(reference))")
                             .font(.callout)
                             .foregroundStyle(.secondary)
@@ -333,7 +333,7 @@ struct SettingsView: View {
         case .proposed(let proposal):
             let newLimit = Baseline.limit(reference: proposal.measured, automatic: true, floor: preferences.floor)
             VStack(alignment: .leading, spacing: 8) {
-                Text(String(format: "Measured over the last week: %.1f blinks a minute.", proposal.measured.rate))
+                Text("Measured over the last week: \(Format.rate(proposal.measured.rate)) blinks a minute.")
                     .fontWeight(.semibold)
                 let change = newLimit == preferences.limit
                     ? "the limit stays at \(newLimit)" : "the limit moves from \(preferences.limit) to \(newLimit)"
@@ -349,9 +349,9 @@ struct SettingsView: View {
                 }
                 HStack {
                     Spacer()
-                    Button(proposal.current.map { String(format: "Keep %.1f", $0.rate) } ?? "Cancel") { state.measurement = nil }
+                    Button(proposal.current.map { "Keep \(Format.rate($0.rate))" } ?? "Cancel") { state.measurement = nil }
                         .keyboardShortcut(.cancelAction)
-                    Button(String(format: "Use %.1f", proposal.measured.rate)) {
+                    Button("Use \(Format.rate(proposal.measured.rate))") {
                         preferences.reference = proposal.measured
                         state.measurement = nil
                     }

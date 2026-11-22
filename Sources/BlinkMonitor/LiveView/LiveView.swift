@@ -21,6 +21,7 @@ struct LiveView: View {
                     CameraPreviewView(image: model.preview, frameSize: model.live.frameSize,
                                       eyeRects: model.live.eyeRects,
                                       tint: model.live.eyesClosed ? .orange : .green,   // green = read as open
+                                      dashed: model.live.eyesClosed,                    // and not by colour alone
                                       placeholder: model.cameraNote)
                     TraceView(model: model)
                         .frame(height: 150)
