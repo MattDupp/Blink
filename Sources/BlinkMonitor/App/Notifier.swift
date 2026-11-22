@@ -14,7 +14,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         /// "Send a Test Reminder": the same banner, said to be a test, whose buttons do nothing.
         case lowRateTest
         /// A look-away break starts (the words come from `BreakWords`). `canPostpone`:
-        /// the banner still offers "In 5 Minutes".
+        /// the banner still offers "Later (5 min)".
         /// `sound`: the banner comes with the Mac's notification sound (a setting).
         case screenBreak(title: String, body: String, canPostpone: Bool, sound: Bool)
     }
@@ -75,10 +75,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let lowRate = UNNotificationCategory(identifier: Identifier.lowRate, actions: [
             // `.foreground`: pressing it brings the app forward, to show the exercise.
             UNNotificationAction(identifier: Identifier.blinkBreak, title: "Start Blink Break", options: [.foreground]),
-            UNNotificationAction(identifier: Identifier.snooze, title: "Snooze 1 Hour", options: []),
+            UNNotificationAction(identifier: Identifier.snooze, title: "Quiet for 1 Hour", options: []),
         ], intentIdentifiers: [])
         // Neither button brings the app forward: you are about to look away.
-        let later = UNNotificationAction(identifier: Identifier.postponeBreak, title: "In 5 Minutes", options: [])
+        let later = UNNotificationAction(identifier: Identifier.postponeBreak, title: "Later (5 min)", options: [])
         let skip = UNNotificationAction(identifier: Identifier.skipBreak, title: "Skip", options: [])
         let screenBreak = UNNotificationCategory(identifier: Identifier.screenBreak, actions: [later, skip], intentIdentifiers: [])
         let screenBreakLast = UNNotificationCategory(identifier: Identifier.screenBreakLast, actions: [skip], intentIdentifiers: [])
@@ -86,7 +86,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // on: a test must not start a snooze of an hour.
         let lowRateTest = UNNotificationCategory(identifier: Identifier.lowRateTest, actions: [
             UNNotificationAction(identifier: "test-blink-break", title: "Start Blink Break", options: []),
-            UNNotificationAction(identifier: "test-snooze", title: "Snooze 1 Hour", options: []),
+            UNNotificationAction(identifier: "test-snooze", title: "Quiet for 1 Hour", options: []),
         ], intentIdentifiers: [])
         center.setNotificationCategories(Set([lowRate, lowRateTest, screenBreak, screenBreakLast] + extraCategories))
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
@@ -136,7 +136,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             content.categoryIdentifier = Identifier.lowRate
             content.title = "Time to blink"
             content.body = String(format: "About %.0f blinks a minute over the last 3 minutes. "
-                                  + "Ten slow, full blinks help.", recent)
+                                  + "Try ten slow, full blinks.", recent)
             if !sound { content.sound = nil }
         case .lowRateTest:
             identifier = Identifier.lowRateTest

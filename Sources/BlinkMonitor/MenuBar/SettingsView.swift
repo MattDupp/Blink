@@ -184,7 +184,7 @@ struct SettingsView: View {
                     .disabled(!loginItem.available)
             }
             Divider()
-            Row("Show the rate in the menu bar", detail: "Off: only the eye is shown, and it changes when you blink too little.") {
+            Row("Show the rate in the menu bar", detail: "Off: only the eye is shown, and it changes when your rate is low.") {
                 Toggle("Show the rate in the menu bar", isOn: $preferences.showRateInMenuBar)
             }
             Divider()
@@ -194,7 +194,7 @@ struct SettingsView: View {
             Divider()
             Row("Live View", detail: "The camera with your eyes framed, and each blink as it is counted."
                     + (model.cameraName.map { " Camera: \($0)." } ?? "")) {
-                Button("Open...") { actions.openLiveView() }
+                Button("Open Live View") { actions.openLiveView() }
             }
         }
     }
@@ -227,9 +227,9 @@ struct SettingsView: View {
                     referenceBlock
                     Divider()
                 }
-                Row(preferences.automaticLimit ? "Never under" : "Too little is under",
+                Row(preferences.automaticLimit ? "Lowest limit" : "Limit",
                     detail: preferences.automaticLimit
-                        ? "The automatic limit cannot go under this, whatever your reference."
+                        ? "The automatic limit never goes under this."
                         : "A limit you choose. The picture below shows what studies report.") {
                     HStack(spacing: 6) {
                         Text("\(preferences.floor) a minute").monospacedDigit()
@@ -257,7 +257,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
                 StudyRangesSection(yours: preferences.reference.map {
-                    .init(label: String(format: "your reference %.1f", $0.rate), rate: $0.rate)
+                    .init(label: String(format: "your usual rate %.1f", $0.rate), rate: $0.rate)
                 }, limit: preferences.limit)
             }
             .padding(.horizontal, 14)
@@ -273,7 +273,7 @@ struct SettingsView: View {
             if let reference = preferences.reference {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(String(format: "Your reference: %.1f blinks a minute", reference.rate))
+                        Text(String(format: "Your usual rate: %.1f blinks a minute", reference.rate))
                         Text("Measured on \(Format.day(reference.measuredOn)) over \(reference.minutes) minutes. \(limitSentence(reference))")
                             .font(.callout)
                             .foregroundStyle(.secondary)
@@ -281,7 +281,7 @@ struct SettingsView: View {
                     }
                     Spacer(minLength: 12)
                     if state.measurement == nil {
-                        Button("Measure Again...") { measureAgain() }
+                        Button("Measure Again…") { measureAgain() }
                     }
                 }
                 if Baseline.limitAboveUsual(reference: reference, limit: preferences.limit) {
@@ -293,7 +293,7 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if state.measurement == nil {
-                    Text("It stays where it was measured. If you blink less over the months, the limit does not go down with you: the History window shows the gap instead.")
+                    Text("Measured once and kept. If you blink less over the months, the limit stays and History shows the gap.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -302,7 +302,7 @@ struct SettingsView: View {
                 let calibration = Baseline.calibration(records: history.minutes)
                 Text("Learning your usual rate")
                 ProgressView(value: calibration.progress)
-                Text("\(Format.duration(calibration.watchedSeconds)) of 3 h watched, on \(calibration.days) of 2 days. "
+                Text("\(Format.duration(calibration.watchedSeconds)) of 3 h at the screen, on \(calibration.days) of 2 days. "
                      + "Until then the limit is \(preferences.limit) a minute. Once measured, the limit is 70% of your usual rate.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -317,8 +317,8 @@ struct SettingsView: View {
     private func limitSentence(_ reference: Reference) -> String {
         let share = Int((reference.rate * Baseline.shareOfReference).rounded())
         return share >= preferences.floor
-            ? "The limit is \(preferences.limit) a minute: 70% of it."
-            : "70% of it would be \(share): your floor of \(preferences.floor) applies."
+            ? "Your limit is 70% of it: \(preferences.limit) a minute."
+            : "70% of it would be \(share), so the lowest limit, \(preferences.floor), applies."
     }
 
     @ViewBuilder
@@ -332,20 +332,20 @@ struct SettingsView: View {
                 let change = newLimit == preferences.limit
                     ? "the limit stays at \(newLimit)" : "the limit moves from \(preferences.limit) to \(newLimit)"
                 if proposal.lowers {
-                    Label("This is lower than your reference. If you adopt it, \(change), and the decline the reference "
-                          + "is there to show is hidden. Adopt it only if the old one was measured wrongly.",
+                    Label("This is lower than your usual rate. If you use it, \(change), and History stops "
+                          + "showing the drop. Use it only if the old measure was wrong.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("If you adopt it, \(change).")
+                    Text("If you use it, \(change).")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Spacer()
                     Button(proposal.current.map { String(format: "Keep %.1f", $0.rate) } ?? "Cancel") { state.measurement = nil }
                         .keyboardShortcut(.cancelAction)
-                    Button(String(format: "Adopt %.1f", proposal.measured.rate)) {
+                    Button(String(format: "Use %.1f", proposal.measured.rate)) {
                         preferences.reference = proposal.measured
                         state.measurement = nil
                     }
@@ -374,21 +374,21 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 VStack(alignment: .leading, spacing: 8) {
-                    DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the time your eyes were watched and the number of blinks.")
-                    DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. Your Model shows them and deletes them.")
+                    DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
+                    DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them in Your Model.")
                     if state.onDisk.captures > 0 {
                         DataPoint(symbol: "record.circle", text: "Kept from Live View: \(state.onDisk.captures) capture\(state.onDisk.captures == 1 ? "" : "s") of your eyes"
                                   + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
                                   + "recorded with its record buttons. Your Model deletes them with the recordings.")
                     }
-                    DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each frame is analysed in memory and dropped.")
+                    DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each picture is read and discarded at once.")
                     DataPoint(symbol: "wifi.slash", text: "Nothing leaves this Mac. The app makes no network connection.")
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
             Card {
-                Row("History file", detail: "\(history.minutes.count.formatted()) minutes over the last \(HistoryController.daysKept) days. Any spreadsheet opens it.") {
+                Row("History file", detail: "\(history.minutes.count.formatted()) minutes over the last \(HistoryController.daysKept) days. It opens in any spreadsheet.") {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
                 }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
@@ -399,7 +399,7 @@ struct SettingsView: View {
                 }
                 Divider()
                 if state.confirmingErase {
-                    Row("Erase every recorded minute?", detail: "The reference measured from them goes too. This cannot be undone.") {
+                    Row("Erase every recorded minute?", detail: "Your usual rate is erased too. This cannot be undone.") {
                         Button("Cancel") { state.confirmingErase = false }
                             .keyboardShortcut(.cancelAction)
                         Button("Erase", role: .destructive) {
@@ -408,8 +408,8 @@ struct SettingsView: View {
                         }
                     }
                 } else {
-                    Row("Erase history", detail: "Removes every recorded minute, and the reference measured from them.") {
-                        Button("Erase...") { state.confirmingErase = true }
+                    Row("Erase history", detail: "Removes every recorded minute, and your usual rate.") {
+                        Button("Erase…") { state.confirmingErase = true }
                             .disabled(history.minutes.isEmpty && preferences.reference == nil)
                     }
                 }
@@ -424,19 +424,19 @@ struct SettingsView: View {
             Card {
                 Row(modelTitle, detail: modelDetail) {
                     if !model.isDemo && model.modelSource == .none {
-                        Button(preferences.welcomed ? "Continue Setup..." : "Set Up...") { actions.openSetup(.resume) }
+                        Button(preferences.welcomed ? "Continue Setup…" : "Set Up…") { actions.openSetup(.resume) }
                     }
                 }
             }
             if !model.isDemo {
                 Card {
-                    Row("Add a session",
+                    Row("Add a recording",
                         detail: "Two minutes in another light, on another day or with other glasses. Then the model is trained again on everything, and tested.") {
-                        Button("Add a Session...") { actions.openSetup(.addSession) }
+                        Button("Add a Recording…") { actions.openSetup(.addSession) }
                     }
                     Divider()
                     Row("Test it again", detail: "Ten ticks, a blink at each: how many does it count where you sit now?") {
-                        Button("Test...") { actions.openSetup(.test) }
+                        Button("Test Again") { actions.openSetup(.test) }
                             .disabled(!isTrainedHere)
                     }
                 }
@@ -452,8 +452,8 @@ struct SettingsView: View {
                             Button("Delete", role: .destructive) { deleteEverything() }
                         }
                     } else {
-                        Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. For good, not to the Trash.") {
-                            Button("Delete...") { state.confirmingDelete = true }
+                        Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. They are deleted for good, not moved to the Trash.") {
+                            Button("Delete…") { state.confirmingDelete = true }
                                 .disabled(state.onDisk.sessions == 0 && state.onDisk.captures == 0 && !isTrainedHere && !state.onDisk.untested)
                         }
                     }
@@ -482,8 +482,8 @@ struct SettingsView: View {
         if model.isDemo { return "Its blinks are made up. See the Setup, in the panel, trains a real model on painted eyes." }
         switch model.modelSource {
         case .trainedHere(let info):
-            var text = "On \(Format.day(info.trainedOn)), from \(info.sessions.count) session\(info.sessions.count == 1 ? "" : "s") "
-                + "(\(info.pictures.formatted()) pictures), in \(Int(info.seconds.rounded())) s."
+            var text = "On \(Format.day(info.trainedOn)), from \(info.sessions.count) recording\(info.sessions.count == 1 ? "" : "s") "
+                + "(\(info.pictures.formatted()) pictures)."
             if let proof = info.proof {
                 text += " Its test: \(proof.found) of \(proof.of) blinks counted"
                     + (proof.found >= ProofTest.passMark ? "." : "; you chose to use it anyway.")
@@ -496,8 +496,8 @@ struct SettingsView: View {
             return url.path
         case .none:
             return state.onDisk.untested
-                ? "A model was trained and waits for its test. Until then nothing is counted."
-                : "Blink Monitor reads your eyes with a model trained on them. Setup makes it in about six minutes."
+                ? "Your model is trained but not tested yet. Until then nothing is counted."
+                : "Blink Monitor learns your eyes before it can count. Setup takes about 8 minutes."
         }
     }
 
@@ -505,8 +505,8 @@ struct SettingsView: View {
         let disk = state.onDisk
         let captures = disk.captures == 0 ? "" : " Also \(disk.captures) capture\(disk.captures == 1 ? "" : "s") from Live View"
             + String(format: ", %.0f MB.", disk.captureMegabytes)
-        guard disk.sessions > 0 else { return disk.captures == 0 ? "No recording on this Mac." : "No session on this Mac.\(captures)" }
-        return "\(disk.sessions) session\(disk.sessions == 1 ? "" : "s"), \(disk.pictures.formatted()) small pictures of your eyes, "
+        guard disk.sessions > 0 else { return disk.captures == 0 ? "No recording on this Mac." : "No recording on this Mac.\(captures)" }
+        return "\(disk.sessions) recording\(disk.sessions == 1 ? "" : "s"), \(disk.pictures.formatted()) small pictures of your eyes, "
             + String(format: "%.0f MB.", disk.megabytes) + captures + " "
             + (files.ownSessions ? "In a folder only your account can read." : "In \(files.sessionsRoot.path), named at launch.")
     }

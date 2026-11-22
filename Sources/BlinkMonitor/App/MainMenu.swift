@@ -8,13 +8,13 @@ import AppKit
 @MainActor
 enum MainMenu {
 
-    /// `settings`: the selector `target` performs for "Settings...".
+    /// `settings`: the selector `target` performs for "Settings…".
     static func make(target: AnyObject, settings: Selector) -> NSMenu {
         let app = NSMenu()
         app.addItem(withTitle: "About Blink Monitor", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                     keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: "Settings...", action: settings, keyEquivalent: ",").target = target
+        app.addItem(withTitle: "Settings…", action: settings, keyEquivalent: ",").target = target
         app.addItem(.separator())
         app.addItem(withTitle: "Quit Blink Monitor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 

@@ -105,7 +105,7 @@ final class TrainingJob {
             self.process = process
             listenForSilence()
         } catch {
-            received(.failed("The trainer could not be started: \(error.localizedDescription)"))
+            received(.failed("The training program could not be started: \(error.localizedDescription)"))
         }
     }
 
@@ -135,7 +135,7 @@ final class TrainingJob {
         guard !over else { return }
         let last = complaints.split(whereSeparator: \.isNewline).suffix(3).joined(separator: "\n")
         Log.app.error("Trainer ended early (code \(code, privacy: .public)): \(last, privacy: .public)")
-        received(.failed("The trainer stopped before the end (\(crashed ? "signal" : "code") \(code))."
+        received(.failed("The training program stopped before the end (\(crashed ? "signal" : "code") \(code))."
                          + (last.isEmpty ? "" : "\n\(last)")))
     }
 
@@ -146,7 +146,7 @@ final class TrainingJob {
                 guard let self, !self.over else { return }
                 self.process?.terminate()
                 self.process = nil
-                self.received(.failed("The trainer stopped answering, and was ended."))
+                self.received(.failed("The training program stopped answering, and was ended."))
             }
         }
     }

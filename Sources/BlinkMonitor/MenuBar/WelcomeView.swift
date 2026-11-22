@@ -30,10 +30,10 @@ struct WelcomeView: View {
                 WelcomePoint(symbol: "camera", title: "It watches your eyes through the camera",
                       text: "A small model, trained on your own eyes, reads each eye 30 times a second and counts the moments they close.")
                 WelcomePoint(symbol: "lock.shield", title: "Nothing leaves this Mac",
-                      text: "Pictures are analysed and thrown away at once. Only numbers are kept: blinks per minute, in a file you can open.")
+                      text: "While it counts, pictures are read and thrown away at once, and only numbers are kept: blinks for each minute, in a file you can open. Setup keeps small pictures of your eyes, on this Mac only.")
                 WelcomePoint(symbol: "light.beacon.max", title: "The green camera light stays on",
-                      text: "That is macOS telling you the camera is in use. Pause, in the menu, turns the camera off for real; so does closing the lid or locking the screen.")
-                WelcomePoint(symbol: "bell", title: "A nudge when you blink too little",
+                      text: "That is macOS telling you the camera is in use. Pause, in the menu-bar panel, turns the camera off for real; so does closing the lid or locking the screen.")
+                WelcomePoint(symbol: "bell", title: "A reminder when your blink rate is low",
                       text: "People blink far less at a screen. When your rate stays low for a few minutes you get a notification. Left unanswered, it comes less and less often: after 5, 15, 30, then 60 minutes.")
             }
 

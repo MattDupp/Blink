@@ -36,6 +36,6 @@
     <key>NSCameraUseContinuityCameraDeviceType</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>Blink Monitor watches your eyes to count your blinks. The pictures are analysed on this Mac and never sent anywhere. Small pictures of your eyes are kept, on this Mac only, when you set it up or record a capture yourself.</string>
+    <string>Blink Monitor watches your eyes to count your blinks. The pictures are read on this Mac and never sent anywhere. Small pictures of your eyes are kept, on this Mac only, when you set it up.</string>
 </dict>
 </plist>

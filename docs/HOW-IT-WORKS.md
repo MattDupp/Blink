@@ -188,7 +188,7 @@ and fails if the two copies differ.
 
 ## 6. History and reminders
 
-The rate shown is blinks per minute **of time your eyes were watched**: time away from the
+The rate shown is blinks a minute **of time counted**: time away from the
 screen does not lower it. One record per minute of the clock is appended to a CSV file.
 
 A reminder needs evidence and restraint: a rate under your limit over the last three
@@ -196,10 +196,10 @@ minutes, with at least two of them watched, and never more than one reminder in 
 minutes.
 
 **The limit.** It starts at 10 blinks a minute. Once three hours have been watched over at
-least two days, the app takes the median of those minutes as your reference and sets the
-limit at 70% of it, never under the floor you chose. The reference is then kept: nothing
-recomputes it. If you blink less as the weeks go by, the gap to the reference is reported
-("23% less than your reference") and the limit stays where it was. A baseline that followed
+least two days, the app takes the median of those minutes as your usual rate and sets the
+limit at 70% of it, never under the lowest limit you chose. The usual rate is then kept: nothing
+recomputes it. If you blink less as the weeks go by, the gap to the usual rate is reported
+("23% less than your usual rate") and the limit stays where it was. A baseline that followed
 you would lower the bar as you declined, and hide the very thing it is for. Measuring again
 is a button in Settings, with a warning when the new value is lower.
 
@@ -212,7 +212,7 @@ that is all they do:
 
 - They are typical ranges, not ideal ones. No rate is established as enough, so the
   words never say "ideal", "healthy" or "normal", and a test checks the sentences.
-- They never set the limit. That stays your own reference and your floor.
+- They never set the limit. That stays your own usual rate and your lowest limit.
 - Nothing takes a colour because of them. Only your own limit turns a bar orange.
 
 The same type holds the app's main source, an experiment (Chai 2025): 45 young adults

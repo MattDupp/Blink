@@ -100,7 +100,7 @@ private struct Counters: View {
                 SectionTitle("Since the counters were reset")
                 Row(label: "Blinks counted", value: "\(counters.totalBlinks)")
                 Row(label: "In the last 60 s", value: "\(counters.blinksLastMinute)")
-                Row(label: "Time watched", value: clock(counters.observedSeconds))
+                Row(label: "Time at the screen", value: clock(counters.observedSeconds))
                 Row(label: "Last blink lasted",
                     value: counters.lastBlinkSeconds.map { String(format: "%.0f ms", $0 * 1000) } ?? "--")
                 Row(label: "Long closures (not blinks)", value: "\(counters.longClosures)")
@@ -126,7 +126,7 @@ private struct Counters: View {
                     Row(label: "Cropping", value: String(format: "%.1f ms", timings.crop))
                     Row(label: "Model", value: String(format: "%.1f ms", timings.model))
                     Row(label: "Slowest frame", value: String(format: "%.1f ms", timings.worstTotal))
-                    Row(label: "Frames a second", value: String(format: "%.0f (%.0f%% analysed)",
+                    Row(label: "Frames a second", value: String(format: "%.0f (%.0f%% read)",
                                                                 timings.framesPerSecond, timings.analysedShare * 100))
                 }
             }

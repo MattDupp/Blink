@@ -64,7 +64,7 @@ extension PublishedRates {
         case .above:
             break
         }
-        sentences.append(canLower ? "To follow your own rate, lower Never under." : "Never under is as low as it goes.")
+        sentences.append(canLower ? "To follow your own rate, lower the lowest limit." : "The lowest limit cannot go lower.")
         return sentences.joined(separator: " ")
     }
 }

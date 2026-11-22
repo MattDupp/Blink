@@ -184,10 +184,10 @@ struct SetupTests {
 
     @Test("A failed training is said in a sentence for a person, never as the trainer's own words")
     func trainingFailureWords() {
-        let crash = "The trainer stopped before the end (signal 6).\nMPSGraphVariable.mm:69: failed assertion"
+        let crash = "The training program stopped before the end (signal 6).\nMPSGraphVariable.mm:69: failed assertion"
         #expect(TrainingFailureWords.plain(crash) == "The training program stopped unexpectedly.")
         #expect(!TrainingFailureWords.plain(crash).contains("signal"))
-        #expect(TrainingFailureWords.plain("The trainer stopped answering, and was ended.").contains("was ended"))
+        #expect(TrainingFailureWords.plain("The training program stopped answering, and was ended.").contains("was ended"))
         // What the training said itself is a sentence already: its first line is kept.
         #expect(TrainingFailureWords.plain("Too few pictures to learn from.\nmore") == "Too few pictures to learn from.")
         #expect(TrainingFailureWords.plain("") == "The training stopped.")

@@ -549,7 +549,7 @@ final class SetupModel: ObservableObject {
             try PrivateFolder.create(at: parts.sessionsRoot)
             writer = try SessionWriter(root: parts.sessionsRoot, session: SessionScript.sessionName(at: Date()), condition: "")
         } catch {
-            problem = "The session folder could not be created: \(error.localizedDescription)"
+            problem = "The recording could not be saved: \(error.localizedDescription)"
             return
         }
         let number = sessions.count
@@ -615,8 +615,8 @@ final class SetupModel: ObservableObject {
             let fate = parts.ownSessions ? "It was not kept." : "It was moved to the Trash."
             let lost = lostPoses.map(\.poseName).joined(separator: "; ")
             sessionNote = stopped
-                ? "Stopped: a session only teaches when it is whole. \(fate)"
-                : "The camera lost your face for about \(100 - Int(share * 100))% of that session"
+                ? "Stopped. A recording is only used when it is complete. \(fate)"
+                : "The camera lost your face for about \(100 - Int(share * 100))% of that recording"
                     + (lost.isEmpty ? ". " : ", most of all during: \(lost). ")
                     + "\(fate) Record it again: in those poses, move your head a little less."
         }

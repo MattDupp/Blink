@@ -184,7 +184,7 @@ private struct NowSection: View {
             if case .failed = status {
                 HStack(spacing: 8) {
                     Button("Try Again") { tryAgain() }
-                    if offersSetup { Button("Open Setup...") { actions.openSetup() } }
+                    if offersSetup { Button("Open Setup…") { actions.openSetup() } }
                 }
                 .padding(.top, 2)
             }
@@ -196,7 +196,7 @@ private struct NowSection: View {
             }
             // An app that cannot count yet says what to do about it, here where you look.
             if status == .needsSetup {
-                Button(begun ? "Continue Setup..." : "Set Up Blink Monitor...") { actions.openSetup() }
+                Button(begun ? "Continue Setup…" : "Set Up Blink Monitor…") { actions.openSetup() }
                     .keyboardShortcut(.defaultAction)
                     .padding(.top, 2)
             } else if case .settingUp = status {
@@ -310,7 +310,7 @@ private struct Notes: View {
             if let drift = Baseline.drift(reference: reference, recent: history.minutes),
                drift >= Baseline.driftWorthSaying {
                 lines.append(("arrow.down.right",
-                              String(format: "This week you blink %.0f%% less than your reference (%.0f a minute, %@)",
+                              String(format: "This week you blink %.0f%% less than your usual rate (%.1f a minute, measured %@)",
                                      drift * 100, reference.rate, Format.day(reference.measuredOn)), .orange))
             }
         } else {
@@ -354,7 +354,7 @@ private struct TodaySection: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle("Today")
             HStack(spacing: 8) {
-                StatTile(value: Format.duration(today.observedSeconds), caption: "watched")
+                StatTile(value: Format.duration(today.observedSeconds), caption: "at the screen")
                 StatTile(value: today.blinks.formatted(), caption: "blinks")
                 StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "a minute")
             }
@@ -386,15 +386,15 @@ private struct TodaySection: View {
     }
 
     /// The minute under the pointer when there is one; else how today went, said as what
-    /// went well ("on target") and not as a reproach ("under the limit").
+    /// went well ("above your limit") and not as a reproach ("under the limit").
     private func caption(today: DaySummary, hour: LastHour) -> String {
         if let ago = state.hoveredMinute {
             let time = Format.time(hour.start(minutesAgo: ago))
-            guard let rate = hour.rate(minutesAgo: ago) else { return "\(time): not watched" }
+            guard let rate = hour.rate(minutesAgo: ago) else { return "\(time): not counted" }
             return String(format: "%@: %.0f a minute", time, rate) + (ago == 0 ? " so far" : "")
         }
         guard let low = today.lowShare else { return "" }
-        return "\(Int(((1 - low) * 100).rounded()))% of today's minutes on target"
+        return "\(Int(((1 - low) * 100).rounded()))% of today's minutes above your limit"
     }
 }
 
@@ -482,7 +482,7 @@ private struct ActionsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                ActionTile(symbol: "eye", title: "Blink break", tint: status.isLow ? .orange : nil) {
+                ActionTile(symbol: "eye", title: "Blink Break", tint: status.isLow ? .orange : nil) {
                     actions.startBlinkBreak()
                 }
                 .disabled(!status.isCameraOn)

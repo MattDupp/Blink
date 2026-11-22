@@ -10,9 +10,9 @@ public enum CameraNote {
         case .failed(let reason):
             return reason
         case .needsSetup:
-            return "The camera is off: \(appName) has no model of your eyes yet."
+            return "The camera is off: \(appName) has not learned your eyes yet."
         case .starting, .running:
-            return "Starting the camera..."
+            return "Starting the camera…"
         }
     }
 }

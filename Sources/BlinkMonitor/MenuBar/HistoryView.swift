@@ -44,10 +44,10 @@ struct HistoryView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle("Last 7 days")
                     HStack(spacing: 8) {
-                        StatTile(value: Format.duration(week.observedSeconds), caption: "watched")
+                        StatTile(value: Format.duration(week.observedSeconds), caption: "at the screen")
                         StatTile(value: week.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
                         StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--",
-                                 caption: "of minutes on target")
+                                 caption: "of minutes above your limit")
                     }
                     BarChart(bars: days.map { day in
                         BarChart.Bar(label: day.day.formatted(.dateTime.weekday(.abbreviated)), value: day.summary.ratePerMinute)
@@ -117,19 +117,19 @@ struct HistoryView: View {
 
         if preferences.automaticLimit, let reference = preferences.reference,
            let drift = Baseline.drift(reference: reference, recent: weekRecords) {
-            let measured = String(format: "your reference of %.1f a minute, measured on %@", reference.rate, Format.day(reference.measuredOn))
+            let measured = String(format: "your usual rate of %.1f a minute, measured on %@", reference.rate, Format.day(reference.measuredOn))
             if drift >= Baseline.driftWorthSaying {
                 findings.append(("arrow.down.right", String(format: "This week you blink %.0f%% less than %@. The limit has not moved.", drift * 100, measured), .orange))
             } else if drift <= -Baseline.driftWorthSaying {
                 findings.append(("arrow.up.right", String(format: "This week you blink %.0f%% more than %@.", -drift * 100, measured), .primary))
             } else {
-                findings.append(("equal", "This week is level with \(measured).", .primary))
+                findings.append(("equal", "This week matches \(measured).", .primary))
             }
         }
 
         let rated = days.compactMap { day in day.summary.ratePerMinute.map { (day: day.day, rate: $0) } }
         if rated.count >= 2, let best = rated.max(by: { $0.rate < $1.rate }), let worst = rated.min(by: { $0.rate < $1.rate }) {
-            findings.append(("calendar", String(format: "Best day: %@ (%.1f a minute). Lowest: %@ (%.1f).",
+            findings.append(("calendar", String(format: "Highest day: %@ (%.1f a minute). Lowest: %@ (%.1f).",
                                                 best.day.formatted(.dateTime.weekday(.wide)), best.rate,
                                                 worst.day.formatted(.dateTime.weekday(.wide)), worst.rate), .primary))
         }
@@ -154,7 +154,7 @@ private struct NothingYet: View {
                 .foregroundStyle(.tertiary)
             Text("Nothing recorded yet")
                 .font(.system(size: 17, weight: .semibold))
-            Text("One line is kept for every minute your eyes are watched. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
+            Text("One line is kept for every minute counted. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

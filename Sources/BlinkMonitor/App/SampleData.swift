@@ -270,7 +270,7 @@ enum SampleData {
         case .recordShort:
             state.step = .record
             state.sessions = [first]
-            state.sessionNote = "The camera lost your face for about 42% of that session, most of all during: "
+            state.sessionNote = "The camera lost your face for about 42% of that recording, most of all during: "
                 + "eyes closed, chin down; eyes closed, turned. It was not kept. "
                 + "Record it again: in those poses, move your head a little less."
             (state.sessionOpen, state.sessionClosed) = (301, 256)
@@ -295,7 +295,7 @@ enum SampleData {
             state.sessions = [first, second]
             var attempts = 1
             if case .trainingFailedAgain = scene { attempts = 2 }
-            state.training = .failed(reason: "The trainer stopped before the end (signal 6).\n"
+            state.training = .failed(reason: "The training program stopped before the end (signal 6).\n"
                 + "MPSGraphVariable.mm:69: failed assertion `multi-device variable handling not correcly implemented'", attempts: attempts)
         case .trained:
             state.step = .train

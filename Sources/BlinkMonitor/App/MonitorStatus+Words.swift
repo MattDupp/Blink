@@ -40,9 +40,9 @@ extension MonitorStatus {
         case .paused(let until): return "Blink Monitor is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
         case .cameraSilent: return "Blink Monitor: the camera is not sending pictures"
         case .noFace: return "Blink Monitor: no face in view"
-        case .watching: return "Blinks per minute, over the last minute"
+        case .watching: return "Blinks a minute, over the last minute"
         case .low(_, let recent):
-            return String(format: "You blink too little: %.0f a minute over the last 3 minutes", recent)
+            return String(format: "Low: %.0f blinks a minute over the last 3 minutes", recent)
         }
     }
 
@@ -51,7 +51,7 @@ extension MonitorStatus {
         switch self {
         case .starting: return "Starting"
         case .needsSetup, .settingUp: return "Setup"
-        case .cameraRefused: return "No camera"
+        case .cameraRefused: return "Camera blocked"
         case .failed: return "Problem"
         case .paused: return "Paused"
         case .cameraSilent: return "No picture"
@@ -79,7 +79,7 @@ extension MonitorStatus {
         case .starting: return "Starting"
         case .needsSetup: return "Not set up"
         case .settingUp: return "Setting up"
-        case .cameraRefused: return "No camera"
+        case .cameraRefused: return "Camera blocked"
         case .failed: return "Not counting"
         case .paused: return "Paused"
         case .cameraSilent: return "No picture"
@@ -94,7 +94,7 @@ extension MonitorStatus {
         case .starting:
             return "Starting the camera."
         case .needsSetup:
-            return "Blink Monitor has no model of your eyes yet, so nothing is counted. Setup takes about six minutes."
+            return "Blink Monitor has not learned your eyes yet, so nothing is counted. Setup takes about 8 minutes."
         case .settingUp(.checkingCamera):
             return "Setup is checking the camera. Nothing is counted meanwhile."
         case .settingUp(.recording):
@@ -111,13 +111,13 @@ extension MonitorStatus {
         case .paused(let until):
             return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume") + ". Nothing is being counted."
         case .cameraSilent:
-            return "The camera is not sending pictures, so nothing is counted. With the lid closed that is expected; otherwise it is started again by itself."
+            return "The camera is not sending pictures, so nothing is counted. That is normal with the lid closed. Otherwise the camera restarts by itself."
         case .noFace:
             return "No face in view, so this time is not counted. If you are here: face the camera and check the light."
         case .watching(let rate):
             return rate == nil ? "Your rate appears after 20 seconds." : "Your rate over the last minute. Your limit is \(limit)."
         case .low(_, let recent):
-            return String(format: "About %.0f a minute over the last 3 minutes. A blink break helps: ten slow, full blinks.", recent)
+            return String(format: "About %.0f a minute over the last 3 minutes. Try a blink break: ten slow, full blinks.", recent)
         }
     }
 }
@@ -137,7 +137,7 @@ enum CalibrationWords {
         } else {
             progress = "\(needed) done, all on one day. It takes \(Baseline.calibrationDays) days: it finishes tomorrow."
         }
-        return "Learning your usual rate: \(progress) Until then the limit is \(limit)."
+        return "Learning your usual rate: \(progress) Until then the limit is \(limit) a minute."
     }
 }
 

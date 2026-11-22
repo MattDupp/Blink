@@ -23,9 +23,9 @@ struct SetupActions {
 /// words (a signal number, an assertion) go to the log and to "Copy the Details".
 enum TrainingFailureWords {
     static func plain(_ reason: String) -> String {
-        if reason.hasPrefix("The trainer stopped before the end") { return "The training program stopped unexpectedly." }
-        if reason.hasPrefix("The trainer stopped answering") { return "The training stopped making progress, and was ended." }
-        if reason.hasPrefix("The trainer could not be started") { return "The training program could not be started." }
+        if reason.hasPrefix("The training program stopped before the end") { return "The training program stopped unexpectedly." }
+        if reason.hasPrefix("The training program stopped answering") { return "The training stopped making progress, and was ended." }
+        if reason.hasPrefix("The training program could not be started") { return "The training program could not be started." }
         if reason.hasPrefix("The model's folder could not be prepared") || reason.hasPrefix("The trained model could not be put in place") {
             return "The model could not be written to disk."
         }
@@ -158,11 +158,11 @@ private struct WelcomePage: View {
                 WelcomePoint(symbol: "lock.shield", title: "Nothing leaves this Mac",
                              text: "The recordings are small pictures of your eyes, never your face. They stay in a folder only your account can read, and Settings deletes them. The app makes no network connection.")
                 WelcomePoint(symbol: "light.beacon.max", title: "The green camera light stays on",
-                             text: "That is macOS telling you the camera is in use. Pause, in the menu, turns the camera off for real.")
+                             text: "That is macOS telling you the camera is in use. Pause, in the menu-bar panel, turns the camera off for real.")
             }
 
             VStack(alignment: .leading, spacing: 9) {
-                SectionTitle("The next six minutes")
+                SectionTitle("The next eight minutes")
                 TimelineRow(number: 1, title: "Check the camera", time: "half a minute")
                 TimelineRow(number: 2, title: "Record your eyes, twice", time: "two minutes each, a voice guides you")
                 TimelineRow(number: 3, title: "Train your model", time: "seconds; the app shows the time left")
@@ -272,9 +272,9 @@ private struct CameraPage: View {
         } else {
             checks.append(model.eyesLargeEnough
                 ? Check(state: .good, title: "Your eyes are large enough",
-                        detail: "Each eye is cut out as a square of \(model.cropSide) pixels. The model reads it at \(EyeCropper.outputSize).")
+                        detail: "")
                 : Check(state: .warning, title: "You are far from the camera",
-                        detail: "Each eye is a square of \(model.cropSide) pixels, enlarged to \(EyeCropper.outputSize). Come closer if you can."))
+                        detail: "Come closer to the camera if you can."))
             checks.append(model.lightEnough
                 ? Check(state: .good, title: "There is enough light", detail: "Your second recording will ask for another light.")
                 : Check(state: .warning, title: "It is dark",
@@ -392,10 +392,10 @@ private struct SetupCamera: View {
         if let note { return note }
         if model.isDemo { return "Demo: there is no camera picture. The eyes on the right are painted." }
         switch model.camera {
-        case .asking: return "macOS is asking for the camera..."
+        case .asking: return "macOS is asking for the camera…"
         case .refused: return "Camera access was refused."
         case .failed(let reason): return reason
-        case .off, .on: return model.cameraSilent ? "The camera is not sending pictures." : "Starting the camera..."
+        case .off, .on: return model.cameraSilent ? "The camera is not sending pictures." : "Starting the camera…"
         }
     }
 }
@@ -484,9 +484,9 @@ private struct RecordPage: View {
 
     private var footnote: String {
         if model.sessionRunning { return "Keep your face in front of the camera. Blink whenever you need to." }
-        if model.camera == .on && !model.faceFound { return "No face in view: a session can start once the camera sees you." }
+        if model.camera == .on && !model.faceFound { return "No face in view: recording can start once the camera sees you." }
         if !model.parts.ownSessions {
-            return "Sessions are saved in \(model.parts.sessionsRoot.path), the folder named when the app was started."
+            return "Recordings are saved in \(model.parts.sessionsRoot.path), the folder named when the app was started."
         }
         if model.soundMuted { return "The Mac's sound is off: you would not hear the voice that guides you. Turn it up, then press Play the Voice." }
         return "Sound on: the voice is your guide while your eyes are closed."
@@ -501,7 +501,7 @@ private struct RecordPage: View {
         } else if model.enoughSessions {
             Button("Play the Voice") { model.playVoice() }
                 .controlSize(.large)
-            Button("Record Another Session") { model.startSession() }
+            Button("Record Another") { model.startSession() }
                 .controlSize(.large)
                 .disabled(!model.canStartSession)
             Button("Train My Model") { model.train() }
@@ -511,7 +511,7 @@ private struct RecordPage: View {
             Button("Play the Voice") { model.playVoice() }
                 .controlSize(.large)
                 .help("Says one sentence, to check that you can hear the guide before you close your eyes.")
-            Button("Start Session \(model.nextSession)") { model.startSession() }
+            Button("Start Recording \(model.nextSession)") { model.startSession() }
                 .keyboardShortcut(.defaultAction)
                 .controlSize(.large)
                 .disabled(!model.canStartSession)
@@ -543,7 +543,7 @@ private struct SessionBanner: View {
         VStack(alignment: .leading, spacing: 8) {
             if model.sessionRunning {
                 HStack {
-                    Text("Session \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
+                    Text("Recording \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
                         .font(.headline)
                     Spacer()
                     Text(stateText)
@@ -585,21 +585,21 @@ private struct SessionBanner: View {
         let recorded = model.sessions.count
         if model.sessionNote != nil {
             // The session that just ended was not kept: the note above says why.
-            return ("Record session \(recorded + 1) again", [])
+            return ("Record again", [])
         }
         if model.enoughSessions {
-            return ("\(recorded) sessions recorded: enough to train",
-                    ["One more session in another light makes the model steadier. It takes two more minutes."])
+            return ("\(recorded) recordings: enough to train",
+                    ["One more recording in another light makes the model steadier. It takes two more minutes."])
         }
         if recorded == 0 {
-            return ("Session 1 of \(model.targetSessions): record your eyes",
+            return ("Recording 1 of \(model.targetSessions): record your eyes",
                     ["A voice asks for \(SessionScript.phases.count) poses, three seconds each: about two minutes.",
                      "Half of them are with your eyes closed. A sound ends each pose, so you know when to open them.",
                      "Why poses: every picture is saved with what you were asked to do. That is how the model gets the right answer."])
         }
-        return ("Session \(recorded) is saved. Before session \(recorded + 1), change the light",
+        return ("Recording \(recorded) is saved. Change the light before recording \(recorded + 1)",
                 ["Open or close the blinds, switch a lamp on or off, put your glasses on or take them off.",
-                 "Why: one session shows the model your eyes in one light. It has to work in all of yours."])
+                 "Why: one recording shows the model your eyes in one light. It has to work in all of yours."])
     }
 }
 
@@ -609,7 +609,7 @@ private struct SessionCounts: View {
     var body: some View {
         let wanted = max(model.targetSessions, model.sessions.count)
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle("Sessions")
+            SectionTitle("Recordings")
             HStack(spacing: 6) {
                 ForEach(0..<wanted, id: \.self) { index in
                     Circle()
@@ -621,7 +621,7 @@ private struct SessionCounts: View {
                     .foregroundStyle(.secondary)
             }
             if model.sessionRunning || model.sessionOpen + model.sessionClosed > 0 {
-                SectionTitle(model.sessionRunning ? "This session" : "Last session")
+                SectionTitle(model.sessionRunning ? "This recording" : "Last recording")
                     .padding(.top, 4)
                 HStack(spacing: 8) {
                     StatTile(value: "\(model.sessionOpen)", caption: "eyes open")
@@ -697,12 +697,12 @@ private struct TrainPage: View {
 
     private var line: String {
         switch model.training {
-        case .waiting: return "Starting..."
-        case .reading(_, let total): return "Reading your \(total.formatted()) pictures..."
+        case .waiting: return "Starting…"
+        case .reading(_, let total): return "Reading your \(total.formatted()) pictures…"
         case .learning(let pass, let of, let left):
-            guard let left else { return "Pass \(pass) of \(of). Measuring how long a pass takes on this Mac..." }
+            guard let left else { return "Pass \(pass) of \(of). Measuring how long a pass takes on this Mac…" }
             return "Pass \(pass) of \(of). About \(Self.duration(left)) left."
-        case .checking: return "Checking that the model that will run gives the answers of the one that learned..."
+        case .checking: return "Checking the finished model…"
         case .done: return result
         case .failed: return ""
         }
@@ -712,7 +712,7 @@ private struct TrainPage: View {
     private var result: String {
         guard let info = model.info else { return "Done." }
         return "Trained on \(info.pictures.formatted()) pictures from \(info.sessions.count) "
-            + "session\(info.sessions.count == 1 ? "" : "s") in \(Self.duration(info.seconds)). "
+            + "recording\(info.sessions.count == 1 ? "" : "s") in \(Self.duration(info.seconds)). "
             + "Shown the same pictures again, unaltered, it calls \(info.rightOnOwnPictures.formatted()) of them right. "
             + "That is the easy test, since it has seen them. The real one is next."
     }
@@ -801,7 +801,7 @@ private struct ProofPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PageTitle("Test it: blink, and watch it count",
-                      "Pictures answered right are not blinks counted. This checks the thing the app is for.")
+                      "The real test: blink ten times and see how many it counts.")
             HStack(alignment: .center, spacing: 26) {
                 ProofRing(model: model)
                 VStack(alignment: .leading, spacing: 12) {
@@ -857,9 +857,9 @@ private struct ProofPage: View {
             if result.found == result.of {
                 text = "Your model sees your blinks."
             } else if result.passed {
-                text = "Good enough to count on. The lightest blinks are the hardest to see; one more session in this light would help."
+                text = "Good enough to count on. The lightest blinks are the hardest to see; one more recording in this light would help."
             } else {
-                text = "That is too few to trust the count. One more session, recorded where you sit now, is the usual fix: "
+                text = "Too few to trust the count. One more recording, where you sit now, usually fixes it: "
                     + "the model then learns from eyes in this light."
             }
             if result.extra > 0 {
@@ -893,7 +893,7 @@ private struct ProofPage: View {
                 }
                 Button("Use It Anyway") { model.useAnyway() }
                 Button("Test Again") { model.testAgain() }
-                Button("Record One More Session") { model.recordOneMore() }
+                Button("Record One More") { model.recordOneMore() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.large)
             }

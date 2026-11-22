@@ -289,13 +289,13 @@ struct StudyWordsTests {
         let ordinary = PublishedRates.limitAboveUsual(reference: Reference(rate: 7.2, measuredOn: day, minutes: 200),
                                                       limit: 10, canLower: true)
         #expect(ordinary.contains("7.2") && ordinary.contains("limit of 10") && ordinary.contains("ordinary at a screen"))
-        #expect(ordinary.contains("lower Never under"))
+        #expect(ordinary.contains("lower the lowest limit"))
 
         // Under what studies report: the counting is the likely reason, not the person.
         let missed = PublishedRates.limitAboveUsual(reference: Reference(rate: 0.9, measuredOn: day, minutes: 200),
                                                     limit: 4, canLower: false)
         #expect(missed.contains("Live View") && !missed.contains("ordinary"))
-        #expect(missed.contains("as low as it goes") && !missed.contains("lower Never under"))
+        #expect(missed.contains("cannot go lower") && !missed.contains("lower the lowest limit"))
     }
 }
 
@@ -322,6 +322,32 @@ struct SourceTests {
             }
         }
         #expect(offenders.isEmpty, "a stored Date() in: \(offenders)")
+    }
+
+    @Test("No retired word comes back in what a user reads")
+    func noRetiredWord() throws {
+        // One thing, one name (the audit of 22 November 2026 found six names for two
+        // numbers). Names in the code may stay: only text between quotes is read, and
+        // comment lines are skipped.
+        let retired = ["your reference", "the reference", "Never under", "your floor", "nudge", "on target", "trainer",
+                       "analysed)", "is analysed", "blinks per minute", "Blinks per minute", "Snooze", "watched\"",
+                       "...\"", "Blink Monitor - ", "Session \\(", " Session\""]
+        var offenders: [String] = []
+        for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
+            let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
+            for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                    let trimmed = line.drop { $0 == " " }
+                    guard !trimmed.hasPrefix("//"), let first = line.firstIndex(of: "\""), let last = line.lastIndex(of: "\"") else { continue }
+                    let quoted = line[first...last]
+                    for word in retired where quoted.contains(word) {
+                        offenders.append("\(file.lastPathComponent):\(number + 1) \(word)")
+                    }
+                }
+            }
+        }
+        #expect(offenders.isEmpty, "a retired word in: \(offenders)")
     }
 
     @Test("No window types a number that comes from a study: they are read from PublishedRates")
@@ -352,7 +378,7 @@ struct SourceTests {
         }
         // The first day: time is missing, and so is a second day.
         #expect(line(hours: 1 + 20.0 / 60, days: 1)
-                == "Learning your usual rate: 1 h 20 of 3 h 00, over 2 days. It can finish tomorrow. Until then the limit is 10.")
+                == "Learning your usual rate: 1 h 20 of 3 h 00, over 2 days. It can finish tomorrow. Until then the limit is 10 a minute.")
         // The first day, a long one: only the second day is missing. It no longer stops at "50%".
         #expect(line(hours: 5, days: 1).contains("all on one day") && line(hours: 5, days: 1).contains("finishes tomorrow"))
         // The second day: only time is missing.

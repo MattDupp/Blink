@@ -13,7 +13,7 @@ and nothing is sent anywhere.
   <img src="docs/img/history-light.png" alt="The history window: the last seven days, today hour by hour, the week as a heat map, and what stands out" width="480">
 </p>
 
-<sub>Screenshots are rendered by the app itself with made-up data (`make snapshots`). A window that is never shown draws its switches grey: read a switch by the side its knob is on.</sub>
+<sub>Screenshots are rendered by the app itself with made-up data.</sub>
 
 ## Try it
 
@@ -31,7 +31,7 @@ No terminal.
 **The app comes without a model, and makes one with you.** It counts blinks with a model
 trained on one person's eyes. That model is personal, so none comes with the app. The
 first time, the setup checks the camera, records your eyes twice, trains the model on your
-Mac and tests it: about six minutes, in one window. See
+Mac and tests it: about eight minutes, in one window. See
 [The setup, step by step](#the-setup-step-by-step). To look around first, the setup's
 first page offers a demo on made-up blinks, with the camera off.
 
@@ -101,8 +101,8 @@ and shipping it inside a real app.
 ## What it does
 
 - **Sets itself up on your eyes.** The first time, it checks the camera, records your eyes
-  twice, trains its model on this Mac and tests it. About six minutes, in one window.
-- Shows your **blinks per minute** in the menu bar, with no Dock icon and no window.
+  twice, trains its model on this Mac and tests it. About eight minutes, in one window.
+- Shows your **blinks a minute** in the menu bar, with no Dock icon and no window.
   The eye in the menu bar **blinks when you do**: the quickest proof that it sees you.
 - **Live View** shows what the app sees: the camera with your eyes framed, the model's
   answer as a curve, and a sound at each blink it counts.
@@ -111,13 +111,13 @@ and shipping it inside a real app.
 - **Reminds you** when your rate stays low for three minutes, and never for the time you
   were away. A reminder left unanswered backs off: the next comes after 5, 15, 30, then 60
   minutes, and only the first two make a sound. A blink break answers it: none for 20
-  minutes. The banner has two buttons: start a blink break, or snooze for an hour.
+  minutes. The banner has two buttons: start a blink break, or quiet for an hour.
   If your usual rate turns out to be under the starting limit of 10, the panel says so
   once and offers to follow your own rate.
 - **Blink break**: ten slow, full blinks, counted by the camera, with a sound at each one
   because your eyes are closed.
 - **A limit that fits you, and does not follow you down.** The app measures your usual rate
-  once and sets the limit at 70% of it. See [the baseline](#a-baseline-that-does-not-follow-you-down).
+  once and sets the limit at 70% of it. See [your usual rate](#a-usual-rate-that-does-not-follow-you-down).
 - **Shows what studies report**, next to your own rate and limit: how often healthy adults
   blink at a screen, at rest and in conversation, with the papers one click away.
   See [what studies say](#what-studies-say-about-blink-rate).
@@ -154,7 +154,7 @@ and shipping it inside a real app.
   When two would come together, a break goes first.
 
 <p align="center">
-  <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the reference" width="270">
+  <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the usual rate" width="270">
   &nbsp;
   <img src="docs/img/blink-break-light.png" alt="The blink break: a ring showing 6 of 10 blinks" width="270">
   &nbsp;
@@ -164,7 +164,7 @@ and shipping it inside a real app.
 <details>
 <summary>More screens</summary>
 <p align="center">
-  <img src="docs/img/setup-welcome-light.png" alt="The first page of the setup: what the app does, what it keeps, and the next six minutes" width="420">
+  <img src="docs/img/setup-welcome-light.png" alt="The first page of the setup: what the app does, what it keeps, and the next eight minutes" width="420">
   &nbsp;
   <img src="docs/img/settings-general-light.png" alt="Settings, General tab" width="420">
 </p>
@@ -172,7 +172,7 @@ and shipping it inside a real app.
   <img src="docs/img/live-view-light.png" alt="Live View: the camera area, the model's answer as a curve with three blinks, and the counters" width="700">
 </p>
 <p align="center">
-  <img src="docs/img/history-day-dark.png" alt="History in dark mode, on an earlier day, with the decline against the reference reported" width="480">
+  <img src="docs/img/history-day-dark.png" alt="History in dark mode, on an earlier day, with the decline against the usual rate reported" width="480">
   &nbsp;
   <img src="docs/img/panel-demo-light.png" alt="The panel in the demo, with its banner" width="270">
 </p>
@@ -207,22 +207,22 @@ model is asked about pictures made exactly like the ones it learned from.
   <img src="docs/img/poses.png" alt="The sixteen poses of a recording session, eight open and eight closed" width="820">
 </p>
 
-## A baseline that does not follow you down
+## A usual rate that does not follow you down
 
 People do not blink alike, so one limit for everybody is wrong for many. The obvious fix is
-a personal baseline: learn your usual rate, warn when you fall well under it. It has a trap:
-a baseline that keeps averaging your recent weeks goes down with you. Blink a little less
+a personal reference: learn your usual rate, warn when you fall well under it. It has a trap:
+a usual rate that keeps averaging your recent weeks goes down with you. Blink a little less
 each month and it follows; a limit set at 70% of it follows too, and the app stops warning
 about exactly the decline it is there to catch.
 
-So the reference is built not to move by itself (`Sources/BlinkCore/History/Baseline.swift`):
+So the usual rate is built not to move by itself (`Sources/BlinkCore/History/Baseline.swift`):
 
 - It is **measured once**: the median of your first three hours watched, over at least two days. Then it is kept.
-- A decline is **reported, not absorbed**: "this week you blink 23% less than your reference", in the panel and in the History window.
+- A decline is **reported, not absorbed**: "this week you blink 23% less than your usual rate", in the panel and in the History window.
 - **Measuring again is your decision.** If the new value is lower, Settings says so, and what it does to the limit, before you confirm.
-- The limit **never goes under a floor you set**, which covers a reference measured while you were already blinking too little.
+- The limit **never goes under the lowest limit you set**, which covers a usual rate measured while you were already blinking too little.
 
-A test feeds it four weeks of steady decline and checks that neither the reference nor the limit has moved.
+A test feeds it four weeks of steady decline and checks that neither the usual rate nor the limit has moved.
 
 <p align="center">
   <img src="docs/img/settings-reminders-measured-light.png" alt="Settings: measuring again gave a lower value, and the app warns before adopting it" width="460">
@@ -370,9 +370,9 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 ## Privacy
 
 - Nothing is uploaded: the app makes no network connection. (The Sources tab opens a paper in your browser when you press its button.)
-- While it counts, each camera picture is analysed in memory and dropped.
+- While it counts, each camera picture is read and discarded at once.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a session) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Your Model shows them and deletes them, for good.
-- **What counting keeps:** one line per minute (time watched, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
+- **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Your Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
@@ -428,6 +428,9 @@ so it opens the setup described above.
 If you also installed Blink Monitor from the disk image, quit that copy and move it to the
 Trash first. macOS should know one copy only. `make monitor` checks, and tells you if the
 other copy is still there.
+
+The screenshots in this page come from `make snapshots`. A window that is never shown draws
+its switches grey: read a switch by the side its knob is on.
 
 ### The Python route
 

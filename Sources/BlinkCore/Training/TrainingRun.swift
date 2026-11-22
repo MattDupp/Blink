@@ -76,10 +76,10 @@ public enum TrainingRun {
         let closed = set.closedCount, open = set.count - closed
         guard open >= fewestPicturesOfAKind, closed >= fewestPicturesOfAKind else {
             return fail("There are too few pictures to learn from: \(open) with the eyes open and \(closed) with the eyes closed. "
-                        + "Record a session first.")
+                        + "Record your eyes first.")
         }
         guard let trainer = EyeTrainer(seed: seed) else {
-            return fail("This Mac has no graphics processor that the trainer can use.")
+            return fail("This Mac has no graphics processor that training can use: it needs a Mac with an Apple chip.")
         }
 
         let labels = set.labels
@@ -99,7 +99,7 @@ public enum TrainingRun {
         let right = zip(learned, labels).filter { ($0 > 0.5) == ($1 > 0.5) }.count
         guard Double(right) >= fewestRightOnOwnPictures * Double(set.count) else {
             return fail("The model did not learn to tell your open eyes from your closed ones: shown its own \(set.count) pictures "
-                        + "again, it called \(right) right. A session recorded again, with more light on your face, should help.")
+                        + "again, it called \(right) right. Recording again, with more light on your face, should help.")
         }
         let weights: EyeNetWeights
         do {

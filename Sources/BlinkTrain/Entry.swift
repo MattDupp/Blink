@@ -73,7 +73,7 @@ for job in jobs.jobs where only?.contains(where: { job.name.hasPrefix($0) }) ?? 
     // processor outlives it.
     results[job.name] = autoreleasepool { () -> Answer in
         guard let trainer = EyeTrainer(seed: job.seed) else {
-            print("This Mac has no graphics processor that the trainer can use.")
+            print("This Mac has no graphics processor that training can use.")
             exit(1)
         }
         let labels = job.train.map { Float(jobs.labels[$0]) }

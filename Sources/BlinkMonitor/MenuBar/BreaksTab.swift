@@ -19,7 +19,7 @@ struct BreaksTab: View {
         let on = preferences.breakNudgesOn
         VStack(alignment: .leading, spacing: 12) {
             Card {
-                Row("Blink break", detail: "Ten slow, full blinks, counted by the camera. Also offered when your rate is low.") {
+                Row("Blink Break", detail: "Ten slow, full blinks, counted by the camera. Also offered when your rate is low.") {
                     Button("Start") { startBlinkBreak() }
                         .disabled(!model.status(now: moment.now).isCameraOn)
                 }
