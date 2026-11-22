@@ -135,7 +135,7 @@ The app's own files are in `~/Library/Application Support/BlinkMonitor/`:
 (`--model=<EyeNet.mlmodelc>`), the one trained in the app once its test is passed or
 waived, the one `make monitor` built in, none (the setup opens). A model trained in the
 app therefore hides a built-in one; `make monitor` says so when both exist, and
-Settings > Your Model deletes the app's own.
+Settings > Model deletes the app's own.
 
 A session is the same thing in both places, written by the same `SessionWriter`. A test
 on each side holds the manifest's columns to one list.

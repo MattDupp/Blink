@@ -31,6 +31,30 @@ public struct BreakPlan: Equatable, Sendable {
         self.longMinutes = clamp(longMinutes, Self.longRange)
     }
 
+    /// The next value of "time between breaks" when its stepper is pressed: by 1 up to 10
+    /// minutes, by 5 above. The step once depended on the value alone, so that from 10
+    /// one press down gave 5, and 9 to 6 could only be reached from below.
+    public static func stepMinutes(_ minutes: Int, up: Bool) -> Int {
+        let next: Int
+        if up {
+            next = minutes < 10 ? minutes + 1 : (minutes / 5 + 1) * 5
+        } else {
+            next = minutes <= 10 ? minutes - 1 : ((minutes - 1) / 5) * 5
+        }
+        return min(max(next, workRange.lowerBound), workRange.upperBound)
+    }
+
+    /// The same for the length of a break: by 5 up to a minute, by 15 above.
+    public static func stepSeconds(_ seconds: Int, up: Bool) -> Int {
+        let next: Int
+        if up {
+            next = seconds < 60 ? (seconds / 5 + 1) * 5 : (seconds / 15 + 1) * 15
+        } else {
+            next = seconds <= 60 ? ((seconds - 1) / 5) * 5 : ((seconds - 1) / 15) * 15
+        }
+        return min(max(next, breakRange.lowerBound), breakRange.upperBound)
+    }
+
     var workSeconds: Double { Double(workMinutes) * 60 }
     var longSeconds: Double { Double(longMinutes) * 60 }
 

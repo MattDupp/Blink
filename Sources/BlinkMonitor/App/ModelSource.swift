@@ -47,7 +47,7 @@ enum ModelSource: Equatable {
         switch self {
         case .given(let url): return "It was named at launch: \(url.path)"
         case .builtIn(let url): return "It is the one built into the app: \(url.path)\nMake it again with: make train, then make monitor"
-        case .trainedHere: return "It is the one trained in this app. Settings > Your Model can delete it; setup then trains another."
+        case .trainedHere: return "It is the one trained in this app. Settings > Model can delete it; setup then trains another."
         case .none: return ""
         }
     }

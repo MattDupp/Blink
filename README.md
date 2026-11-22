@@ -63,9 +63,10 @@ Apple has not scanned it. All of its code is in this repository.
 
 - **Update:** quit Blink Monitor (click the eye, then *Quit*). Open the new disk image, drag
   again, and choose *Replace*.
-- **Remove:** quit it and drag it from Applications to the Trash. Your history, and the
-  recordings and model the app made, stay in `~/Library/Application Support/BlinkMonitor`.
-  Settings > Your Model deletes the recordings and the model.
+- **Remove:** Settings > Privacy > *Delete Everything and Quit…* removes the recordings, the
+  model, the history, the routine log and every setting, after one question. Then drag the
+  app from Applications to the Trash. Dragging alone leaves those files in
+  `~/Library/Application Support/BlinkMonitor`.
 
 ### Build the demo yourself
 
@@ -177,7 +178,7 @@ and shipping it inside a real app.
   <img src="docs/img/panel-demo-light.png" alt="The panel in the demo, with its banner" width="270">
 </p>
 <p align="center">
-  <img src="docs/img/settings-model-light.png" alt="Settings, Your Model tab: the model in use, add a session, test again, delete recordings and model" width="420">
+  <img src="docs/img/settings-model-light.png" alt="Settings, Model tab: the model in use, add a recording, test again, start again, delete recordings and model" width="420">
   &nbsp;
   <img src="docs/img/panel-needs-setup-light.png" alt="The panel before setup: no model yet, and a button to set up" width="270">
 </p>
@@ -267,7 +268,7 @@ studies, what they disagree on and the 56 sources. Of those, 16 were read in ful
 abstracts and 1 only through a review, and the page says which.
 
 <p align="center">
-  <img src="docs/img/settings-reminders-light.png" alt="Settings, Blink Rate tab: the limit, and under it three grey bars for what studies report at a screen, looking ahead and in conversation, two dots for the rates one experiment tested, and the user's reference and limit marked" width="460">
+  <img src="docs/img/settings-reminders-light.png" alt="Settings, Blink Rate tab: the reminder, the limit, the user's usual rate, the lowest limit, and one line on what studies report. The picture of the studies is under About" width="460">
 </p>
 
 ## Results
@@ -369,12 +370,12 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 
 ## Privacy
 
-- Nothing is uploaded: the app makes no network connection. (The Sources tab opens a paper in your browser when you press its button.)
+- Nothing is uploaded: the app makes no network connection. (The About tab opens a paper, or the project's page, in your browser when you press a button.)
 - While it counts, each camera picture is read and discarded at once.
-- **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a session) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Your Model shows them and deletes them, for good.
+- **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a recording) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Model shows them and deletes them, for good.
 - **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
-- Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Your Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
+- Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
 - The disk image contains no model either. `make dmg` checks the app before packing it and the image afterwards, and refuses to build one that holds a model.
 - The app is signed with macOS's hardened runtime and asks for one thing, the camera, so another program cannot load its code into it to borrow that permission.
@@ -393,7 +394,7 @@ takes and why.
 | Test | Ten ticks, and you blink at each. The ring fills with every blink the model counts, and the eye in the menu bar blinks with you. | fifteen seconds |
 
 <p align="center">
-  <img src="docs/img/setup-record-session-light.png" alt="The setup during a recording: session 2, pose 6 of 16, the instruction in large letters, and the two eye pictures being saved" width="420">
+  <img src="docs/img/setup-record-session-light.png" alt="The setup during a recording: recording 2, pose 6 of 16, the instruction in large letters, and the two eye pictures being saved" width="420">
   &nbsp;
   <img src="docs/img/setup-train-light.png" alt="The setup while training: pass 12 of 30, six seconds left, and six pictures as the model is shown them" width="420">
 </p>
@@ -402,11 +403,11 @@ takes and why.
 </p>
 
 If the test counts 8 blinks or more, the app starts counting with the model at once. If it
-counts fewer, it says how many and offers one more session where you sit now, the test
+counts fewer, it says how many and offers one more recording where you sit now, the test
 again, or the model as it is. You can close the window at any step: what was finished is
 on disk, and the menu-bar panel offers to continue.
 
-**Later.** Settings > Your Model adds a session (another light, another day, other
+**Later.** Settings > Model adds a recording (another light, another day, other
 glasses) and trains again on everything, takes the test again, or deletes the recordings
 and the model.
 
@@ -447,7 +448,7 @@ needs [uv](https://docs.astral.sh/uv/).
 | `make compare` | Measures the app's own trainer against the Python one (the tables under Results). 29 minutes of training for 13 seeds; run it alone. |
 
 The app uses, in this order: a model named at launch (`--model=`), the model trained in
-the app, the model built in by `make monitor`. Settings > Your Model says which.
+the app, the model built in by `make monitor`. Settings > Model says which.
 
 **Make it better with your own blinks.** The recorded pictures are eyes held open or
 closed; a real blink is caught half-way and blurred. Once the app runs (started by
@@ -474,9 +475,9 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 |---|---|
 | "Setup" in the panel, and "!" in the menu bar | The app has no model of your eyes yet. *Set Up Blink Monitor* (or *Continue Setup*) in the panel opens the window where you left it. |
 | "No face found" in the setup | The Mac's own camera has to face you: the lid open, you in front of it. |
-| "That session holds 58% of what it should" | Your face left the picture during some poses. The session is not kept: record it again. |
+| "The camera lost your face for about 42% of that recording" | Your face left the picture during some poses. The recording is not kept: record it again. |
 | "The training stopped" | Press *Try Again*. Your recordings are untouched and no half-made model is installed. If it stops a second time, the window shows what the trainer said. |
-| The test counts fewer than 8 of 10 | Record one more session where you sit now: the model then learns from eyes in that light. |
+| The test counts fewer than 8 of 10 | Test again first: a missed tick is the usual reason. If it fails twice, record one more where you sit now: the model then learns from eyes in that light. |
 | *"Blink Monitor" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |
 | The panel says "Running from the disk image" | You opened the app inside the image's window. Quit it, drag it onto Applications, and open it from there. |
 | Opening the app only opens its panel | It was already running. It has no window: the panel under the eye is the app. |
@@ -489,7 +490,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | A banner with a blank icon after reinstalling | Notification Centre kept the old one. Run `killall NotificationCenter`; macOS restarts it. |
 | The linker prints "search path ... not found" | Harmless: two folders that only exist inside Xcode. `make` hides them. |
 
-To remove the app: `make uninstall`. It removes every installed copy, the one from the disk image included. It keeps your history, your recordings and your model, and says where they are. Settings > Your Model deletes the recordings and the model.
+To remove the app: `make uninstall`. It removes every installed copy, the one from the disk image included. It keeps your history, your recordings and your model, and says where they are. Settings > Privacy > *Delete Everything and Quit…* removes those too, and is best pressed before uninstalling.
 
 ## Project layout
 

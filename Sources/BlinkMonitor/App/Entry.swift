@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 import BlinkCore
 
 /// Where the program starts.
@@ -127,6 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var running: Running?
     /// Why the setup window is being opened (read when it opens).
     private var setupPurpose = SetupModel.Purpose.resume
+    /// "Delete Everything and Quit" is under way: quit without asking and without saving.
+    private var leavingNothing = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // One copy only: two would mean two menu-bar items and the camera read twice.
@@ -298,13 +301,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                   openLiveView: { liveView.show() },
                                                   openSetup: { self?.showSetup($0) },
                                                   closeSetup: { setup.close() },
-                                                  openNotificationSettings: Self.openNotificationSettings))
+                                                  openNotificationSettings: Self.openNotificationSettings,
+                                                  openLoginItems: Self.openLoginItems,
+                                                  // The demo keeps nothing, and a folder named at launch is a
+                                                  // developer's: neither is offered the button.
+                                                  deleteEverythingAndQuit: demo || !parts.ownSessions ? nil : { self?.deleteEverythingAndQuit() }))
         }
         settings.onVisibilityChange = { open in
             // What macOS allows can have changed in System Settings since it was asked.
             if open {
                 settingsState.refresh(recordings)
                 model.reminders.rereadNotifications()
+                model.loginItem.refresh()         // it can have been changed in System Settings
             } else {
                 settingsState.reset()
                 model.routines.endEditing()       // the times are sorted and merged now, not under the cursor
@@ -455,9 +463,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private static func openLoginItems() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// "Delete Everything and Quit": the app's folder and its settings are removed
+    /// (`Uninstall`), the login item is withdrawn, and the app quits without writing
+    /// anything back. Asked for in Settings > Privacy, after one confirmation.
+    private func deleteEverythingAndQuit() {
+        guard let running else { return }
+        leavingNothing = true
+        running.setup.close()
+        running.model.routines.session.stop()
+        running.model.pause(for: .untilResumed)        // the camera off, nothing more is counted
+        running.model.loginItem.set(false)
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        do {
+            try Uninstall.deleteEverything(folder: HistoryStore.applicationFolder, defaults: .standard,
+                                           domain: Bundle.main.bundleIdentifier)
+        } catch {
+            Log.app.error("Delete everything: \(error.localizedDescription, privacy: .public)")
+        }
+        NSApp.terminate(nil)
+    }
+
     /// Quit asks first when something would be lost (`QuitQuestion`), and only then.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let running else { return .terminateNow }
+        guard let running, !leavingNothing else { return .terminateNow }
         let routines = running.model.routines
         let timer = routines.session.session.flatMap { session in routines.routines.first { $0.id == session.routine }?.title }
         let facts = QuitQuestion.Facts(timer: timer, recording: running.setup.sessionRunning, training: running.setup.trainingUnderWay)
@@ -473,7 +507,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        running?.model.history.saveCurrentMinute()
+        // After "Delete Everything and Quit", nothing is written back.
+        if !leavingNothing { running?.model.history.saveCurrentMinute() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

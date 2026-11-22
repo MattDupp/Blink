@@ -146,7 +146,7 @@ public enum PublishedRates {
     /// The whole review, with its table of studies and their limits.
     public static let review = URL(string: "https://github.com/MattDupp/blink-monitor/blob/main/docs/BLINK-RATE.md")!
 
-    /// The papers behind what the app says, in the order the Sources tab lists them.
+    /// The papers behind what the app says, in the order the About tab lists them.
     /// The experiment first, then the ranges, then the rest.
     public static let sources = [chai2025, doughty2001, bentivoglio1997, freudenthaler2003, chidiEgboka2023,
                                  wang2025, ousler2008, kim2021, tfos2023]

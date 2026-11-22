@@ -17,6 +17,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         /// the banner still offers "Later (5 min)".
         /// `sound`: the banner comes with the Mac's notification sound (a setting).
         case screenBreak(title: String, body: String, canPostpone: Bool, sound: Bool)
+        /// "Send a Test Reminder" in Settings > Breaks: the break's banner with its real
+        /// numbers, said to be a test, whose buttons do nothing.
+        case screenBreakTest(title: String, body: String)
     }
 
     /// What a banner's buttons ask for.
@@ -34,6 +37,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let lowRate = "low-blink-rate"
         static let lowRateTest = "low-blink-rate-test"
         static let screenBreak = "screen-break"
+        static let screenBreakTest = "screen-break-test"
         static let breakOver = "screen-break-over"
         static let blinkBreak = "start-blink-break"
         static let snooze = "snooze-one-hour"
@@ -91,7 +95,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationAction(identifier: "test-blink-break", title: "Start Blink Break", options: []),
             UNNotificationAction(identifier: "test-snooze", title: "Quiet for 1 Hour", options: []),
         ], intentIdentifiers: [])
-        center.setNotificationCategories(Set([lowRate, lowRateTest, screenBreak, screenBreakLast] + extraCategories))
+        let screenBreakTest = UNNotificationCategory(identifier: Identifier.screenBreakTest, actions: [
+            UNNotificationAction(identifier: "test-later", title: "Later (5 min)", options: []),
+            UNNotificationAction(identifier: "test-skip", title: "Skip", options: []),
+        ], intentIdentifiers: [])
+        center.setNotificationCategories(Set([lowRate, lowRateTest, screenBreak, screenBreakLast, screenBreakTest] + extraCategories))
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             if let error { Log.app.error("Notifications: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
@@ -152,6 +160,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             content.body = body
             if !sound { content.sound = nil }
             center.removeDeliveredNotifications(withIdentifiers: [Identifier.breakOver])
+        case .screenBreakTest(let title, let body):
+            identifier = Identifier.screenBreakTest
+            content.categoryIdentifier = Identifier.screenBreakTest
+            content.title = title + " (this is a test)"
+            content.body = body + " On this test the buttons do nothing."
         }
         // One fixed identifier per kind: a new banner replaces the previous one instead of
         // piling up in Notification Centre.
@@ -232,7 +245,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         // The test banner: nothing it carries does anything.
-        if response.notification.request.content.categoryIdentifier == Identifier.lowRateTest { return completionHandler() }
+        let kind = response.notification.request.content.categoryIdentifier
+        if kind == Identifier.lowRateTest || kind == Identifier.screenBreakTest { return completionHandler() }
         let action: Action?
         switch response.actionIdentifier {
         case Identifier.blinkBreak: action = .blinkBreak

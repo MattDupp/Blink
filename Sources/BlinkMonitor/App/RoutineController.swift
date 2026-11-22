@@ -158,6 +158,14 @@ final class RoutineController: ObservableObject {
         if quiet { routines.forEach(onSettled) }       // the banners on screen can go
     }
 
+    /// Erases the routine log, on disk and in memory. What was done today and this week
+    /// is worked out from it, so those marks start again; the routines themselves stay.
+    func eraseRecord() {
+        guard store.erase() else { return }
+        events = []
+        routines.forEach(onSettled)
+    }
+
     /// The routines with a time waiting right now.
     func due(now: Date = Date()) -> [RoutineDay] {
         days(now: now).filter { $0.due != nil }

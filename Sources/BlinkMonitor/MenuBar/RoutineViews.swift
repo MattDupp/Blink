@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import BlinkCore
+import BlinkUI
 
 // MARK: - In the panel
 
@@ -666,13 +667,11 @@ struct RoutineSettings: View {
 
     /// Asks before deleting, and says what happens to the record.
     private func confirmDelete(_ routine: Routine) {
-        let alert = NSAlert()
-        alert.messageText = "Delete “\(routine.title)”?"
-        alert.informativeText = "Its reminders stop. The lines it wrote in the record stay in routines.csv: that file is only ever added to."
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
-        alert.buttons.first?.hasDestructiveAction = true
-        if alert.runModal() == .alertFirstButtonReturn { routines.remove(routine.id) }
+        // The same question as every other erasing action (`Confirm`): Cancel is the default.
+        let question = Confirm.Question(title: "Delete “\(routine.title)”?",
+                                        text: "Its reminders stop. What you did with it stays in the routine log. This cannot be undone.",
+                                        button: "Delete")
+        if Confirm.destructive(question) { routines.remove(routine.id) }
     }
 
     /// A routine counted by the week: its count, the days it asks first, its time, and

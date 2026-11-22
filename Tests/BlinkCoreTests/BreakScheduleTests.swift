@@ -458,4 +458,22 @@ struct BreakScheduleTests {
 
         #expect(!BreakSchedule.foundLate(sinceLastLook: 1) && BreakSchedule.foundLate(sinceLastLook: 60))
     }
+
+    @Test("The steppers reach every value from both sides: by 1 up to 10 minutes, by 5 above")
+    func steps() {
+        #expect(BreakPlan.stepMinutes(10, up: false) == 9 && BreakPlan.stepMinutes(9, up: true) == 10)
+        #expect(BreakPlan.stepMinutes(10, up: true) == 15 && BreakPlan.stepMinutes(15, up: false) == 10)
+        #expect(BreakPlan.stepMinutes(12, up: true) == 15 && BreakPlan.stepMinutes(12, up: false) == 10, "an odd stored value joins the steps")
+        #expect(BreakPlan.stepMinutes(1, up: false) == 1 && BreakPlan.stepMinutes(120, up: true) == 120)
+        // Going down from the top and up again passes through the same values.
+        var down: [Int] = [], minutes = 30
+        while minutes > 5 { minutes = BreakPlan.stepMinutes(minutes, up: false); down.append(minutes) }
+        var up: [Int] = []
+        while minutes < 30 { up.append(minutes); minutes = BreakPlan.stepMinutes(minutes, up: true) }
+        #expect(down == [25, 20, 15, 10, 9, 8, 7, 6, 5] && up == down.reversed())
+
+        #expect(BreakPlan.stepSeconds(60, up: false) == 55 && BreakPlan.stepSeconds(55, up: true) == 60)
+        #expect(BreakPlan.stepSeconds(60, up: true) == 75 && BreakPlan.stepSeconds(75, up: false) == 60)
+        #expect(BreakPlan.stepSeconds(10, up: false) == 10 && BreakPlan.stepSeconds(300, up: true) == 300)
+    }
 }

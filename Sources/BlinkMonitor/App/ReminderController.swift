@@ -133,6 +133,16 @@ final class ReminderController: ObservableObject {
         }
     }
 
+    /// The same for a look-away break, with the numbers chosen in Settings.
+    func sendBreakTest() {
+        let plan = preferences.breakPlan
+        notifier.requestPermission { [weak self] granted in
+            self?.notifications = granted ? .allowed : .refused
+            self?.notifier.show(.screenBreakTest(title: BreakWords.bannerTitle(.short, plan: plan),
+                                                 body: BreakWords.bannerBody(.short, endSound: self?.preferences.breakEndSound ?? true)))
+        }
+    }
+
     /// QUIET: no banner and no sound of any kind before `until` (nil: over now). The blink
     /// reminder, the look-away breaks and the routines all ask the same gate. Counting
     /// goes on, and the choice is remembered across a relaunch.

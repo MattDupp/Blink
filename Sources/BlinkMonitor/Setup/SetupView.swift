@@ -971,7 +971,7 @@ private struct ProofPage: View {
                     Button("Go Back to the Model I Had") { model.goBackToPrevious() }
                 }
                 Button("Use It Anyway") { model.useAnyway() }
-                    .help("The app will count with this model and may miss blinks, so your rate can read lower than it is. You can test or record again later in Settings > Your Model.")
+                    .help("The app will count with this model and may miss blinks, so your rate can read lower than it is. You can test or record again later in Settings > Model.")
                 // A first failure is often a missed tick: the test again comes first.
                 // After a second one, two more minutes of recording are worth it.
                 if model.failedTests < 2 {
@@ -1106,7 +1106,7 @@ struct DonePage: View {
                                  text: """
                                      Look-away breaks (20-20-20): off until you switch them on.
                                      Routines: eye drops, a heated mask, or your own.
-                                     Your Model: add a session in another light, or delete the recordings and the model.
+                                     Model: add a recording in another light, or delete the recordings and the model.
                                      """)
                     LoginPoint(loginItem: model.monitor.loginItem)
                 }

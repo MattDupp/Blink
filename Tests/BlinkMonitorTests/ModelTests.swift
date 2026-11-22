@@ -494,6 +494,34 @@ struct PanelSentenceTests {
     }
 }
 
+@MainActor
+@Suite("Settings")
+struct SettingsWordsTests {
+
+    @Test("Seven tabs, the last one About; every erasing question says it cannot be undone")
+    func tabsAndQuestions() {
+        #expect(SettingsState.Tab.allCases.map(\.rawValue) == ["General", "Blink Rate", "Breaks", "Routines", "Model", "Privacy", "About"])
+        let questions = [EraseWords.history(startingLimit: 10), EraseWords.routineLog, EraseWords.captures(2),
+                         EraseWords.startAgain, EraseWords.everything]
+        for question in questions {
+            #expect(question.text.contains("cannot be undone"), "\(question.title)")
+            #expect(question.button != "OK" && question.button != "Cancel")
+        }
+        #expect(EraseWords.history(startingLimit: 10).text.contains("goes back to 10"))
+        #expect(EraseWords.captures(1).text.hasPrefix("1 capture of"))
+    }
+
+    @Test("Erasing the routine log empties it and keeps the routines")
+    func routineLogErased() throws {
+        let routines = SampleData.demoModel().routines
+        // The demo's log is a file of its own in the temporary folder: never the user's.
+        try #require(routines.store.file.path.hasPrefix(FileManager.default.temporaryDirectory.path))
+        let before = routines.routines
+        routines.eraseRecord()
+        #expect(routines.events.isEmpty && routines.routines == before)
+    }
+}
+
 @Suite("The menu-bar item")
 struct MenuBarMarksTests {
 

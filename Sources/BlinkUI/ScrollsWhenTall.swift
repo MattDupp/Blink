@@ -15,23 +15,40 @@ import AppKit
 public struct ScrollsWhenTall<Content: View>: View {
     @Environment(\.screenRoom) private var room
     private let reserved: CGFloat
+    private let height: CGFloat?
     private let content: Content
 
     /// `reserved`: the height of what stays put around this part: the title bar, a tab
     /// bar, a row of buttons, the paddings.
-    public init(reserved: CGFloat, @ViewBuilder content: () -> Content) {
+    /// `height`: this part always takes this height (less on a screen too small for it),
+    /// whatever it holds. Settings uses it: its window jumped between 370 and 890 points
+    /// from one tab to the next. Nil: as tall as the content, up to the screen.
+    public init(reserved: CGFloat, height: CGFloat? = nil, @ViewBuilder content: () -> Content) {
         self.reserved = reserved
+        self.height = height
         self.content = content()
     }
 
     public var body: some View {
-        CappedHeight(limit: max(240, (room ?? ScreenRoom.height) - reserved)) {
+        let available = room ?? ScreenRoom.height
+        let limit = max(240, available - reserved)
+        // (The screenshots give unlimited room, to show a tab whole: there the fixed
+        // height is left aside.)
+        if let height, available < ScreenRoom.unlimited {
             ScrollView(.vertical) { content }
+                .frame(height: min(height, limit))
+        } else {
+            CappedHeight(limit: limit) {
+                ScrollView(.vertical) { content }
+            }
         }
     }
 }
 
 public enum ScreenRoom {
+    /// The room the screenshots state when a window is to be shown whole.
+    public static let unlimited: CGFloat = 100_000
+
     /// The height a window may take on the screen in use: what is left by the menu bar
     /// and the Dock, less a small margin.
     public static var height: CGFloat {

@@ -46,7 +46,7 @@ public enum ScreenRenderer {
             // A picture shows the whole window, on whatever Mac it is rendered: the room
             // of this Mac's screen must not cut it (`ScrollsWhenTall`). A screen that
             // wants to show the scrolling states a room of its own, further in.
-            .environment(\.screenRoom, 100_000)
+            .environment(\.screenRoom, ScreenRoom.unlimited)
 
         let hosting = NSHostingView(rootView: framed)
         hosting.appearance = appearance

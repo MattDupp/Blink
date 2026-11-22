@@ -13,6 +13,57 @@ struct SettingsActions {
     var closeSetup: () -> Void = {}
     /// System Settings, on the page of this app's notifications.
     var openNotificationSettings: () -> Void = {}
+    /// System Settings, on the page of the login items.
+    var openLoginItems: () -> Void = {}
+    /// Removes everything the app keeps on this Mac, then quits. Nil where it is not
+    /// offered (the demo, which keeps nothing).
+    var deleteEverythingAndQuit: (() -> Void)?
+}
+
+/// The project's pages. The app itself connects to nothing: these open in the browser.
+enum ProjectLinks {
+    static let home = URL(string: "https://github.com/MattDupp/blink-monitor")!
+    static let problems = URL(string: "https://github.com/MattDupp/blink-monitor/issues")!
+    static let newVersion = URL(string: "https://github.com/MattDupp/blink-monitor/releases/latest")!
+}
+
+/// What each erasing action of Settings asks before it acts (`Confirm`): what goes, in
+/// the user's words, and that it cannot be undone.
+enum EraseWords {
+    static func history(startingLimit: Int) -> Confirm.Question {
+        Confirm.Question(title: "Erase the history?",
+                         text: "Every recorded minute is erased, and your usual rate measured from them. "
+                             + "The limit goes back to \(startingLimit) until it is measured again. This cannot be undone.",
+                         button: "Erase")
+    }
+
+    static let routineLog = Confirm.Question(
+        title: "Erase the routine log?",
+        text: "What you did with your routines is erased: today's and this week's marks start again. "
+            + "The routines and their times stay. This cannot be undone.",
+        button: "Erase")
+
+    static func captures(_ count: Int) -> Confirm.Question {
+        Confirm.Question(title: "Erase the captures from Live View?",
+                         text: "\(Format.count(count, "capture")) of your eyes, saved with Live View's record buttons. This cannot be undone.",
+                         button: "Erase")
+    }
+
+    static func recordingsAndModel(_ what: String) -> Confirm.Question {
+        Confirm.Question(title: "Delete the recordings and the model?", text: what, button: "Delete")
+    }
+
+    static let startAgain = Confirm.Question(
+        title: "Start again?",
+        text: "The recordings and the model are deleted, then setup opens to record your eyes anew. "
+            + "Nothing is counted until it is done. This cannot be undone.",
+        button: "Delete and Start Again")
+
+    static let everything = Confirm.Question(
+        title: "Delete everything and quit?",
+        text: "The recordings of your eyes, your model, the history, the routine log and every setting are removed from this Mac, "
+            + "and Blink Monitor quits. Afterwards, move Blink Monitor itself to the Trash. This cannot be undone.",
+        button: "Delete Everything and Quit")
 }
 
 /// Where the files that setup makes are kept.
@@ -36,9 +87,11 @@ final class SettingsState: ObservableObject {
         case reminders = "Blink Rate"
         case breaks = "Breaks"
         case routines = "Routines"
-        case model = "Your Model"
-        case data = "Your Data"
-        case sources = "Sources"
+        case model = "Model"
+        case data = "Privacy"
+        /// The version, the links and the studies. (It was "Sources": the name of the case
+        /// and of its screenshots stayed.)
+        case sources = "About"
     }
 
     /// What setup has left on disk: counted when the window opens, not at every redraw.
@@ -61,17 +114,13 @@ final class SettingsState: ObservableObject {
 
     @Published var tab = Tab.general
     @Published var measurement: Measurement?
-    @Published var confirmingErase = false
     @Published var onDisk = OnDisk()
     /// Set by the screenshots, which state what is on disk instead of counting it.
     var onDiskIsStated = false
-    @Published var confirmingDelete = false
     @Published var deleteProblem: String?
 
     func reset() {
         measurement = nil
-        confirmingErase = false
-        confirmingDelete = false
         deleteProblem = nil
     }
 
@@ -116,16 +165,15 @@ struct SettingsView: View {
             .labelsHidden()
             .padding(.horizontal, 20)
 
-            // The tab bar stays put; a tab taller than the screen scrolls under it.
-            // 110: the title bar, the tab bar and the paddings around them.
-            ScrollsWhenTall(reserved: 110) {
+            // The tab bar stays put, and every tab has the same height: what is taller
+            // scrolls under the bar. 110: the title bar, the tab bar and their paddings.
+            ScrollsWhenTall(reserved: 110, height: Self.tabHeight) {
                 VStack(alignment: .leading, spacing: 12) {
                     if remindsOnThisTab, reminders.notificationsRefused { notificationsOff }
                     switch state.tab {
                     case .general: general
                     case .reminders: remindersTab
-                    case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
-                                            startBlinkBreak: actions.startBlinkBreak)
+                    case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment)
                     case .routines: RoutineSettings(routines: model.routines, moment: moment)
                     case .model: modelTab
                     case .data: data
@@ -139,6 +187,9 @@ struct SettingsView: View {
         .padding(.top, 20)
         .frame(width: 520, alignment: .top)
     }
+
+    /// One height for every tab.
+    static let tabHeight: CGFloat = 560
 
     /// The three tabs whose reminders arrive as notifications.
     private var remindsOnThisTab: Bool {
@@ -170,16 +221,17 @@ struct SettingsView: View {
     // MARK: General
 
     private var general: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            generalCard
-            about
-        }
+        generalCard
     }
 
     private var generalCard: some View {
         Card {
             Row("Start at login", detail: loginItem.unavailable ?? loginItem.problem
                     ?? "Blink Monitor opens by itself when you log in.") {
+                // macOS refused: the list it keeps is where that can be mended.
+                if loginItem.problem != nil {
+                    Button("Open Login Items") { actions.openLoginItems() }
+                }
                 Toggle("Start at login", isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))
                     .disabled(!loginItem.available)
             }
@@ -218,9 +270,17 @@ struct SettingsView: View {
                 Row("See what it looks like", detail: "Shows a reminder now, marked as a test. Its two buttons show when the pointer is over it, and on the test they do nothing.") {
                     Button("Send a Test Reminder") { reminders.sendTest() }
                 }
+                Divider()
+                // It answers the blink reminder, so it is here and not under Breaks.
+                let cameraOn = model.status(now: moment.now).isCameraOn
+                Row("Try a blink break", detail: cameraOn ? "10 slow blinks, counted by the camera. A finished one answers the reminder for 20 minutes."
+                                                          : "The camera counts the blinks of a blink break, and it is off now.") {
+                    Button("Start") { actions.startBlinkBreak() }
+                        .disabled(!cameraOn)
+                }
             }
             Card {
-                Row("Limit", detail: "Under it, you are blinking too little.") {
+                Row("Limit", detail: "Under it, the app shows Low and can remind you.") {
                     Picker("Limit", selection: $preferences.automaticLimit) {
                         Text("Automatic").tag(true)
                         Text("Manual").tag(false)
@@ -236,7 +296,7 @@ struct SettingsView: View {
                 Row(preferences.automaticLimit ? "Lowest limit" : "Limit",
                     detail: preferences.automaticLimit
                         ? "The automatic limit never goes under this."
-                        : "A limit you choose. The picture below shows what studies report.") {
+                        : "A limit you choose. What studies report is under About.") {
                     HStack(spacing: 6) {
                         Text("\(preferences.floor) a minute").monospacedDigit()
                         Stepper("Blinks a minute", value: $preferences.floor, in: Preferences.floorChoices)
@@ -251,23 +311,15 @@ struct SettingsView: View {
         }
     }
 
-    /// What studies report, next to the limit it helps to choose. It is shown, and that is
-    /// all: the limit comes from your own reference and your floor (see `PublishedRates`).
+    /// What studies report, in one line. The figure with its four bars and two dots sat
+    /// here, under a control that sets a limit, and ended on "none of this is a target":
+    /// it read as a verdict on the limit above it. It is whole under About.
     private var studiesCard: some View {
         Card {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("What studies report")
-                    Spacer(minLength: 12)
-                    Button("Sources") { state.tab = .sources }
-                        .controlSize(.small)
-                }
-                StudyRangesSection(yours: preferences.reference.map {
-                    .init(label: "your usual rate \(Format.rate($0.rate))", rate: $0.rate)
-                }, limit: preferences.limit)
+            Row("What studies report",
+                detail: "At a screen, groups of healthy adults average \(PublishedRates.atScreen.span) blinks a minute. That is what is typical, not a target.") {
+                Button("Show") { state.tab = .sources }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
         }
     }
 
@@ -338,32 +390,44 @@ struct SettingsView: View {
                 let change = newLimit == preferences.limit
                     ? "the limit stays at \(newLimit)" : "the limit moves from \(preferences.limit) to \(newLimit)"
                 if proposal.lowers {
-                    Label("This is lower than your usual rate. If you use it, \(change), and History stops "
-                          + "showing the drop. Use it only if the old measure was wrong.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // The sign is orange, the sentence is not: orange text is the hardest to read.
+                    Label {
+                        Text("This is lower than your usual rate. If you use it, \(change), and History stops "
+                             + "showing the drop. Use it only if the old measure was wrong.")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    }
                 } else {
                     Text("If you use it, \(change).")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Spacer()
-                    Button(proposal.current.map { "Keep \(Format.rate($0.rate))" } ?? "Cancel") { state.measurement = nil }
-                        .keyboardShortcut(.cancelAction)
+                    // Keeping is the default when the new measure would hide a decline.
                     Button("Use \(Format.rate(proposal.measured.rate))") {
                         preferences.reference = proposal.measured
                         state.measurement = nil
                     }
+                    .keyboardShortcut(proposal.lowers ? nil : .defaultAction)
+                    Button(proposal.current.map { "Keep \(Format.rate($0.rate))" } ?? "Cancel") { state.measurement = nil }
+                        .keyboardShortcut(proposal.lowers ? .defaultAction : .cancelAction)
                 }
             }
             .font(.callout)
             .padding(10)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         case .tooLittle:
-            Text("Too little was recorded in the last week to measure: 3 hours over 2 days are needed.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Too little was recorded in the last week to measure: 3 hours over 2 days are needed.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 12)
+                // Nothing dismissed this until the window was closed.
+                Button("OK") { state.measurement = nil }
+                    .keyboardShortcut(.defaultAction)
+            }
         case nil:
             EmptyView()
         }
@@ -382,11 +446,12 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     DataPoint(symbol: "light.beacon.max", text: "The green light beside the camera is Blink Monitor counting. Pause, in the menu-bar panel, turns the camera and the light off.")
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
-                    DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them in Your Model.")
+                    DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them under Model.")
+                    DataPoint(symbol: "checklist", text: "Kept with a routine switched on: one line each time a reminder is shown, done, postponed or missed.")
                     if state.onDisk.captures > 0 {
                         DataPoint(symbol: "record.circle", text: "Kept from Live View: \(Format.count(state.onDisk.captures, "capture")) of your eyes"
                                   + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
-                                  + "recorded with its record buttons. Your Model deletes them with the recordings.")
+                                  + "recorded with its record buttons.")
                     }
                     DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each picture is read and discarded at once.")
                     DataPoint(symbol: "wifi.slash", text: "Nothing leaves this Mac. The app makes no network connection.")
@@ -394,34 +459,58 @@ struct SettingsView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
+            // Every file the app writes, each with its size, where it is and its own Erase.
             Card {
-                Row("History file", detail: "\(Format.count(history.minutes.count, "minute")) over the last \(HistoryController.daysKept) days. It opens in any spreadsheet.") {
+                Row("History file", detail: "\(Format.count(history.minutes.count, "minute")) from the last \(HistoryController.daysKept) days are shown. "
+                        + "The file keeps every minute since the first, and Erase removes all of them. \(Self.size(of: history.store.file))") {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
+                    Button("Erase…") {
+                        if Confirm.destructive(EraseWords.history(startingLimit: preferences.floor)) { model.eraseHistory() }
+                    }
+                    .disabled(history.minutes.isEmpty && preferences.reference == nil)
+                }
+                Divider()
+                let log = model.routines.store.file
+                Row("Routine log", detail: "What you did with your routines, one line each time. It opens in any spreadsheet. \(Self.size(of: log))") {
+                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([log]) }
+                        .disabled(!FileManager.default.fileExists(atPath: log.path))
+                    Button("Erase…") {
+                        if Confirm.destructive(EraseWords.routineLog) { model.routines.eraseRecord() }
+                    }
+                    .disabled(!FileManager.default.fileExists(atPath: log.path))
                 }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
                     Divider()
-                    Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View. Settings > Your Model > Delete removes them.") {
+                    Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View."
+                            + String(format: " %.0f MB.", state.onDisk.captureMegabytes)) {
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([captures]) }
-                    }
-                }
-                Divider()
-                if state.confirmingErase {
-                    Row("Erase every recorded minute?", detail: "Your usual rate is erased too. This cannot be undone.") {
-                        Button("Cancel") { state.confirmingErase = false }
-                            .keyboardShortcut(.cancelAction)
-                        Button("Erase", role: .destructive) {
-                            model.eraseHistory()
-                            state.confirmingErase = false
+                        Button("Erase…") {
+                            guard Confirm.destructive(EraseWords.captures(state.onDisk.captures)) else { return }
+                            try? FileManager.default.removeItem(at: captures)
+                            state.refresh(files)
                         }
                     }
-                } else {
-                    Row("Erase history", detail: "Removes every recorded minute, and your usual rate.") {
-                        Button("Erase…") { state.confirmingErase = true }
-                            .disabled(history.minutes.isEmpty && preferences.reference == nil)
+                }
+            }
+            // Dragging the app to the Trash leaves all of the above behind.
+            if let deleteEverything = actions.deleteEverythingAndQuit {
+                Card {
+                    Row("Remove Blink Monitor from this Mac",
+                        detail: "Deletes the recordings, the model, the history, the routine log and every setting, then quits. Afterwards, move the app itself to the Trash.") {
+                        Button("Delete Everything and Quit…") {
+                            if Confirm.destructive(EraseWords.everything) { deleteEverything() }
+                        }
                     }
                 }
             }
         }
+        .onAppear { state.refresh(files) }
+    }
+
+    /// "12 KB.", or that the file does not exist yet.
+    static func size(of file: URL) -> String {
+        guard let bytes = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int64 else { return "No file yet." }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) + "."
     }
 
     // MARK: Your model
@@ -432,37 +521,44 @@ struct SettingsView: View {
                 Row(modelTitle, detail: modelDetail) {
                     if !model.isDemo && model.modelSource == .none {
                         Button(preferences.welcomed ? "Continue Setup…" : "Set Up…") { actions.openSetup(.resume) }
+                            .keyboardShortcut(.defaultAction)
                     }
                 }
             }
-            if !model.isDemo {
-                Card {
-                    Row("Add a recording",
-                        detail: "Two minutes in another light, on another day or with other glasses. Then the model is trained again on everything, and tested.") {
-                        Button("Add a Recording…") { actions.openSetup(.addSession) }
-                    }
-                    Divider()
-                    Row("Test it again", detail: "10 ticks, a blink at each: how many does it count where you sit now?") {
-                        Button("Test Again") { actions.openSetup(.test) }
-                            .disabled(!isTrainedHere)
+            // With no model there is one thing to do, and it is the button above: adding
+            // a recording or deleting what does not exist were two ways in that led nowhere.
+            if !model.isDemo, model.modelSource != .none || state.onDisk.sessions > 0 || state.onDisk.captures > 0 || state.onDisk.untested {
+                if model.modelSource != .none {
+                    Card {
+                        Row("Add a recording",
+                            detail: "Two minutes in another light, on another day or with other glasses. Then the model is trained again on everything, and tested.") {
+                            Button("Add a Recording…") { actions.openSetup(.addSession) }
+                        }
+                        Divider()
+                        Row("Test it again", detail: "10 ticks, a blink at each: how many does it count where you sit now?") {
+                            Button("Test Again") { actions.openSetup(.test) }
+                                .disabled(!isTrainedHere)
+                        }
                     }
                 }
                 Card {
                     Row("Recordings", detail: onDiskDetail) {
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([files.store.base]) }
                     }
+                    if isTrainedHere, files.ownSessions {
+                        Divider()
+                        Row("Start again", detail: "For a model that counts badly: deletes the recordings and the model, then opens setup.") {
+                            Button("Start Again…") {
+                                if Confirm.destructive(EraseWords.startAgain) { deleteEverything(thenSetUp: true) }
+                            }
+                        }
+                    }
                     Divider()
-                    if state.confirmingDelete {
-                        Row("Delete the recordings and the model?", detail: deleteWarning) {
-                            Button("Cancel") { state.confirmingDelete = false }
-                                .keyboardShortcut(.cancelAction)
-                            Button("Delete", role: .destructive) { deleteEverything() }
+                    Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. They are deleted for good, not moved to the Trash.") {
+                        Button("Delete…") {
+                            if Confirm.destructive(EraseWords.recordingsAndModel(deleteWarning)) { deleteEverything() }
                         }
-                    } else {
-                        Row("Delete recordings and model", detail: state.deleteProblem ?? "Removes every picture of your eyes and the model trained on them. They are deleted for good, not moved to the Trash.") {
-                            Button("Delete…") { state.confirmingDelete = true }
-                                .disabled(state.onDisk.sessions == 0 && state.onDisk.captures == 0 && !isTrainedHere && !state.onDisk.untested)
-                        }
+                        .disabled(state.onDisk.sessions == 0 && state.onDisk.captures == 0 && !isTrainedHere && !state.onDisk.untested)
                     }
                 }
             }
@@ -530,8 +626,7 @@ struct SettingsView: View {
         return text
     }
 
-    private func deleteEverything() {
-        state.confirmingDelete = false
+    private func deleteEverything(thenSetUp: Bool = false) {
         actions.closeSetup()
         Task {
             do {
@@ -542,23 +637,47 @@ struct SettingsView: View {
                 state.deleteProblem = "It could not be deleted: \(error.localizedDescription)"
             }
             state.refresh(files)
+            if thenSetUp, state.deleteProblem == nil { actions.openSetup(.resume) }
         }
     }
 
-    // MARK: Sources
+    // MARK: About
 
-    /// Where the app's figures come from. A list that scrolls: nine papers with what each
-    /// found do not fit a window that small screens can show whole.
+    /// The version, what the app is not, where to reach the project, and where its
+    /// figures come from. The whole tab scrolls, like the others.
     private var sources: some View {
         VStack(alignment: .leading, spacing: 12) {
+            about
+            Card {
+                Row("Website and source", detail: "What the app does, how it works, and all of its code.") {
+                    Button("Open") { NSWorkspace.shared.open(ProjectLinks.home) }
+                }
+                Divider()
+                Row("Report a problem", detail: "A page where problems are listed and answered. It needs a GitHub account.") {
+                    Button("Open") { NSWorkspace.shared.open(ProjectLinks.problems) }
+                }
+                Divider()
+                Row("Check for a new version", detail: "This is version \(AppInfo.version). The page shows the latest one. The app itself never looks: it makes no network connection.") {
+                    Button("Open") { NSWorkspace.shared.open(ProjectLinks.newVersion) }
+                }
+            }
+            Text("Each of these opens in your browser.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            SectionTitle("What studies report")
+                .padding(.top, 6)
+            Card {
+                StudyRangesSection(yours: preferences.reference.map {
+                    .init(label: "your usual rate \(Format.rate($0.rate))", rate: $0.rate)
+                }, limit: preferences.limit)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+            }
             Text("What the app says about blink rates comes from these studies. They describe what is typical, not what is ideal, and none of it is a diagnosis. Each one opens in your browser.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            ScrollView {
-                Card { SourcesList() }
-            }
-            .frame(height: 380)
+            Card { SourcesList() }
             Card {
                 Row("The whole review", detail: "Every study in one table, what they disagree on, and the limits of this reading.") {
                     Button("Open") { NSWorkspace.shared.open(PublishedRates.review) }
@@ -566,8 +685,6 @@ struct SettingsView: View {
             }
         }
     }
-
-    // MARK: About
 
     private var about: some View {
         HStack(spacing: 12) {

@@ -100,4 +100,29 @@ struct MonitoringTests {
         // The timer goes first: covered eyes are waiting for its sound.
         #expect(QuitQuestion.question(.init(timer: "Mask", recording: true, training: true))?.title == "A timer is running")
     }
+
+    @Test("Delete everything removes the folder it is given and the settings under the name it is given, and nothing else")
+    func uninstall() throws {
+        // A folder and a settings store of this test's own: never the app's real ones.
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("blink-uninstall-\(UUID().uuidString)", isDirectory: true)
+        let folder = base.appendingPathComponent("BlinkMonitor", isDirectory: true)
+        let beside = base.appendingPathComponent("beside.txt")
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("sessions/one"), withIntermediateDirectories: true)
+        try Data("minute".utf8).write(to: folder.appendingPathComponent("history.csv"))
+        try Data("kept".utf8).write(to: beside)
+        let domain = "blink-uninstall-test-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defaults.set(7, forKey: "floor")
+        defer {
+            try? FileManager.default.removeItem(at: base)
+            defaults.removePersistentDomain(forName: domain)
+        }
+
+        try Uninstall.deleteEverything(folder: folder, defaults: defaults, domain: domain)
+        #expect(!FileManager.default.fileExists(atPath: folder.path))
+        #expect(FileManager.default.fileExists(atPath: beside.path), "what is beside the folder is not the app's")
+        #expect(defaults.object(forKey: "floor") == nil)
+        // A second time, with nothing left: not an error.
+        try Uninstall.deleteEverything(folder: folder, defaults: defaults, domain: domain)
+    }
 }

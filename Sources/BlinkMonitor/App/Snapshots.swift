@@ -42,7 +42,8 @@ enum Snapshots {
                                         reminders: model.reminders, loginItem: model.loginItem, state: state,
                                         moment: Moment(frozen: now),
                                         files: SettingsFiles(store: ModelStore(base: nowhere), sessionsRoot: nowhere),
-                                        actions: SettingsActions()))
+                                        // (A closure that does nothing: the card is drawn, and a picture cannot press it.)
+                                        actions: SettingsActions(deleteEverythingAndQuit: {})))
         }
         func setup(_ scene: SampleData.SetupScene) -> AnyView {
             let model = SampleData.setup(scene, now: now)
@@ -164,10 +165,6 @@ enum Snapshots {
             }),
             ("settings-breaks", settings(.breaks, scene: .learning)),
             ("settings-model", settings(.model) { state, _ in (state.onDisk, state.onDiskIsStated) = (recorded, true) }),
-            ("settings-model-delete", settings(.model) { state, _ in
-                (state.onDisk, state.onDiskIsStated) = (recorded, true)
-                state.confirmingDelete = true
-            }),
             ("settings-model-none", settings(.model, scene: .needsSetup)),
             ("settings-breaks-long", settings(.breaks, scene: .lookingAway)),
             ("settings-breaks-off", settings(.breaks)),
