@@ -137,7 +137,7 @@ final class MonitorModel: ObservableObject {
         self.history = history ?? HistoryController()
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
         blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
-        loginItem = LoginItem(allowed: !demo)
+        loginItem = LoginItem(demo: demo)
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {

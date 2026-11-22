@@ -122,8 +122,8 @@ struct SettingsView: View {
 
     private var generalCard: some View {
         Card {
-            Row("Start at login", detail: !loginItem.available ? "Not in the demo."
-                    : (loginItem.problem ?? "Blink Monitor opens by itself when you log in.")) {
+            Row("Start at login", detail: loginItem.unavailable ?? loginItem.problem
+                    ?? "Blink Monitor opens by itself when you log in.") {
                 Toggle("Start at login", isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))
                     .disabled(!loginItem.available)
             }

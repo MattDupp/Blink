@@ -10,6 +10,14 @@ MODEL       := $(MODELS)/EyeNet.mlmodelc
 export BLINK_DATA   := $(DATA)
 export BLINK_MODELS := $(MODELS)
 
+# How the apps are signed. "-" is an ad hoc signature: no certificate, good for the Mac
+# that built it. With an Apple Developer ID, name the certificate, and the keychain
+# profile that holds the notarization password (docs/DEVELOPMENT.md, "Signing"):
+#   make dmg SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=blink-notary
+SIGN_IDENTITY  ?= -
+NOTARY_PROFILE ?=
+export SIGN_IDENTITY NOTARY_PROFILE
+
 # With only Apple's Command Line Tools (no Xcode), the compiler has to be told where the
 # testing macros live. With Xcode this is automatic and the flags stay empty.
 CLT_TESTING := /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing
@@ -23,12 +31,17 @@ endif
 QUIET := 2>&1 | { grep -v "ld: warning: search path" || true; }
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
+# Where the app is when it was dragged out of the disk image (make dmg), as opposed to
+# installed by `make monitor`. It has another file name there: "Blink Monitor", as people
+# read it in Finder.
+DRAGGED := "/Applications/Blink Monitor.app" "$(HOME)/Applications/Blink Monitor.app"
+
 # Recipes run in bash, and a failing command fails its recipe even when its output is filtered.
 SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor demo build test lint format recorder train improve evaluate compare replay monitor monitor-app uninstall snapshots icon clean
+.PHONY: help doctor demo build test lint format recorder train improve evaluate compare replay monitor monitor-app one-copy uninstall dmg snapshots icon clean
 
 help:  ## List the tasks
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -104,7 +117,7 @@ WHOLE_FRAMES_ARGS := "--whole-frames-dir=$(DATA)/replay"
 endif
 
 # OPEN_ARGS: more launch options (`make recorder` passes its own).
-monitor: monitor-app  ## Install the menu-bar app in ~/Applications and start it (it sets itself up the first time)
+monitor: one-copy monitor-app  ## Install the menu-bar app in ~/Applications and start it (it sets itself up the first time)
 	@# Stop the copy that is running, if any, and wait for it to be gone.
 	@# (The extra second lets macOS notice it has quit: opening the app too early fails with error -600.)
 	@if pkill -x BlinkMonitor 2>/dev/null; then while pgrep -x BlinkMonitor >/dev/null; do sleep 0.2; done; sleep 1; fi
@@ -138,11 +151,32 @@ monitor-app: App/AppIcon.icns
 	@scripts/doctor.sh mac swift
 	scripts/bundle.sh BlinkMonitor $(wildcard $(MODEL))
 
-uninstall:  ## Remove the installed app (your history and recordings are kept)
+# ONE INSTALLED COPY AT A TIME. A copy dragged out of the disk image and the copy this
+# Makefile installs are the same app to macOS (one identifier). With both, Notification
+# Centre can lose the icon, Start at Login may open either, and only one of them runs.
+# Checked before anything is built or stopped, and nothing is removed without being asked.
+one-copy:
+	@for app in $(DRAGGED); do \
+		[ -e "$$app" ] || continue; \
+		echo "Blink Monitor is already installed from the disk image: $$app"; \
+		echo "macOS should know one copy only. Quit that one and move it to the Trash,"; \
+		echo "then run 'make monitor' again. (Or: make uninstall, which removes every copy.)"; \
+		exit 1; \
+	done
+
+uninstall:  ## Remove the installed app, wherever it is (your history and recordings are kept)
 	@pkill -x BlinkMonitor 2>/dev/null; true
-	@$(LSREGISTER) -u "$(INSTALL_DIR)/BlinkMonitor.app" >/dev/null 2>&1; true
-	rm -rf "$(INSTALL_DIR)/BlinkMonitor.app"
-	@echo "Removed. Still on this Mac, and yours to delete:"
+	@# Both kinds of copy: the one `make monitor` installs, and one dragged out of the disk image.
+	@for app in "$(INSTALL_DIR)/BlinkMonitor.app" $(DRAGGED); do \
+		[ -e "$$app" ] || continue; \
+		$(LSREGISTER) -u "$$app" >/dev/null 2>&1; \
+		if [ -w "$$(dirname "$$app")" ] && rm -rf "$$app"; then \
+			echo "Removed $$app"; \
+		else \
+			echo "Not removed: $$app   (drag it to the Trash in Finder: it asks for an administrator)"; \
+		fi; \
+	done
+	@echo "Still on this Mac, and yours to delete:"
 	@echo "  your history, and the recordings and model the app made:  ~/Library/Application Support/BlinkMonitor"
 	@echo "  the Python route's recordings:  $(DATA)   and its model: $(MODELS)"
 	@echo "If you switched on Start at Login, remove it in System Settings > General > Login Items."
@@ -150,6 +184,14 @@ uninstall:  ## Remove the installed app (your history and recordings are kept)
 $(MODEL):
 	@echo "No model from the Python route yet ($(MODEL)). Record your eyes (make recorder), then: make train"
 	@exit 1
+
+# --- The installer ----------------------------------------------------------------------
+
+# One file for people who only want to try the app: they open it and drag the app into
+# Applications. It never holds a model (scripts/dmg.sh explains, and checks).
+dmg: App/AppIcon.icns  ## Build the installer: a disk image to open and drag from (build/)
+	@scripts/doctor.sh mac swift uv
+	@scripts/dmg.sh
 
 # --- Extras -----------------------------------------------------------------------------
 

@@ -115,15 +115,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // One copy only: two would mean two menu-bar items and the camera read twice.
-        if !Options.noCamera, let identifier = Bundle.main.bundleIdentifier {
-            let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
-                .filter { $0 != NSRunningApplication.current }
-            if !others.isEmpty {
-                NSApp.terminate(nil)
-                return
+        // Which of the two stays is decided in `Installation.start`.
+        guard !Options.noCamera, let identifier = Bundle.main.bundleIdentifier else { return launch() }
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+            .filter { $0 != NSRunningApplication.current }
+        switch Installation.start(own: Bundle.main.bundleURL, running: others.map(\.bundleURL)) {
+        case .alone:
+            launch()
+        case .yielding:
+            // The first version quit without a word, and opening the app a second time
+            // looked like an app that does not open.
+            Log.app.notice("Another copy is running: it is asked to show its panel, and this one quits")
+            DistributedNotificationCenter.default().postNotificationName(
+                Installation.showPanelRequest(identifier: identifier), object: nil, userInfo: nil, deliverImmediately: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.terminate(nil) }
+        case .replacing:
+            Log.app.notice("An older build of this app is still running: it is asked to quit")
+            others.forEach { $0.terminate() }
+            launch(after: others)
+        }
+    }
+
+    /// Starts once the copies that were asked to quit have quit. One that has not after
+    /// five seconds is made to.
+    private func launch(after others: [NSRunningApplication], attemptsLeft: Int = 25) {
+        let remaining = others.filter { !$0.isTerminated }
+        if remaining.isEmpty { return launch() }
+        if attemptsLeft == 0 { remaining.forEach { $0.forceTerminate() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.launch(after: remaining, attemptsLeft: max(attemptsLeft - 1, 0))
+        }
+    }
+
+    /// What is set up once, whichever model runs, and then the first model.
+    private func launch() {
+        if Installation.isOnDiskImage { Log.app.notice("Running from a read-only disk: the panel says to drag the app to Applications") }
+        NSApp.mainMenu = MainMenu.make(target: self, settings: #selector(showSettings))
+
+        // Another copy that started and gave way asks this one to show itself.
+        if let identifier = Bundle.main.bundleIdentifier {
+            DistributedNotificationCenter.default().addObserver(
+                forName: Installation.showPanelRequest(identifier: identifier), object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.showYourself() }
             }
         }
-        NSApp.mainMenu = MainMenu.make(target: self, settings: #selector(showSettings))
 
         // The screen sleeping or the session being locked: nobody to watch, camera off.
         let workspace = NSWorkspace.shared.notificationCenter
@@ -290,6 +325,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         running?.windows["settings"]?.show()
+    }
+
+    /// The app was opened while it is already running: from Finder, from Spotlight, or by
+    /// a second copy that gave way. An ordinary app answers by bringing its window
+    /// forward. This one has none, so it opens its panel: otherwise nothing at all would
+    /// happen, and the eye may be hidden behind the notch.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showYourself()
+        return false
+    }
+
+    private func showYourself() {
+        // `hasVisibleWindows` counts the menu-bar item's own window: look for a real one.
+        if NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) {
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            running?.statusItem.showPanel()
+        }
+        Log.app.notice("Opened again while running: shown")
     }
 
     /// System Settings, on the page where the camera is allowed app by app.

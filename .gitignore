@@ -9,6 +9,8 @@
 /build/
 *.app
 *.icns
+# The installer (make dmg). It is attached to a GitHub release, never committed.
+*.dmg
 /App/AppIcon.iconset/
 
 # --- Python --------------------------------------------------------------------------

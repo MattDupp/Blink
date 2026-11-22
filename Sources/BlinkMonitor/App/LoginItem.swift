@@ -9,11 +9,21 @@ final class LoginItem: ObservableObject {
     @Published private(set) var enabled = false
     @Published private(set) var problem: String?
 
-    /// Only a real app (a bundle) can be a login item - and the demo should not become one.
-    let available: Bool
+    /// Why the switch cannot be used here, said under it (nil: it can).
+    let unavailable: String?
+    var available: Bool { unavailable == nil }
 
-    init(allowed: Bool = true) {
-        available = allowed && Bundle.main.bundleIdentifier != nil
+    /// Only a real app (a bundle) can be a login item, and the demo should not become one.
+    /// Nor should a copy that runs from its disk image: macOS would remember a place that
+    /// is gone as soon as the disk is ejected.
+    init(demo: Bool = false, onDiskImage: Bool = Installation.isOnDiskImage) {
+        if demo || Bundle.main.bundleIdentifier == nil {
+            unavailable = "Not in the demo."
+        } else if onDiskImage {
+            unavailable = "Not from the disk image: drag Blink Monitor onto Applications and open it from there."
+        } else {
+            unavailable = nil
+        }
     }
 
     func refresh() {

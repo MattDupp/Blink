@@ -15,11 +15,54 @@ and nothing is sent anywhere.
 
 <sub>Screenshots are rendered by the app itself with made-up data (`make snapshots`). A window that is never shown draws its switches grey: read a switch by the side its knob is on.</sub>
 
-## Try it first
+## Try it
 
-No camera, nothing to record: the demo runs the whole app on made-up blinks.
-It needs an Apple Silicon Mac, macOS 14 or later and Apple's Command Line Tools
-(`xcode-select --install`), and builds in about a minute.
+**[Download the latest disk image](https://github.com/MattDupp/blink-monitor/releases/latest)**
+(`BlinkMonitor-1.0.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
+No terminal.
+
+1. Open the file. A window shows Blink Monitor next to a shortcut to your Applications folder.
+2. Drag Blink Monitor onto Applications. Do this before you open it.
+3. Open Blink Monitor from Applications. The first time, macOS stops it: see
+   [If macOS stops it](#if-macos-stops-it).
+4. An eye appears in the menu bar, at the top right of the screen, and the setup window opens.
+
+**The app comes without a model, and makes one with you.** It counts blinks with a model
+trained on one person's eyes. That model is personal, so none comes with the app. The
+first time, the setup checks the camera, records your eyes twice, trains the model on your
+Mac and tests it: about six minutes, in one window. See
+[Set it up on your own eyes](#set-it-up-on-your-own-eyes). To look around first, the setup's
+first page offers a demo on made-up blinks, with the camera off.
+
+### If macOS stops it
+
+macOS only opens a downloaded app without a question when its developer pays Apple for a
+yearly account and has Apple scan the app. This one is free and Apple has not scanned it, so
+macOS refuses the first opening. All of its code is in this repository.
+
+- **macOS 15 and later.** A window says *"Blink Monitor" Not Opened*. Press **Done**, not
+  *Move to Trash*. Open **System Settings > Privacy & Security** and scroll down to
+  *Security*. Next to the line about Blink Monitor, press **Open Anyway**. Confirm with
+  **Open Anyway**, then your password or Touch ID. The button stays for about an hour after
+  the refusal.
+- **macOS 14.** Hold Control and click Blink Monitor in Applications. Choose **Open**, then
+  **Open** again.
+
+You do this once per version. After an update, macOS asks again.
+
+### Update it, remove it
+
+- **Update:** quit Blink Monitor (click the eye, then *Quit*). Open the new disk image, drag
+  again, and choose *Replace*.
+- **Remove:** quit it and drag it from Applications to the Trash. Your history, and the
+  recordings and model the app made, stay in `~/Library/Application Support/BlinkMonitor`.
+  Settings > Your Model deletes the recordings and the model.
+
+### Build the demo yourself
+
+No camera, nothing to record: the demo runs the whole app on made-up blinks. If you have
+Apple's Command Line Tools (`xcode-select --install`), it builds in about a minute. macOS
+asks nothing then: an app built on your own Mac was not downloaded.
 
 ```bash
 git clone https://github.com/MattDupp/blink-monitor.git && cd blink-monitor
@@ -246,6 +289,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - **What counting keeps:** one line per minute (time watched, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
 - Other pictures are written only by the capture buttons of the Live View window, when you press them. A capture keeps two small pictures of your eyes per frame. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
+- The disk image contains no model either. `make dmg` checks the app before packing it and the image afterwards, and refuses to build one that holds a model.
 - The app is signed with macOS's hardened runtime and asks for one thing, the camera, so another program cannot load its code into it to borrow that permission.
 
 ## Set it up on your own eyes
@@ -266,6 +310,10 @@ so it opens its setup. Every page says what is happening, how long it takes and 
 | Record | A voice asks for 16 poses, eyes open and closed, three seconds each. Then once more in another light. Every picture is saved with the pose you were asked for: that is how the model gets the right answer. | two minutes, twice |
 | Train | The model is trained on this Mac. The window shows the passes, the time left as measured on your Mac, and your own pictures as the model is shown them. | seconds: 22 for four sessions on an M5 Pro, about half for two |
 | Test | Ten ticks, and you blink at each. The ring fills with every blink the model counts, and the eye in the menu bar blinks with you. | fifteen seconds |
+
+If you installed Blink Monitor from the disk image, quit it and move it to the Trash before
+step 3. `make monitor` builds your own copy with your model inside, and macOS should know
+one copy only. `make monitor` checks, and tells you if the other copy is still there.
 
 <p align="center">
   <img src="docs/img/setup-record-session-light.png" alt="The setup during a recording: session 2, pose 6 of 16, the instruction in large letters, and the two eye pictures being saved" width="420">
@@ -329,6 +377,10 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | "That session holds 58% of what it should" | Your face left the picture during some poses. The session is not kept: record it again. |
 | "The training stopped" | Press *Try Again*. Your recordings are untouched and no half-made model is installed. If it stops a second time, the window shows what the trainer said. |
 | The test counts fewer than 8 of 10 | Record one more session where you sit now: the model then learns from eyes in that light. |
+| *"Blink Monitor" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |
+| The panel says "Running from the disk image" | You opened the app inside the image's window. Quit it, drag it onto Applications, and open it from there. |
+| Opening the app only opens its panel | It was already running. It has no window: the panel under the eye is the app. |
+| `make monitor` says the app is already installed | A copy from the disk image is in Applications. Quit it and move it to the Trash, then run `make monitor` again. |
 | macOS asks for the camera again | The permission belongs to one build. A rebuilt app is a new app to macOS: allow it again. |
 | "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink Monitor, and open it again. |
 | "No picture" in the panel | The camera is on but sends nothing: the lid is closed, or the camera failed. Counting resumes by itself. |
@@ -337,7 +389,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | A banner with a blank icon after reinstalling | Notification Centre kept the old one. Run `killall NotificationCenter`; macOS restarts it. |
 | The linker prints "search path ... not found" | Harmless: two folders that only exist inside Xcode. `make` hides them. |
 
-To remove the app: `make uninstall`. It keeps your history, your recordings and your model, and says where they are. Settings > Your Model deletes the recordings and the model.
+To remove the app: `make uninstall`. It removes every installed copy, the one from the disk image included. It keeps your history, your recordings and your model, and says where they are. Settings > Your Model deletes the recordings and the model.
 
 ## Project layout
 
@@ -348,15 +400,16 @@ Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
 Tests/BlinkCoreTests     117 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its clock, the demo
+Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its clock, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 26 tests
-scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
+scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, lessons, development notes
 ```
 
 ## Limits and roadmap
 
 - **One person, one morning.** The model has only seen its author, in daylight. Other light is untested.
+- **Apple has not scanned the download.** Scanning needs a paid developer account. Until then macOS stops the first opening.
 - **The setup has been through its tests and one real run.** Its pages, its failures and its whole run on painted eyes are tested. Its author went through it once with a camera: two sessions, a training of 9 seconds, 9 of 10 blinks in the test, under seven minutes from launch to counting. Nobody else has.
 - **Training in the app was measured on one Mac** (M5 Pro, macOS 27). The app shows the time left as it measures it; how long an older Mac takes is not known.
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.

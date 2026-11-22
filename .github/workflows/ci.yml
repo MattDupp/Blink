@@ -35,3 +35,9 @@ jobs:
 
       - name: Tests
         run: make test
+
+      - name: Installer
+        # Builds the disk image and checks what is inside it: the app with a valid
+        # signature, the shortcut, the window layout, and no model. Nothing is uploaded:
+        # a release is made by hand (docs/DEVELOPMENT.md, "Publishing a release").
+        run: make dmg

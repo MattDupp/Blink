@@ -7,6 +7,8 @@
 #
 #   DEMO=1 scripts/bundle.sh BlinkMonitor             build/BlinkMonitorDemo.app: the same
 #                                                     program under another identity (below)
+#   BUNDLE="build/dmg/Blink Monitor.app" scripts/...  put the app there instead (scripts/dmg.sh)
+#   SIGN_IDENTITY="Developer ID Application: ..."     sign with that certificate instead of ad hoc
 #
 # WHY AN APP AND NOT JUST THE PROGRAM. macOS gives the camera to an APP, identified by its
 # bundle (a folder ending in .app that holds the program and an Info.plist describing it).
@@ -26,7 +28,7 @@ swift build -c release --product "$PRODUCT" 2>&1 | { grep -v "ld: warning: searc
 
 NAME="$PRODUCT"
 [ "${DEMO:-}" = 1 ] && NAME="${PRODUCT}Demo"
-APP="build/$NAME.app"
+APP="${BUNDLE:-build/$NAME.app}"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/$PRODUCT" "$APP/Contents/MacOS/$PRODUCT"
@@ -59,5 +61,19 @@ fi
 # your account can make this app load its own code (DYLD_INSERT_LIBRARIES) and then use
 # the camera permission you gave the app, with no question asked. With it, macOS refuses
 # foreign code, and the app only gets what App/Camera.entitlements declares: the camera.
-codesign --force --options runtime --entitlements App/Camera.entitlements --sign - "$APP" 2>/dev/null
+#
+# SIGN_IDENTITY names a certificate of the keychain instead (an Apple "Developer ID
+# Application"). The signature then says WHO made the app, which is what lets Apple
+# notarize it, and what lets a permission survive an update. "--timestamp" asks Apple's
+# server to date the signature: notarization requires it, and an ad hoc one cannot have it.
+IDENTITY="${SIGN_IDENTITY:--}"
+TIMESTAMP=""
+[ "$IDENTITY" = "-" ] || TIMESTAMP="--timestamp"
+# shellcheck disable=SC2086   # TIMESTAMP is one word or nothing, on purpose
+if ! said="$(codesign --force --options runtime $TIMESTAMP --entitlements App/Camera.entitlements \
+                      --sign "$IDENTITY" "$APP" 2>&1)"; then
+    echo "$said"
+    echo "The app could not be signed with: $IDENTITY"
+    exit 1
+fi
 echo "Built $APP"
