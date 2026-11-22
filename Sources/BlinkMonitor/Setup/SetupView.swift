@@ -154,7 +154,7 @@ private struct StepsBar: View {
                 }
                 HStack(spacing: 6) {
                     ZStack {
-                        Circle().fill(entry.0 < step ? Color.green : (entry.0 == step ? Color.accentColor : Color.primary.opacity(0.1)))
+                        Circle().fill(entry.0 < step ? Color.doneGreen : (entry.0 == step ? Color.accentColor : Color.primary.opacity(0.1)))
                         if entry.0 < step {
                             Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
                         } else {
@@ -550,7 +550,7 @@ private struct RecordPage: View {
             HStack(spacing: 10) {
                 Text(footnote)
                     .font(.callout)
-                    .foregroundStyle((model.faceFound && !model.soundMuted) || model.sessionRunning ? Color.secondary : Color.orange)
+                    .foregroundStyle((model.faceFound && !model.soundMuted) || model.sessionRunning ? Color.secondary : Color.warningText)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 buttons
@@ -655,7 +655,7 @@ private struct SessionBanner: View {
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                 if let note = model.sessionNote {
                     Label(note, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.warningText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 ForEach(guidance.lines, id: \.self) { line in
@@ -916,7 +916,7 @@ private struct ProofPage: View {
                 if model.camera == .on && !model.faceFound && model.proof != .running {
                     Text("No face in view: the test can start once the camera sees you.")
                         .font(.callout)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.warningText)
                 }
                 Spacer(minLength: 12)
                 buttons

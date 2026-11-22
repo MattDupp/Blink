@@ -241,11 +241,13 @@ private struct StatusPill: View {
     let color: Color
     /// The dot swells for a moment each time this changes: one pulse per blink.
     let pulse: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 5) {
+            // With Reduce Motion the dot does not swell: the count beside it still moves.
             Circle().fill(color).frame(width: 7, height: 7)
-                .phaseAnimator([1.0, 1.9, 1.0], trigger: pulse) { dot, scale in
+                .phaseAnimator(reduceMotion ? [1.0] : [1.0, 1.9, 1.0], trigger: pulse) { dot, scale in
                     dot.scaleEffect(scale)
                 } animation: { _ in .easeOut(duration: 0.14) }
             Text(text).font(.caption.weight(.medium))
@@ -351,7 +353,7 @@ private struct Notes: View {
             lines.append(("checkmark.circle", tally, .secondary))
         }
         if reminders.notificationsRefused, preferences.remindersOn || preferences.breakNudgesOn {
-            lines.append(("bell.slash", "Notifications are off for Blink Monitor: reminders only show here and in the menu bar. Settings says how to allow them.", .orange))
+            lines.append(("bell.slash", "Notifications are off for Blink Monitor: reminders only show here and in the menu bar. Settings says how to allow them.", .warningText))
         }
         guard preferences.automaticLimit else { return lines }
         if let reference = preferences.reference {
@@ -360,7 +362,7 @@ private struct Notes: View {
                drift >= Baseline.driftWorthSaying {
                 lines.append(("arrow.down.right",
                               String(format: "This week you blink %.0f%% less than your usual rate (%@ a minute, measured %@)",
-                                     drift * 100, Format.rate(reference.rate), Format.day(reference.measuredOn)), .orange))
+                                     drift * 100, Format.rate(reference.rate), Format.day(reference.measuredOn)), .warningText))
             }
         } else {
             lines.append(("gauge.with.needle",
@@ -431,7 +433,7 @@ private struct TodaySection: View {
                     Text("now")
                 }
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)       // it says what the chart is: not the faintest grey
             }
         }
     }
@@ -465,6 +467,7 @@ private struct DashedLine: View {
 /// Orange = under the limit (the dashed line). The minute in progress is drawn lighter:
 /// its rate is not final.
 private struct MinuteBars: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var withoutColour
     let hour: LastHour
     let limit: Double
     let hovered: Int?
@@ -487,7 +490,13 @@ private struct MinuteBars: View {
                 let bar = CGRect(x: CGFloat(59 - ago) * slot + 0.5, y: size.height - height,
                                  width: max(slot - 1.2, 1), height: height)
                 let colour: Color = rate < limit ? .orange : .green
-                context.fill(Path(roundedRect: bar, cornerRadius: 1.5), with: .color(colour.opacity(ago == 0 ? 0.45 : 1)))
+                if withoutColour && rate < limit {
+                    // "Differentiate without colour": a minute under the limit is hollow.
+                    context.stroke(Path(roundedRect: bar.insetBy(dx: 0.6, dy: 0.6), cornerRadius: 1.5),
+                                   with: .color(colour.opacity(ago == 0 ? 0.45 : 1)), lineWidth: 1.2)
+                } else {
+                    context.fill(Path(roundedRect: bar, cornerRadius: 1.5), with: .color(colour.opacity(ago == 0 ? 0.45 : 1)))
+                }
             }
 
             guard !hour.isEmpty else { return }       // nothing to compare with the limit yet
@@ -546,26 +555,34 @@ private struct ActionTiles: View {
                 }
                 .disabled(!status.isCameraOn)
                 // A greyed tile says why.
-                .help(status.isCameraOn ? "Ten slow, full blinks, counted by the camera"
+                .help(status.isCameraOn ? "Ten slow, full blinks, counted by the camera (B)"
                                         : "The camera counts the blinks of a blink break, and it is off now.")
+                .keyboardShortcut("b", modifiers: [])
 
                 if model.isPaused {
                     // During a timer, Resume is there but not the thing to press: the
                     // camera comes back by itself when the timer ends.
                     let timed = model.routines.session.session != nil
                     ActionTile(symbol: "play.fill", title: "Resume", tint: timed ? nil : .accentColor) { model.resume() }
-                        .help(timed ? "Turn the camera back on now, before the timer ends" : "Turn the camera back on")
+                        .help(timed ? "Turn the camera back on now, before the timer ends (P)" : "Turn the camera back on (P)")
+                        .keyboardShortcut("p", modifiers: [])
                 } else {
                     ActionTile(symbol: "pause.fill", title: "Pause", tint: state.choosingPause ? .accentColor : nil) {
                         state.choosingPause.toggle()
                     }
                     .disabled(model.lifecycle != .running)
-                    .help(model.lifecycle == .running ? "Turn the camera off: its green light goes out"
+                    .help(model.lifecycle == .running ? "Turn the camera off: its green light goes out (P)"
                                                       : "The camera is not running, so there is nothing to pause.")
+                    .keyboardShortcut("p", modifiers: [])
                 }
 
+                // A letter for each tile, said in its tooltip: the panel had no keyboard path.
                 ActionTile(symbol: "chart.bar.fill", title: "History") { actions.openHistory() }
+                    .help("Your last seven days, hour by hour (H)")
+                    .keyboardShortcut("h", modifiers: [])
                 ActionTile(symbol: "gearshape.fill", title: "Settings") { actions.openSettings() }
+                    .help("Every choice the app remembers (S, or Command-comma)")
+                    .keyboardShortcut("s", modifiers: [])
             }
 
             if state.choosingPause && !model.isPaused {
@@ -608,7 +625,6 @@ private struct FooterRow: View {
                         .help("The green light beside the camera is Blink Monitor counting your blinks. Pause turns it off.")
                 } else {
                     Text("Blink Monitor \(AppInfo.version)")
-                        .foregroundStyle(.tertiary)
                 }
                 Spacer()
                 if bare {
@@ -621,10 +637,9 @@ private struct FooterRow: View {
                     Button("For 1 Hour") { model.reminders.setQuiet(.oneHour) }
                     Button("Until Tomorrow") { model.reminders.setQuiet(.untilTomorrow) }
                 } label: {
-                    Text("Quiet").font(.caption).foregroundStyle(.secondary)
+                    Text("Quiet")
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                .menuStyle(.button)
                 .controlSize(.small)
                 .fixedSize()
                 .help("No reminder, no look-away break and no sound for a while. Blinks are still counted.")
@@ -633,8 +648,9 @@ private struct FooterRow: View {
                 }
                 Button("Quit") { actions.quit() }
             }
-            .font(.caption)
-            .buttonStyle(.plain)
+            // Drawn as buttons, at a size one can read: they were three grey words.
+            .font(.callout)
+            .controlSize(.small)
             .foregroundStyle(.secondary)
     }
 }
@@ -679,10 +695,12 @@ private struct ActionTile: View {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .medium))
                     .frame(height: 18)
+                // The word of an orange tile is written in the orange made for text.
                 Text(title)
                     .font(.caption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
+                    .foregroundStyle(tint == .orange ? Color.warningText : (tint ?? .primary))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)

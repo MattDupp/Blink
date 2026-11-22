@@ -330,14 +330,11 @@ private struct RoutineRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            // The times, side by side. With too many to fit, the summary above says enough.
-            // (A routine "at the screen" has no times to list.)
+            // The times, side by side, on a second line when one is not enough: they used
+            // to disappear when they did not fit. (A routine "at the screen" has no times to list.)
             if day.screen == nil {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 6) {
-                        ForEach(day.slots) { TimeChip(slot: $0) }
-                    }
-                    EmptyView()
+                WrappingRow(spacing: 6) {
+                    ForEach(day.slots) { TimeChip(slot: $0) }
                 }
             }
             if let running {

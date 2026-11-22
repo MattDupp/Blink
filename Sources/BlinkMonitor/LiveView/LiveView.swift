@@ -34,7 +34,7 @@ struct LiveView: View {
                 // Said for as long as the mode is on, not only while a capture runs.
                 Text("Captures also keep the whole camera picture (your face), in \(folder.path), as asked when the app was started.")
                     .font(.callout)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.warningText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 10) {

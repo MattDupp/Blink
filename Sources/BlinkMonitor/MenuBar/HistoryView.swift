@@ -160,7 +160,7 @@ struct HistoryView: View {
            let drift = Baseline.drift(reference: reference, recent: weekRecords) {
             let measured = "your usual rate of \(Format.rate(reference.rate)) a minute, measured on \(Format.day(reference.measuredOn))"
             if drift >= Baseline.driftWorthSaying {
-                findings.append(("arrow.down.right", String(format: "This week you blink %.0f%% less than %@. The limit has not moved.", drift * 100, measured), .orange))
+                findings.append(("arrow.down.right", String(format: "This week you blink %.0f%% less than %@. The limit has not moved.", drift * 100, measured), .warningText))
             } else if drift <= -Baseline.driftWorthSaying {
                 findings.append(("arrow.up.right", String(format: "This week you blink %.0f%% more than %@.", -drift * 100, measured), .primary))
             }
@@ -192,7 +192,7 @@ private struct NothingYet: View {
         VStack(spacing: 10) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.system(size: 38))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             Text("Nothing recorded yet")
                 .font(.system(size: 17, weight: .semibold))
             Text("One line is kept for every minute counted. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
@@ -337,6 +337,7 @@ struct HeatMap: View {
 /// A plain bar chart: one bar per value (nil = nothing recorded), a dashed threshold line.
 /// With `onSelect`, a click on a bar's column chooses it, and `selected` is drawn as chosen.
 struct BarChart: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var withoutColour
 
     struct Bar {
         let label: String
@@ -383,8 +384,14 @@ struct BarChart: View {
                 if let value = bar.value {
                     let height = max(3, CGFloat(value / top) * plot.height)
                     let rect = CGRect(x: centre - barWidth / 2, y: plot.maxY - height, width: barWidth, height: height)
-                    context.fill(Path(roundedRect: rect, cornerRadius: min(4, barWidth / 3)),
-                                 with: .color(Insights.isUnder(value, limit: threshold) ? .orange : .green))
+                    let under = Insights.isUnder(value, limit: threshold)
+                    if withoutColour && under {
+                        // "Differentiate without colour": a bar under the limit is hollow.
+                        context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: min(4, barWidth / 3)),
+                                       with: .color(.orange), lineWidth: 2)
+                    } else {
+                        context.fill(Path(roundedRect: rect, cornerRadius: min(4, barWidth / 3)), with: .color(under ? .orange : .green))
+                    }
                     if showValues {
                         // Above the bar - or above the limit line, when that line would
                         // otherwise run through the figures.

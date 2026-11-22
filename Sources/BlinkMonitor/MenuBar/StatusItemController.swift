@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 import BlinkCore
+import BlinkUI
 
 /// The app's place in the menu bar: an eye and your blinks per minute. A click opens a
 /// small panel under it.
@@ -113,7 +114,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// (It answers during the setup's test as well: that is the moment the question is asked.)
     private func blinkBack() {
         let status = model.status()
-        guard model.preferences.blinkBack, status.isCameraOn || status == .settingUp(.testing),
+        // Reduce Motion: no eye closing 15 times a minute at the edge of vision.
+        guard model.preferences.blinkBack, !Comfort.reduceMotion, status.isCameraOn || status == .settingUp(.testing),
               let closed = NSImage(systemSymbolName: "eye.half.closed", accessibilityDescription: "Blink Monitor") else { return }
         closed.isTemplate = true
         item.button?.image = closed
