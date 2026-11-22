@@ -56,9 +56,9 @@ struct RoutineSessionView: View {
 
             VStack(spacing: 6) {
                 Text(running != nil ? (routine?.title ?? "Timer") : shown != nil ? "Done" : "No timer is running")
-                    .font(.title2.weight(.semibold))
+                    .textStyle(.title2, weight: .semibold) .multilineTextAlignment(.center)
                 Text(note(running: running != nil, finished: shown != nil, week: week))
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -74,7 +74,7 @@ struct RoutineSessionView: View {
             }
         }
         .padding(24)
-        .frame(width: 340, height: 356, alignment: .top)
+        .windowWidth(340, height: 356, alignment: .top)
     }
 
     private func note(running: Bool, finished: Bool, week: RoutineWeek?) -> String {

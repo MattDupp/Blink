@@ -219,12 +219,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let preferences = model.preferences
 
         let historyState = HistoryState()
-        let history = WindowController(title: "History") {
+        let history = WindowController(title: "History", text: preferences) {
             HistoryView(history: model.history, preferences: preferences, state: historyState,
                         export: { ExportPanel.run(history: model.history.store.file, routineLog: model.routines.store.file) })
         }
         history.onVisibilityChange = { open in if open { historyState.selectedDay = nil } }   // opens on today
-        let liveView = WindowController(title: "Live View", resizable: true) {
+        let liveView = WindowController(title: "Live View", text: preferences, resizable: true) {
             LiveView(model: model, captures: model.captures)
         }
         // The camera picture and the curve are only prepared while this window shows them.
@@ -232,7 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // The blink break: its window opening starts the exercise, its closing ends it,
         // and the exercise ending closes the window.
-        let blinkBreak = WindowController(title: "Blink Break") {
+        let blinkBreak = WindowController(title: "Blink Break", text: preferences) {
             BlinkBreakView(model: model, blinkBreak: model.blinkBreak,
                            stop: { [weak self] in self?.running?.windows["blink-break"]?.close() })
         }
@@ -250,7 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             : SetupModel.Parts(monitor: model, store: model.modelStore, sessionsRoot: Options.sessionsRoot,
                                ownSessions: Options.ownSessions)
         let setupModel = SetupModel(parts: parts)
-        let setup = WindowController(title: "Blink Monitor Setup", remembersPosition: false) { [weak self] in
+        let setup = WindowController(title: "Blink Monitor Setup", text: preferences, remembersPosition: false) { [weak self] in
             SetupView(model: setupModel, actions: SetupActions(
                 // Offered where there is something to leave: not in the demo itself.
                 tryDemo: demo ? nil : { self?.switchTo(demo: true) },
@@ -286,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A routine's timer: starting it opens the window, its end closes it. Closing the
         // window by hand does NOT stop the timer (unlike the blink break): whoever is
         // under a mask must not lose the sound at the end to a stray click. Stop is a button.
-        let routineTimer = WindowController(title: "Timer") {
+        let routineTimer = WindowController(title: "Timer", text: preferences) {
             RoutineSessionView(routines: model.routines, session: model.routines.session)
         }
         model.routines.session.onOpen = { routineTimer.show() }
@@ -295,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsState = SettingsState()
         let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions,
                                        capturesRoot: demo ? nil : Options.ownCaptureRoot)
-        let settings = WindowController(title: "Blink Monitor Settings") { [weak self] in
+        let settings = WindowController(title: "Blink Monitor Settings", text: preferences) { [weak self] in
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
                          loginItem: model.loginItem, shortcut: model.shortcut, state: settingsState, files: recordings,
                          actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
@@ -365,7 +365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await model.start() }
         } else {
             // A model is built in: say what the app does BEFORE macOS asks for the camera.
-            let welcome = WindowController(title: "Welcome to Blink Monitor", remembersPosition: false) { [weak self] in
+            let welcome = WindowController(title: "Welcome to Blink Monitor", text: preferences, remembersPosition: false) { [weak self] in
                 WelcomeView { self?.running?.welcome?.close() }      // Start = close the window
             }
             // Closing the window IS starting, whichever way it is closed: by the Start

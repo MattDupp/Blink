@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 import Testing
 import BlinkCore
 import BlinkUI
@@ -474,6 +475,30 @@ struct PreferencesTests {
         }
     }
 
+    @Test("Larger text: off until chosen, untouched fonts while off, every style larger while on")
+    func largerText() {
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            #expect(!preferences.largerText && !preferences.hasChoices)
+            preferences.largerText = true
+            #expect(Preferences(defaults: store).largerText && preferences.hasChoices)
+            preferences.resetChoices()
+            #expect(!Preferences(defaults: store).largerText)
+        }
+        // Off: the system's own font, so nothing differs for whoever touches nothing.
+        #expect(TextScale.font(.callout, scale: 1) == Font.system(.callout))
+        #expect(TextScale.font(.caption, weight: .semibold, scale: 1) == Font.system(.caption).weight(.semibold))
+        #expect(TextScale.font(.title, weight: .bold, design: .rounded, scale: 1) == Font.system(.title, design: .rounded).weight(.bold))
+        // On: each style at its size times the scale, in whole points, with its own weight.
+        #expect(TextScale.font(.callout, scale: TextScale.larger) == Font.system(size: 14, weight: .regular, design: .default))
+        #expect(TextScale.font(.headline, scale: TextScale.larger) == Font.system(size: 16, weight: .bold, design: .default))
+        #expect(TextScale.font(.caption, weight: .semibold, scale: TextScale.larger) == Font.system(size: 12, weight: .semibold, design: .default))
+        // No style gets smaller than the one above it was.
+        let styles: [Font.TextStyle] = [.caption2, .caption, .subheadline, .callout, .body, .title3, .title2, .title, .largeTitle]
+        let sizes = styles.map(TextScale.points)
+        #expect(sizes == sizes.sorted() && sizes.first == 10)
+    }
+
     @Test("A floor somebody chose is never replaced")
     func chosenFloor() {
         withStore { store in
@@ -599,6 +624,24 @@ struct SourceTests {
             if try String(contentsOf: file, encoding: .utf8).contains(".keyboardShortcut(.defaultAction)") { offenders.append(file.lastPathComponent) }
         }
         #expect(offenders.isEmpty, "a main button made by hand in: \(offenders)")
+    }
+
+    @Test("A text style is asked through textStyle(), so that Larger text reaches it; a small control through smallControl()")
+    func textStyles() throws {
+        // `.font(.callout)` on a view stays 12 points whatever the switch says. Text drawn
+        // inside a chart (`context.draw`) keeps its size on purpose, and is let through.
+        let style = try NSRegularExpression(pattern: #"\.font\(\.(largeTitle|title|title2|title3|headline|body|callout|subheadline|footnote|caption|caption2)\b"#)
+        var offenders: [String] = []
+        let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent("Sources/BlinkMonitor"), includingPropertiesForKeys: nil)
+        for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
+            let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: "\n")
+            for (number, line) in lines.enumerated() {
+                let drawn = line.contains("context.") || (number > 0 && lines[number - 1].contains("let label = Text("))
+                let styled = style.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil
+                if (styled && !drawn) || line.contains(".controlSize(.small)") { offenders.append("\(file.lastPathComponent):\(number + 1)") }
+            }
+        }
+        #expect(offenders.isEmpty, "a text style or a small control that Larger text cannot reach: \(offenders)")
     }
 
     @Test("No window types a number that comes from a study: they are read from PublishedRates")

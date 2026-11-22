@@ -50,7 +50,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                                   openCameraSettings: closing(actions.openCameraSettings),
                                   openSetup: closing(actions.openSetup), leaveDemo: actions.leaveDemo.map(closing),
                                   tryDemo: actions.tryDemo.map(closing), quit: actions.quit))
-        let host = NSHostingController(rootView: panel)
+        let host = NSHostingController(rootView: AppText(preferences: model.preferences) { panel })
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
         popover.contentViewController = host
         popover.behavior = .transient                   // a click anywhere else closes it
@@ -256,12 +256,13 @@ final class WindowController: NSObject, NSWindowDelegate {
     /// Called when the window opens and when it closes.
     var onVisibilityChange: ((Bool) -> Void)?
 
-    init<Content: View>(title: String, resizable: Bool = false, remembersPosition: Bool = true,
+    /// `text`: whose choice of larger text the window follows (`AppText`).
+    init<Content: View>(title: String, text: Preferences, resizable: Bool = false, remembersPosition: Bool = true,
                         @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.resizable = resizable
         self.remembersPosition = remembersPosition
-        makeView = { AnyView(content()) }
+        makeView = { AnyView(AppText(preferences: text) { content() }) }
     }
 
     func show() {

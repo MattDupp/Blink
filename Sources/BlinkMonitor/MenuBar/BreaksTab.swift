@@ -90,10 +90,10 @@ struct BreaksTab: View {
             }
             if on, let tally = BreakWords.tally(reminders.breaks.tally(now: moment.now)) {
                 Label(tally, systemImage: "checkmark.circle")
-                    .font(.callout)
+                    .textStyle(.callout)
             }
             Text("Breaks start by themselves. The camera can tell whether you are in view, not where you look, so a break taken at your desk is taken on trust. Leaving the screen for as long as a break counts as one.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

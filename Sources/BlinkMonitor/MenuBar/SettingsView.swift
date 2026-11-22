@@ -266,7 +266,7 @@ struct SettingsView: View {
             }
         }
         .padding(.top, 20)
-        .frame(width: 520, alignment: .top)
+        .windowWidth(520, alignment: .top)
     }
 
     /// One height for every tab.
@@ -288,7 +288,7 @@ struct SettingsView: View {
                 Text("Notifications are off for Blink Monitor")
                     .fontWeight(.semibold)
                 Text("Reminders cannot show their banner or their buttons. A look-away break then starts and ends with a sound only; the blink reminder and routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink Monitor. There, the style Alerts keeps a banner on screen until you answer it.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Open Notification Settings") { actions.openNotificationSettings() }
@@ -313,7 +313,7 @@ struct SettingsView: View {
                 .disabled(!preferences.hasChoices)
                 .help(preferences.hasChoices ? "" : "Every setting is at its default.")
                 Text("Every switch and number in Settings. It keeps your usual rate, your history, your model and your routines.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -368,7 +368,7 @@ struct SettingsView: View {
                     }
                     if preferences.workStart >= preferences.workEnd {
                         Text(QuietWords.overnight)
-                            .font(.callout)
+                            .textStyle(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -417,6 +417,10 @@ struct SettingsView: View {
             Divider()
             Row("The menu-bar eye blinks with you", detail: "It closes for a moment at each blink the camera counts.") {
                 Toggle("The menu-bar eye blinks with you", isOn: $preferences.blinkBack)
+            }
+            Divider()
+            Row("Larger text", detail: "Sentences, labels and buttons are drawn about 20% larger in every window. The big numbers and the charts keep their size.") {
+                Toggle("Larger text", isOn: $preferences.largerText)
             }
             Divider()
             Row(ShortcutWords.title, detail: ShortcutWords.detail(chosen: preferences.blinkBreakShortcut, refused: shortcut.refused)) {
@@ -504,7 +508,7 @@ struct SettingsView: View {
             }
             studiesCard
             Text("A reminder is a banner at the top right of the screen. It leaves after a few seconds and then waits in Notification Centre. Its buttons show when the pointer is over it.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -532,7 +536,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your usual rate: \(Format.rate(reference.rate)) blinks a minute")
                         Text("Measured on \(Format.day(reference.measuredOn)) over \(Format.count(reference.minutes, "minute")). \(limitSentence(reference))")
-                            .font(.callout)
+                            .textStyle(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -546,12 +550,12 @@ struct SettingsView: View {
                     Label(PublishedRates.limitAboveUsual(reference: reference, limit: preferences.limit,
                                                          canLower: preferences.floor > Preferences.floorChoices.lowerBound),
                           systemImage: "info.circle")
-                        .font(.callout)
+                        .textStyle(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if state.measurement == nil {
                     Text("Measured once and kept. If you blink less over the months, the limit stays and History shows the gap.")
-                        .font(.callout)
+                        .textStyle(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -561,7 +565,7 @@ struct SettingsView: View {
                 ProgressView(value: calibration.progress)
                 Text("\(Format.duration(calibration.watchedSeconds)) of 3 h at the screen, on \(calibration.days) of 2 days. "
                      + "Until then the limit is \(preferences.limit) a minute. Once measured, the limit is 70% of your usual rate.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -613,13 +617,13 @@ struct SettingsView: View {
                         .keyboardShortcut(proposal.lowers ? .defaultAction : .cancelAction)
                 }
             }
-            .font(.callout)
+            .textStyle(.callout)
             .padding(10)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         case .tooLittle:
             HStack(alignment: .firstTextBaseline) {
                 Text("Too little was recorded in the last week to measure: 3 hours over 2 days are needed.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
@@ -861,7 +865,7 @@ struct SettingsView: View {
                 }
             }
             Text("Each of these opens in your browser.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
             SectionTitle("Good to know")
                 .padding(.top, 6)
@@ -871,7 +875,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.question)
                             Text(entry.answer)
-                                .font(.callout)
+                                .textStyle(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -891,7 +895,7 @@ struct SettingsView: View {
                     .padding(.vertical, 11)
             }
             Text("What the app says about blink rates comes from these studies. They describe what is typical, not what is ideal, and none of it is a diagnosis. Each one opens in your browser.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Card { SourcesList() }
@@ -914,7 +918,7 @@ struct SettingsView: View {
                 Text("Blink Monitor \(AppInfo.version)")
                     .fontWeight(.semibold)
                 Text("A personal project, not a medical device: its numbers are not a diagnosis. If your eyes hurt, see an eye-care professional.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -954,7 +958,7 @@ struct SettingsRow<Control: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(detail)
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

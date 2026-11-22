@@ -42,11 +42,11 @@ private struct RoutineList: View {
                     // way out, for someone who had it on.
                     if quiet {
                         Text("Routines quiet until tomorrow")
-                            .font(.caption)
+                            .textStyle(.caption)
                             .foregroundStyle(.secondary)
                         Button("Undo") { routines.setQuiet(false) }
                             .buttonStyle(.link)
-                            .font(.caption)
+                            .textStyle(.caption)
                             .help("Show routine reminders again")
                     }
                 }
@@ -55,13 +55,13 @@ private struct RoutineList: View {
                 }
                 if folds, let next = RoutineFold.next(of: days.filter { !isActive($0) }, now: now) {
                     Label(next, systemImage: "arrow.turn.down.right")
-                        .font(.callout)
+                        .textStyle(.callout)
                         .foregroundStyle(.secondary)
                 }
                 if days.count > RoutineFold.shownInFull {
                     Button(routines.showsAll ? "Show Less" : "Show All \(days.count)") { routines.showsAll.toggle() }
                         .buttonStyle(.link)
-                        .font(.callout)
+                        .textStyle(.callout)
                 }
             }
             .padding(16)
@@ -156,10 +156,10 @@ private struct WeekRow: View {
                     Text(day.routine.title)
                     Spacer(minLength: 8)
                     Text("\(week.done) of \(week.target) · \(state)")
-                        .font(.caption)
+                        .textStyle(.caption)
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
-                        .font(.caption2)
+                        .textStyle(.caption2)
                         .foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
@@ -180,11 +180,11 @@ private struct WeekRow: View {
                 Text(day.routine.title)
                 Spacer(minLength: 8)
                 Text("\(week.done) of \(week.target) this week")
-                    .font(.caption)
+                    .textStyle(.caption)
                     .foregroundStyle(.secondary)
                 if isOpen && running == nil && day.due == nil && day.putOff == nil && week.today.done == 0 {
                     Button(action: toggle) {
-                        Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.down").textStyle(.caption2).foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
                     .help("Show less")
@@ -199,7 +199,7 @@ private struct WeekRow: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Text(state)
-                        .font(.callout)
+                        .textStyle(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 6)
                     if running == nil, week.today.done > 0 {
@@ -227,7 +227,7 @@ private struct WeekRow: View {
                     }
                 }
             }
-            .controlSize(.small)
+            .smallControl()
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(isWaiting ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05),
@@ -274,7 +274,7 @@ private struct DayChip: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(calendar.veryShortWeekdaySymbols[day.weekday - 1])
-                .font(.caption2.weight(place == .today ? .bold : .regular))
+                .textStyle(.caption2, weight: place == .today ? .bold : .regular)
                 .foregroundStyle(place == .today ? .primary : .secondary)
             ZStack {
                 Circle()
@@ -284,7 +284,7 @@ private struct DayChip: View {
                 }
                 if day.done > 1 {
                     Text("\(day.done)")
-                        .font(.caption2.weight(.semibold))
+                        .textStyle(.caption2, weight: .semibold)
                         .foregroundStyle(.tint)
                 } else if day.done == 1 {
                     Image(systemName: "checkmark")
@@ -327,7 +327,7 @@ private struct RoutineRow: View {
                 Text(day.routine.title)
                 Spacer(minLength: 8)
                 Text(summary)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .foregroundStyle(.secondary)
             }
             // The times, side by side, on a second line when one is not enough: they used
@@ -340,13 +340,13 @@ private struct RoutineRow: View {
             if let running {
                 HStack(spacing: 6) {
                     Text("Timer running until \(Format.time(running.end)). The camera is paused.")
-                        .font(.callout)
+                        .textStyle(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 6)
                     Button("Stop Timer") { stop() }
                         .help("Ends the timer without marking it done")
                 }
-                .controlSize(.small)
+                .smallControl()
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
@@ -363,7 +363,7 @@ private struct RoutineRow: View {
     private func waiting(_ text: String, slot: RoutineSlot, offerLater: Bool) -> some View {
         HStack(spacing: 6) {
             Text(text)
-                .font(.callout)
+                .textStyle(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 6)
             if offerLater {
@@ -376,7 +376,7 @@ private struct RoutineRow: View {
             }
             Button("Done") { done(slot) }
         }
-        .controlSize(.small)
+        .smallControl()
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
@@ -404,13 +404,13 @@ private struct TimeChip: View {
         HStack(spacing: 3) {
             if let symbol {
                 Image(systemName: symbol)
-                    .font(.caption2.weight(.semibold))
+                    .textStyle(.caption2, weight: .semibold)
             }
             Text(Format.time(slot.due))
                 .strikethrough(slot.status == .missed)
                 .monospacedDigit()
         }
-        .font(.caption.weight(isWaiting ? .semibold : .regular))
+        .textStyle(.caption, weight: isWaiting ? .semibold : .regular)
         .foregroundStyle(style)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -545,7 +545,7 @@ struct RoutineSettings: View {
                 .disabled(!routines.canAdd && routines.hiddenBuiltIn.isEmpty)
                 Text(routines.canAdd ? "A routine of your own. You can change everything afterwards. It is switched on at once."
                                      : "That is the most routines of your own (\(RoutineController.mostOwn)).")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -555,7 +555,7 @@ struct RoutineSettings: View {
                 }
             }
             Text(RoutineWords.footnote)
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -583,7 +583,7 @@ struct RoutineSettings: View {
             Button { routines.openCard = open ? nil : routine.id } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .textStyle(.caption, weight: .semibold)
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(open ? 90 : 0))
                         .frame(width: 10)
@@ -593,7 +593,7 @@ struct RoutineSettings: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(routine.title)
                         Text(RoutineWords.summary(routine, calendar: routines.calendar, policy: routines.policy))
-                            .font(.callout)
+                            .textStyle(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -643,7 +643,7 @@ struct RoutineSettings: View {
         if notifications == .refused {
             // Pressed with notifications off, the test did nothing at all, without a word.
             Text(TestReminderWords.refused)
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 14)
@@ -665,7 +665,7 @@ struct RoutineSettings: View {
             Text("On these days")
             dayChips(chosen: weekdays ?? Set(1...7)) { weekday, on in routines.setDay(routine.id, weekday, on: on) }
             Text("All seven: every day. One day at least stays chosen.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)
@@ -808,7 +808,7 @@ struct RoutineSettings: View {
             }
             dayChips(chosen: weekdays) { weekday, on in routines.setWeekday(routine.id, weekday, preferred: on) }
             Text(RoutineWords.weekDays(count: count, chosen: weekdays.count))
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)
@@ -828,7 +828,7 @@ struct RoutineSettings: View {
             if let other = routines.double(of: index, in: routine) {
                 // Two rows at one time are one reminder. Said, not silently merged.
                 Text("Same as time \(other + 1): one reminder")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
@@ -899,7 +899,7 @@ private struct Row<Control: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(detail)
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -931,7 +931,7 @@ struct DayChips: View {
                 // shows which days are chosen when the window is not in front.
                 Button { set(weekday, !isChosen) } label: {
                     Text(calendar.shortWeekdaySymbols[weekday - 1])
-                        .font(.callout.weight(isChosen ? .semibold : .regular))
+                        .textStyle(.callout, weight: isChosen ? .semibold : .regular)
                         .foregroundStyle(isChosen ? Color.white : Color.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)

@@ -19,6 +19,7 @@ final class Preferences: ObservableObject {
         static let pauseInLowPower = "pauseInLowPowerMode"
         static let quietDuringCalls = "quietDuringCalls"
         static let blinkBreakShortcut = "blinkBreakShortcut"
+        static let largerText = "largerText"
         static let workingHoursOn = "workingHoursOn"
         static let workStart = "workingHoursStart"
         static let workEnd = "workingHoursEnd"
@@ -70,6 +71,8 @@ final class Preferences: ObservableObject {
     var workingHours: WorkingHours? {
         workingHoursOn ? WorkingHours(start: workStart, end: workEnd, weekdays: workDays) : nil
     }
+    /// Every window draws its words about 20% larger (`TextScale`, in BlinkUI).
+    @Published var largerText: Bool { didSet { defaults.set(largerText, forKey: Key.largerText) } }
     /// The key combination that starts a blink break from any app. Nil: none, which is
     /// how it starts (`ShortcutController`).
     @Published var blinkBreakShortcut: ShortcutChoice? { didSet { defaults.set(blinkBreakShortcut?.rawValue, forKey: Key.blinkBreakShortcut) } }
@@ -213,6 +216,7 @@ final class Preferences: ObservableObject {
         static let pauseInLowPower = false
         static let quietDuringCalls = false
         static let workingHoursOn = false
+        static let largerText = false
         static var workStart: TimeOfDay { WorkingHours.usual.start }
         static var workEnd: TimeOfDay { WorkingHours.usual.end }
         static var workDays: Set<Int> { WorkingHours.usual.weekdays }
@@ -247,6 +251,7 @@ final class Preferences: ObservableObject {
         pauseInLowPower = Standard.pauseInLowPower
         quietDuringCalls = Standard.quietDuringCalls
         blinkBreakShortcut = nil
+        largerText = Standard.largerText
         workingHoursOn = Standard.workingHoursOn
         workStart = Standard.workStart
         workEnd = Standard.workEnd
@@ -279,7 +284,7 @@ final class Preferences: ObservableObject {
             || breakSeconds != Standard.breakSeconds || longBreakOn != Standard.longBreakOn
             || longBreakEvery != Standard.longBreakEvery || longBreakMinutes != Standard.longBreakMinutes
             || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
-            || cameraID != nil || blinkBreakShortcut != nil
+            || cameraID != nil || blinkBreakShortcut != nil || largerText != Standard.largerText
             || workingHoursOn != Standard.workingHoursOn || workStart != Standard.workStart
             || workEnd != Standard.workEnd || workDays != Standard.workDays
     }
@@ -296,6 +301,7 @@ final class Preferences: ObservableObject {
         pauseInLowPower = bool(Key.pauseInLowPower, Standard.pauseInLowPower)
         quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
         blinkBreakShortcut = defaults.string(forKey: Key.blinkBreakShortcut).flatMap(ShortcutChoice.init(rawValue:))
+        largerText = bool(Key.largerText, Standard.largerText)
         workingHoursOn = bool(Key.workingHoursOn, Standard.workingHoursOn)
         func time(_ key: String, _ standard: TimeOfDay) -> TimeOfDay {
             (defaults.object(forKey: key) as? Int).map { TimeOfDay(hour: $0 / 60, minute: $0 % 60) } ?? standard
@@ -333,5 +339,16 @@ final class Preferences: ObservableObject {
         let name = "local.blinkmonitor.temporary"
         UserDefaults().removePersistentDomain(forName: name)
         return Preferences(defaults: UserDefaults(suiteName: name) ?? .standard)
+    }
+}
+
+/// The root of every window: its words are larger when the user asked for that in
+/// Settings, and change the moment the switch does.
+struct AppText<Content: View>: View {
+    @ObservedObject var preferences: Preferences
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content.textScale(larger: preferences.largerText)
     }
 }

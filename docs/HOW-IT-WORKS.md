@@ -283,6 +283,20 @@ Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 | `BreakSchedule` | The look-away breaks: which one is due, short or long, and what counts as taken. See below. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
 
+### Larger text
+
+macOS has no Dynamic Type: a text style is the same size whatever an app asks through
+the environment (measured on 22 November 2026: `.callout` stays 12 points under
+`.dynamicTypeSize(.accessibility3)`). So the app scales its own text, in one place,
+`TextScale` in `BlinkUI`. A view asks for a style with `textStyle(.callout)` and never with
+`font(.callout)`; a test fails when the old form returns. With the switch off, the font
+is the system's own: when the styles were moved, 186 of the app's 190 pictures came out
+the same to the last byte, and the other four show the tab that gained the switch and
+the size of a file. With the switch on, a style is drawn 1.2 times its size,
+controls take macOS's large size, and a window is 12% wider so that sentences keep
+their lines. The big numbers, the symbols and the labels inside the charts keep their
+size. The windows that scroll on a small screen leave more room for what does not scroll.
+
 ### A shortcut that needs no permission
 
 The blink break can be started from any app with a key combination, chosen in Settings

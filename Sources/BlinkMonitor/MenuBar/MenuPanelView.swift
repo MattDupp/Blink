@@ -102,7 +102,7 @@ struct MenuPanelView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
         }
-        .frame(width: 340)
+        .windowWidth(340)
     }
 }
 
@@ -125,7 +125,7 @@ private struct DemoBanner: View {
                     ? "Demo: the blinks are made up and the camera is off. To use it on your own eyes, open Blink Monitor itself."
                     : "Demo: the blinks are made up and the camera is off.",
                   systemImage: "sparkles")
-                .font(.callout)
+                .textStyle(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Button("See the Setup") { actions.openSetup() }
@@ -134,7 +134,7 @@ private struct DemoBanner: View {
                     Button("Set Up on My Eyes") { leaveDemo() }
                 }
             }
-            .controlSize(.small)
+            .smallControl()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
@@ -152,10 +152,10 @@ private struct DiskImageBanner: View {
             // and it is the one a new user most needs to read.
             Label("Running from the disk image. To keep Blink Monitor: quit it, drag it onto Applications, and open it from there.",
                   systemImage: "externaldrive")
-                .font(.callout)
+                .textStyle(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) }
-                .controlSize(.small)
+                .smallControl()
                 .help("Shows Blink Monitor in the disk image's window, beside the Applications folder to drag it onto")
         }
             .padding(.horizontal, 16)
@@ -206,7 +206,7 @@ private struct NowSection: View {
                 }
             }
             Text(status.explanation(limit: limit, timer: timer, energy: energy, camera: camera))
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if status == .cameraRefused {
@@ -263,7 +263,7 @@ private struct StatusPill: View {
                 .phaseAnimator(reduceMotion ? [1.0] : [1.0, 1.9, 1.0], trigger: pulse) { dot, scale in
                     dot.scaleEffect(scale)
                 } animation: { _ in .easeOut(duration: 0.14) }
-            Text(text).font(.caption.weight(.medium))
+            Text(text).textStyle(.caption, weight: .medium)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
@@ -298,10 +298,10 @@ private struct Notes: View {
                         // The banner's two buttons, for someone who missed the banner.
                         if current.canPostpone {
                             Button("Later (5 min)") { reminders.breaks.postpone() }
-                                .controlSize(.small)
+                                .smallControl()
                         }
                         Button("Skip") { reminders.breaks.skip() }
-                            .controlSize(.small)
+                            .smallControl()
                     }
                 }
                 if let quiet = reminders.quietReason(now: now) {
@@ -312,7 +312,7 @@ private struct Notes: View {
                         // hours are a setting: the sentence says where.
                         if case .chosen = quiet {
                             Button("End Quiet") { reminders.setQuiet(until: nil) }
-                                .controlSize(.small)
+                                .smallControl()
                         }
                     }
                 }
@@ -323,7 +323,7 @@ private struct Notes: View {
                                                                                nextIsLong: reminders.breaks.nextIsLong))
                         Spacer(minLength: 4)
                         Button("Now") { reminders.breaks.startNow() }
-                            .controlSize(.small)
+                            .smallControl()
                             .help("Start the look-away break now")
                     }
                 }
@@ -349,7 +349,7 @@ private struct Notes: View {
                 Button("Follow My Own Rate") { preferences.followOwnRate() }
                 Button("Keep \(preferences.limit)") { preferences.ownRateOfferAnswered = true }
             }
-            .controlSize(.small)
+            .smallControl()
             .padding(.leading, 20)
         }
         .padding(8)
@@ -404,7 +404,7 @@ private struct NoteLine: View {
             Text(text)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.caption)
+        .textStyle(.caption)
         .foregroundStyle(tint)
         .accessibilityElement(children: .combine)
     }
@@ -434,10 +434,10 @@ private struct TodaySection: View {
             .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
-                    Text("Last hour").font(.caption).foregroundStyle(.secondary)
+                    Text("Last hour").textStyle(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Text(caption(today: today, hour: hour))
-                        .font(.caption)
+                        .textStyle(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -453,7 +453,7 @@ private struct TodaySection: View {
                     Spacer()
                     Text("now")
                 }
-                .font(.caption2)
+                .textStyle(.caption2)
                 .foregroundStyle(.secondary)       // it says what the chart is: not the faintest grey
             }
         }
@@ -538,7 +538,7 @@ private struct MinuteBars: View {
         .overlay {
             if hour.isEmpty {
                 Text("Nothing recorded in the last hour yet")
-                    .font(.caption)
+                    .textStyle(.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -666,7 +666,7 @@ private struct FooterRow: View {
                     Text("Quiet")
                 }
                 .menuStyle(.button)
-                .controlSize(.small)
+                .smallControl()
                 .fixedSize()
                 .help("No reminder, no look-away break and no sound for a while. Blinks are still counted.")
                 Button("Live View") { actions.openLiveView() }
@@ -680,8 +680,8 @@ private struct FooterRow: View {
                     .padding(.leading, bare ? 0 : 14)
             }
             // Drawn as buttons, at a size one can read: they were three grey words.
-            .font(.callout)
-            .controlSize(.small)
+            .textStyle(.callout)
+            .smallControl()
             .foregroundStyle(.secondary)
     }
 }
@@ -698,7 +698,7 @@ private struct PauseChoices: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Pause the camera")
-                .font(.caption)
+                .textStyle(.caption)
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible())], spacing: 6) {
                 ForEach(Self.labels, id: \.1) { duration, label in
@@ -732,7 +732,7 @@ private struct ActionTile: View {
                 // A word too long for its tile goes onto a second line. It was shrunk to
                 // fit, and small text was made smaller for the people who enlarge it.
                 Text(title)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -773,7 +773,7 @@ struct SectionTitle: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.caption.weight(.semibold))
+            .textStyle(.caption, weight: .semibold)
             .foregroundStyle(.secondary)
             .kerning(0.6)
     }
@@ -793,7 +793,7 @@ struct StatTile: View {
             // The caption wraps instead of shrinking; the number above is a display
             // figure, and may still be drawn smaller to stay on its line.
             Text(caption)
-                .font(.caption)
+                .textStyle(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)

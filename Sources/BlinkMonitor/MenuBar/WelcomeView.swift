@@ -20,7 +20,7 @@ struct WelcomeView: View {
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Blink Monitor")
-                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                        .textStyle(.largeTitle, weight: .bold, design: .rounded)
                     Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
                 }
@@ -52,7 +52,7 @@ struct WelcomeView: View {
 
             HStack {
                 Text("Next, macOS will ask for the camera, then for notifications.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Start") { start() }
@@ -61,7 +61,7 @@ struct WelcomeView: View {
             }
         }
         .padding(28)
-        .frame(width: 520)
+        .windowWidth(520)
     }
 }
 

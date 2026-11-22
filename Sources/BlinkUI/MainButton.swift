@@ -33,7 +33,7 @@ private struct PictureMainButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let large = controlSize == .large, small = controlSize == .small || controlSize == .mini
         configuration.label
-            .font(small ? .subheadline : .body)
+            .textStyle(small ? .subheadline : .body)
             .foregroundStyle(isEnabled ? Color.white : Color.primary.opacity(0.3))
             .padding(.horizontal, large ? 13 : small ? 7 : 10)
             .frame(height: large ? 28 : small ? 19 : 22)

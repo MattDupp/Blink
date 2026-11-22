@@ -33,7 +33,7 @@ struct LiveView: View {
             if developerTools, let folder = Options.wholeFrameRoot {
                 // Said for as long as the mode is on, not only while a capture runs.
                 Text("Captures also keep the whole camera picture (your face), in \(folder.path), as asked when the app was started.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(Color.warningText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -66,7 +66,7 @@ private struct CaptureBanner: View {
         if let instruction = captures.instruction {
             VStack(alignment: .leading, spacing: 6) {
                 Text(instruction)
-                    .font(.title2.weight(.semibold))
+                    .textStyle(.title2, weight: .semibold)
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.12))
@@ -79,7 +79,7 @@ private struct CaptureBanner: View {
             .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         } else if let result = captures.result {
             Text(result)
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -134,7 +134,7 @@ private struct Counters: View {
 
             if let problem = model.problem {
                 Text(problem)
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -186,7 +186,7 @@ private struct Row: View {
                 .monospacedDigit()
                 .fontWeight(.semibold)
         }
-        .font(.callout)
+        .textStyle(.callout)
         .accessibilityElement(children: .combine)
     }
 }
@@ -202,7 +202,7 @@ private struct TraceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("The model's answer over the last \(Int(Curve.seconds)) seconds: top = closed, bottom = open. Green band = counted as a blink.")
-                .font(.caption)
+                .textStyle(.caption)
                 .foregroundStyle(.secondary)
             Canvas { context, size in
                 let window = Curve.seconds

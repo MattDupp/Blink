@@ -62,9 +62,9 @@ struct BlinkBreakView: View {
 
             VStack(spacing: 6) {
                 Text(exercise.isDone ? "Done" : "Close gently, hold for a second, open")
-                    .font(.title2.weight(.semibold))
+                    .textStyle(.title2, weight: .semibold) .multilineTextAlignment(.center)
                 Text(note(done: exercise.isDone))
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -76,7 +76,7 @@ struct BlinkBreakView: View {
                 .help(exercise.isDone ? "Closes this window" : "Ends the blink break. Nothing is marked.")
         }
         .padding(24)
-        .frame(width: 340, height: 356, alignment: .top)
+        .windowWidth(340, height: 356, alignment: .top)
     }
 
     /// What to do - or why nothing is being counted.

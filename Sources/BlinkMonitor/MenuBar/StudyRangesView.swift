@@ -141,7 +141,7 @@ struct StudyRangesSection: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.callout)
+        .textStyle(.callout)
     }
 }
 
@@ -155,10 +155,10 @@ struct SourcesList: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(source.name).fontWeight(.semibold)
                         Text("\(source.journal), \(source.readAs)")
-                            .font(.caption)
+                            .textStyle(.caption)
                             .foregroundStyle(.secondary)
                         Text(source.finding)
-                            .font(.callout)
+                            .textStyle(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

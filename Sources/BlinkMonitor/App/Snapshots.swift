@@ -99,6 +99,8 @@ enum Snapshots {
                                               moment: Moment(frozen: now)))
         }
         let watching = SampleData.model(now: now, scene: .watching)
+        /// A screen as it is drawn with "Larger text" on (`TextScale`).
+        func larger(_ view: AnyView) -> AnyView { AnyView(view.textScale(larger: true)) }
 
         return [
             ("panel", panel(.watching)),
@@ -234,6 +236,26 @@ enum Snapshots {
             ("routine-timer-done", routineTimer(.timerDone)),
             ("blink-break", blinkBreak(.blinkBreak(count: 6))),
             ("blink-break-done", blinkBreak(.blinkBreak(count: 10))),
+            // "Larger text" switched on: the main screens, and three of them on a 13-inch
+            // screen with a large Dock, where they must scroll instead of leaving the screen.
+            ("panel-larger-text", larger(panel(.watching))),
+            ("panel-low-larger-text", larger(panel(.low))),
+            ("history-larger-text", larger(history(.watching))),
+            ("settings-general-larger-text", larger(settings(.general) { _, model in model.preferences.largerText = true })),
+            ("settings-reminders-larger-text", larger(settings(.reminders))),
+            ("settings-routines-larger-text", larger(settings(.routines) { _, model in
+                SampleData.routines(in: model, now: now, scene: .kept)
+                model.routines.openCard = Routine.eyeDrops.id
+            })),
+            ("setup-welcome-larger-text", larger(setup(.welcome))),
+            ("setup-record-session-larger-text", larger(setup(.recording))),
+            ("blink-break-larger-text", larger(blinkBreak(.blinkBreak(count: 6)))),
+            ("routine-timer-larger-text", larger(routineTimer(.timer))),
+            ("panel-larger-text-small-screen", AnyView(larger(routinePanel(.waiting)).environment(\.screenRoom, 700))),
+            ("history-larger-text-small-screen", AnyView(larger(history(.watching)).environment(\.screenRoom, 700))),
+            ("settings-routines-larger-text-small-screen", AnyView(larger(settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .many)
+            }).environment(\.screenRoom, 700))),
             ("welcome", AnyView(WelcomeView(start: {}))),
             ("live-view", AnyView(LiveView(model: watching, captures: watching.captures, developerTools: false))),
             // As whoever works on the app sees it (started with a folder for captures).

@@ -114,7 +114,7 @@ struct HistoryView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .font(.callout)
+                    .textStyle(.callout)
                 }
 
                 HStack {
@@ -124,12 +124,12 @@ struct HistoryView: View {
                     Button("Export…") { export() }
                         .help("Copies your history and your routine log to a folder you choose: one line per minute, in files any spreadsheet opens. No picture is ever stored.")
                 }
-                .font(.callout)
+                .textStyle(.callout)
             }
         }
         .padding(20)
         }
-        .frame(width: 620)
+        .windowWidth(620)
     }
 
     /// "Tuesday: 11.4 blinks a minute, 5 h 2 min at the screen."
@@ -181,7 +181,7 @@ private struct ChartCaption: View {
 
     var body: some View {
         Text(text)
-            .font(.caption)
+            .textStyle(.caption)
             .foregroundStyle(.secondary)
             .monospacedDigit()
             .lineLimit(1)
@@ -197,7 +197,7 @@ private struct NothingYet: View {
                 .font(.system(size: 38))
                 .foregroundStyle(.secondary)
             Text("Nothing recorded yet")
-                .font(.title2.weight(.semibold))
+                .textStyle(.title2, weight: .semibold)
             Text("One line is kept for every minute counted. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -231,7 +231,7 @@ private struct DayStepper: View {
                 .disabled(index >= days.count - 1)
                 .accessibilityLabel("Next day")
         }
-        .controlSize(.small)
+        .smallControl()
     }
 }
 

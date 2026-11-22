@@ -36,7 +36,7 @@ public struct RateReadout: View {
                 .foregroundStyle(rate == nil ? Color.secondary.opacity(0.6) : tint)
                 .contentTransition(.numericText())
             Text("blinks a minute")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
         }
         .lineLimit(1)

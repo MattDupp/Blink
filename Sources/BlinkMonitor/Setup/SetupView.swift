@@ -77,7 +77,7 @@ struct SetupView: View {
             .padding(26)
             }
         }
-        .frame(width: 700)
+        .windowWidth(700)
         // The end of a closed-eye pose, for someone who cannot hear its sound: the whole
         // window changes its brightness, once (`PoseSignal`). Light passes closed eyelids.
         .overlay { PoseGlow(amount: model.glow) }
@@ -142,7 +142,7 @@ private struct DemoStrip: View {
     var body: some View {
         Label("Demo: these eyes are painted, and the camera is off. The recording, the training and the test are real.",
               systemImage: "sparkles")
-            .font(.callout)
+            .textStyle(.callout)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 26)
             .padding(.vertical, 9)
@@ -181,7 +181,7 @@ private struct StepsBar: View {
                     }
                     .frame(width: 20, height: 20)
                     Text(entry.1)
-                        .font(.callout.weight(entry.0 == step ? .semibold : .regular))
+                        .textStyle(.callout, weight: entry.0 == step ? .semibold : .regular)
                         .foregroundStyle(entry.0 == step ? Color.primary : Color.secondary)
                 }
                 .fixedSize()
@@ -208,7 +208,7 @@ private struct WelcomePage: View {
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Blink Monitor")
-                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                        .textStyle(.largeTitle, weight: .bold, design: .rounded)
                     Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
                 }
@@ -235,7 +235,7 @@ private struct WelcomePage: View {
                 Text(model.isDemo
                      ? "In the demo the eyes are painted and blink by themselves: you only press the buttons."
                      : "You need sound: the voice guides you while your eyes are closed, for half of each recording. You can stop at any step and come back later: what is recorded stays.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -246,7 +246,7 @@ private struct WelcomePage: View {
 
             HStack(spacing: 10) {
                 Text(model.isDemo ? "The demo does not use the camera." : "Next, macOS will ask for the camera.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if let tryDemo = actions.tryDemo {
@@ -277,7 +277,7 @@ private struct TimelineRow: View {
             Text(title)
             Spacer(minLength: 12)
             Text(time)
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -318,7 +318,7 @@ private struct CameraPage: View {
                                 }
                                 .fixedSize()
                                 Text("Record with the camera you will sit in front of. Automatic is the Mac's own.")
-                                    .font(.callout)
+                                    .textStyle(.callout)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -328,7 +328,7 @@ private struct CameraPage: View {
             }
             HStack {
                 Text("Why: a recording of an empty chair, or of eyes too small to read, teaches the model nothing.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
@@ -403,7 +403,7 @@ private struct CheckRow: View {
                     .foregroundStyle(check.state == .waiting ? Color.secondary : Color.primary)
                 if !check.detail.isEmpty {
                     Text(check.detail)
-                        .font(.callout)
+                        .textStyle(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -448,7 +448,7 @@ private struct CameraTroubleCard: View {
                 .foregroundStyle(.red)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 8) {
-                Text(trouble.title).font(.headline)
+                Text(trouble.title).textStyle(.headline)
                 Text(trouble.text)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -502,9 +502,9 @@ private struct EyePair: View {
             EyeThumbnail(image: model.rightCrop)
             VStack(alignment: .leading, spacing: 2) {
                 Text("What the model sees")
-                    .font(.callout.weight(.semibold))
+                    .textStyle(.callout, weight: .semibold)
                 Text("Two small pictures, \(EyeCropper.outputSize) pixels across. Nothing else of the camera picture is ever saved.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -556,7 +556,7 @@ private struct RecordPage: View {
                         SessionCounts(model: model)
                         if let problem = model.problem {
                             Text(problem)
-                                .font(.callout)
+                                .textStyle(.callout)
                                 .foregroundStyle(.red)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -565,7 +565,7 @@ private struct RecordPage: View {
             }
             HStack(spacing: 10) {
                 Text(footnote)
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle((model.faceFound && !model.soundMuted) || model.sessionRunning ? Color.secondary : Color.warningText)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
@@ -640,17 +640,17 @@ private struct SessionBanner: View {
             if model.sessionRunning {
                 HStack {
                     Text("Recording \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
-                        .font(.headline)
+                        .textStyle(.headline)
                     Spacer()
                     if model.phaseState == .recording {
                         Circle().fill(Color.red).frame(width: 8, height: 8).accessibilityHidden(true)
                     }
                     Text(stateText)
-                        .font(.headline)
+                        .textStyle(.headline)
                         .foregroundStyle(.secondary)
                 }
                 Text(phase.instruction)
-                    .font(.title.weight(.semibold))
+                    .textStyle(.title, weight: .semibold)
                     .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
@@ -671,7 +671,7 @@ private struct SessionBanner: View {
                 .accessibilityHidden(true)
             } else {
                 Text(guidance.title)
-                    .font(.system(.title, design: .rounded).weight(.bold))
+                    .textStyle(.title, weight: .bold, design: .rounded)
                 if let note = model.sessionNote {
                     Label(note, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.warningText)
@@ -732,14 +732,14 @@ private struct SessionCounts: View {
                         .frame(width: 10, height: 10)
                 }
                 Text("\(model.sessions.count) of \(wanted) recorded")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
             }
             // One quiet line that moves, where two counters read like a data tool.
             let saved = model.sessions.reduce(0) { $0 + $1.pictures } + (model.sessionRunning ? model.sessionOpen + model.sessionClosed : 0)
             Text(saved > 0 ? "\(saved.formatted()) pictures saved so far, each with the pose it was taken in."
                            : "Ten pictures a second are saved during each pose, each with the pose it was taken in.")
-                .font(.callout)
+                .textStyle(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -761,7 +761,7 @@ private struct TrainPage: View {
                 progress
                 Samples(model: model)
                 Text("What is happening: the model looks at every picture \(model.parts.passes) times. Each time the picture is altered: turned, shifted, darker, blurred. The eyelid is the only thing that stays the same, so that is what it learns to read.")
-                    .font(.callout)
+                    .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(12)
@@ -849,7 +849,7 @@ private struct TrainPage: View {
                 .foregroundStyle(.orange)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 8) {
-                Text(attempts < 2 ? "It stopped before the end" : "It stopped again").font(.headline)
+                Text(attempts < 2 ? "It stopped before the end" : "It stopped again").textStyle(.headline)
                 Text(TrainingFailureWords.plain(reason))
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Your recordings are kept, and no half-made model was installed. "
@@ -891,7 +891,7 @@ private struct Samples: View {
                     }
                 }
                 Text(caption)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -922,7 +922,7 @@ private struct ProofPage: View {
                 ProofRing(model: model)
                 VStack(alignment: .leading, spacing: 12) {
                     Text(headline)
-                        .font(.title2.weight(.semibold))
+                        .textStyle(.title2, weight: .semibold)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(explanation)
                         .foregroundStyle(.secondary)
@@ -934,7 +934,7 @@ private struct ProofPage: View {
             HStack(spacing: 10) {
                 if model.camera == .on && !model.faceFound && model.proof != .running {
                     Text("No face in view: the test can start once the camera sees you.")
-                        .font(.callout)
+                        .textStyle(.callout)
                         .foregroundStyle(Color.warningText)
                 }
                 Spacer(minLength: 12)
@@ -1110,7 +1110,7 @@ struct DonePage: View {
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.isDemo ? "That was the whole setup" : Self.title(for: model.monitor.status()))
-                        .font(.system(.title, design: .rounded).weight(.bold))
+                        .textStyle(.title, weight: .bold, design: .rounded)
                     Text(summary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1260,7 +1260,7 @@ private struct PageTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(.title, design: .rounded).weight(.bold))
+                .textStyle(.title, weight: .bold, design: .rounded)
             Text(subtitle)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

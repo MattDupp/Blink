@@ -14,6 +14,8 @@ import AppKit
 /// buttons) stays where it is.
 public struct ScrollsWhenTall<Content: View>: View {
     @Environment(\.screenRoom) private var room
+    /// What stays outside the scroller (a tab bar, a row of buttons) grows with larger text.
+    @Environment(\.textScale) private var textScale
     private let reserved: CGFloat
     private let height: CGFloat?
     private let content: Content
@@ -31,7 +33,7 @@ public struct ScrollsWhenTall<Content: View>: View {
 
     public var body: some View {
         let available = room ?? ScreenRoom.height
-        let limit = max(240, available - reserved)
+        let limit = max(240, available - reserved * textScale)
         // (The screenshots give unlimited room, to show a tab whole: there the fixed
         // height is left aside.)
         if let height, available < ScreenRoom.unlimited {
