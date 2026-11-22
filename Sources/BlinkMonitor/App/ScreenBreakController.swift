@@ -37,7 +37,8 @@ final class ScreenBreakController: ObservableObject {
     var announce: (String, String, Bool) -> Void = { _, _, _ in }
     /// A break is over: its banner has nothing left to say.
     var withdraw: () -> Void = {}
-    /// The sound that says a break is over.
+    /// The sound that says a break is over (`Notifier.breakOver`). Not called when the
+    /// end sound is switched off in Settings, nor while "Quiet" is on.
     var playEnd: () -> Void = { NSSound(named: "Glass")?.play() }
     /// "Quiet" is on at this moment: a break that falls due is passed over, and one that
     /// ends makes no sound.
@@ -135,7 +136,9 @@ final class ScreenBreakController: ObservableObject {
             case .ended(let outcome):
                 // An absence nobody announced (you simply left) ends without a sound.
                 if announced {
-                    if (outcome.ending == .away || outcome.ending == .onTrust) && !isSnoozed(now) { playEnd() }
+                    if (outcome.ending == .away || outcome.ending == .onTrust) && !isSnoozed(now) && preferences.breakEndSound {
+                        playEnd()
+                    }
                     ended()
                 }
                 Log.app.notice("Break ended: \(outcome.kind.rawValue, privacy: .public), \(String(describing: outcome.ending), privacy: .public)")

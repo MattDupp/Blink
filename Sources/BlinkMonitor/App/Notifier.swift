@@ -15,7 +15,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         case lowRateTest
         /// A look-away break starts (the words come from `BreakWords`). `canPostpone`:
         /// the banner still offers "In 5 Minutes".
-        case screenBreak(title: String, body: String, canPostpone: Bool)
+        /// `sound`: the banner comes with the Mac's notification sound (a setting).
+        case screenBreak(title: String, body: String, canPostpone: Bool, sound: Bool)
     }
 
     /// What a banner's buttons ask for.
@@ -30,6 +31,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let lowRate = "low-blink-rate"
         static let lowRateTest = "low-blink-rate-test"
         static let screenBreak = "screen-break"
+        static let breakOver = "screen-break-over"
         static let blinkBreak = "start-blink-break"
         static let snooze = "snooze-one-hour"
         /// A break that was already put off once: the same banner without that button.
@@ -119,7 +121,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             // No right to show a banner: a soft sound is better than silence. A break has
             // a sound of its own for its start: "Glass" is the one that says it is over.
             switch notice {
-            case .screenBreak: NSSound(named: "Ping")?.play()
+            case .screenBreak(_, _, _, let sound): if sound { NSSound(named: "Ping")?.play() }
             case .lowRate(_, let sound): if sound { NSSound(named: "Glass")?.play() }
             case .lowRateTest: NSSound(named: "Glass")?.play()
             }
@@ -141,15 +143,40 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             content.categoryIdentifier = Identifier.lowRateTest
             content.title = "Time to blink (this is a test)"
             content.body = "This is how a reminder looks. Move the pointer over it to see its buttons. On this test they do nothing."
-        case .screenBreak(let title, let body, let canPostpone):
+        case .screenBreak(let title, let body, let canPostpone, let sound):
             identifier = Identifier.screenBreak
             content.categoryIdentifier = canPostpone ? Identifier.screenBreak : Identifier.screenBreakLast
             content.title = title
             content.body = body
+            if !sound { content.sound = nil }
+            center.removeDeliveredNotifications(withIdentifiers: [Identifier.breakOver])
         }
         // One fixed identifier per kind: a new banner replaces the previous one instead of
         // piling up in Notification Centre.
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
+    /// A look-away break is over: the sound that says so.
+    ///
+    /// It goes THROUGH THE NOTIFICATION SYSTEM when the app may use it: the sound is then
+    /// the Mac's own notification sound, at its volume, and it keeps quiet under a Focus
+    /// and when notification sounds are switched off for the app. (The first version
+    /// played a sound file directly, every 20 minutes, whatever the Mac was set to.) The
+    /// short banner that carries it also says "over" to a muted Mac; it is taken back
+    /// after a few seconds. Without the right to notify, the sound file is all there is.
+    func breakOver() {
+        guard allowed, let center else {
+            NSSound(named: "Glass")?.play()
+            return
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "Break over"
+        content.body = "You can look back at the screen."
+        content.sound = .default
+        center.add(UNNotificationRequest(identifier: Identifier.breakOver, content: content, trigger: nil))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            center.removeDeliveredNotifications(withIdentifiers: [Identifier.breakOver])
+        }
     }
 
     /// The blink reminder was answered (a blink break was done): its banner would now ask

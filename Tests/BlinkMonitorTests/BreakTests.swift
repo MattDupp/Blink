@@ -199,6 +199,22 @@ struct BreakTests {
         #expect(breaks.current == nil && heard.withdrawn == 1 && heard.endSounds == 0)
     }
 
+    @Test("The sound at the end of a break can be switched off; the break is counted all the same")
+    func endSoundOff() {
+        let preferences = Preferences(defaults: store())
+        preferences.breakPlan = BreakPlan(workMinutes: 2, breakSeconds: 20)
+        preferences.breakNudgesOn = true
+        #expect(preferences.breakStartSound && preferences.breakEndSound)      // both on unless you say otherwise
+        preferences.breakEndSound = false
+        let (breaks, heard) = controller(preferences)
+        breaks.frame(faceFound: true, now: morning)
+        var now = watch(breaks, from: morning, seconds: 121)
+        #expect(heard.banners.count == 1)
+        now = watch(breaks, from: now, seconds: 40)
+        #expect(breaks.current == nil && heard.endSounds == 0)
+        #expect(breaks.tally(now: now).taken == 1)
+    }
+
     @Test("Quiet holds the blink reminder and the routines, is remembered, and ends by itself or by hand")
     func quietForAWhile() {
         let defaults = store()

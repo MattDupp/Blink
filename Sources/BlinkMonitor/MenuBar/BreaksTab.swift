@@ -45,11 +45,19 @@ struct BreaksTab: View {
                     .number("\(plan.workMinutes) min")
                 }
                 Divider()
-                Row("Length of a break", detail: "Five seconds are added to turn away. A sound says when it is over.") {
+                Row("Length of a break", detail: "Five seconds are added to turn away.") {
                     Stepper(value: $preferences.breakSeconds, in: BreakPlan.breakRange, step: preferences.breakSeconds < 60 ? 5 : 15) {
                         Text("Length of a break")
                     }
                     .number(BreakWords.length(seconds: plan.breakSeconds))
+                }
+                Divider()
+                Row("A sound when a break starts", detail: "With its banner. Off: the banner comes in silence.") {
+                    Toggle("A sound when a break starts", isOn: $preferences.breakStartSound)
+                }
+                Divider()
+                Row("A sound when a break ends", detail: "It tells you to look back without looking at the screen. It follows the Mac's notification sound, and keeps quiet under a Focus.") {
+                    Toggle("A sound when a break ends", isOn: $preferences.breakEndSound)
                 }
             }
             .disabled(!on)

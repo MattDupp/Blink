@@ -24,6 +24,8 @@ final class Preferences: ObservableObject {
         static let longBreakEvery = "longBreakEvery"
         static let longBreakMinutes = "longBreakMinutes"
         static let breakTally = "breakTally"
+        static let breakStartSound = "breakStartSound"
+        static let breakEndSound = "breakEndSound"
         static let welcomed = "welcomed"
         static let ownRateOfferAnswered = "ownRateOfferAnswered"
         static let quietUntil = "quietUntil"
@@ -90,6 +92,11 @@ final class Preferences: ObservableObject {
     @Published var longBreakOn: Bool { didSet { defaults.set(longBreakOn, forKey: Key.longBreakOn) } }
     @Published var longBreakEvery: Int { didSet { defaults.set(longBreakEvery, forKey: Key.longBreakEvery) } }
     @Published var longBreakMinutes: Int { didSet { defaults.set(longBreakMinutes, forKey: Key.longBreakMinutes) } }
+
+    /// A sound when a break starts (its banner's), and one when it ends. Both on unless
+    /// you say otherwise: the end sound is what tells you to look back without looking.
+    @Published var breakStartSound: Bool { didSet { defaults.set(breakStartSound, forKey: Key.breakStartSound) } }
+    @Published var breakEndSound: Bool { didSet { defaults.set(breakEndSound, forKey: Key.breakEndSound) } }
 
     /// The four numbers above as the rules read them (see `BreakPlan`, which also keeps
     /// each one inside its range). Switching the long break off keeps its numbers.
@@ -174,6 +181,8 @@ final class Preferences: ObservableObject {
         longBreakOn = defaults.bool(forKey: Key.longBreakOn)
         longBreakEvery = defaults.object(forKey: Key.longBreakEvery) as? Int ?? 3
         longBreakMinutes = defaults.object(forKey: Key.longBreakMinutes) as? Int ?? 5
+        breakStartSound = defaults.object(forKey: Key.breakStartSound) as? Bool ?? true
+        breakEndSound = defaults.object(forKey: Key.breakEndSound) as? Bool ?? true
 
         let stored = defaults.dictionary(forKey: Key.reference)
         if let rate = stored?["rate"] as? Double, let measuredOn = stored?["measuredOn"] as? Date,

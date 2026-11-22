@@ -124,7 +124,8 @@ and shipping it inside a real app.
 - **Look-away breaks** (off by default), with every number yours to set: the time between
   breaks, the length of a break, and a long break away from the screen after every few
   short ones. It starts from the classic 20-20-20. A break starts by itself and a sound
-  says when it is over, so there is nothing to watch. The panel counts the day's breaks,
+  says when it is over, so there is nothing to watch. Each of the two sounds, at the start
+  and at the end, has a switch. The panel counts the day's breaks,
   and says which ones the camera saw you take away from the screen.
 - **Routines** (off by default): a reminder to put in eye drops at the times you set, for
   example 08:00, 13:00 and 17:00. It is silent, waits until you are at the screen, and has

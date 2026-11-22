@@ -272,6 +272,7 @@ hand.
 |---|---|
 | Time at the screen runs while a face is in view. Losing the face for less than a short break changes nothing. | People look down, and the camera misses frames. |
 | A due break starts by itself. A sound says when it is over. | A countdown on the screen would keep the eyes on the screen. |
+| The sound at the end goes through macOS notifications, with a short "Break over" banner. The start sound and the end sound each have a switch. | The sound then follows the Mac's own notification sound and keeps quiet under a Focus. A muted Mac still sees that the break ended. |
 | A short break lasts its seconds plus five. | Time to read the banner and turn away. |
 | With no face in view for 60% of it, the break is recorded as **away**. Otherwise it is **on trust**. | The camera cannot tell where you look. The app does not claim what it did not see. |
 | An absence as long as a break is a break, whenever it happens. | A break you take on your own counts. |

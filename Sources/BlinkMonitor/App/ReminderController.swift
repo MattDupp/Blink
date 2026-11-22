@@ -58,8 +58,10 @@ final class ReminderController: ObservableObject {
             }
         }
         breaks.announce = { [weak self] title, body, canPostpone in
-            self?.notifier.show(.screenBreak(title: title, body: body, canPostpone: canPostpone))
+            self?.notifier.show(.screenBreak(title: title, body: body, canPostpone: canPostpone,
+                                             sound: preferences.breakStartSound))
         }
+        breaks.playEnd = { [weak self] in self?.notifier.breakOver() }
         breaks.withdraw = { [weak self] in self?.notifier.withdrawScreenBreak() }
         breaks.isSnoozed = { [weak self] now in self?.gate.isQuiet(at: now) ?? false }
         // A break does not wait for the gate's two minutes: it goes first, and the other
