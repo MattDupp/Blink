@@ -27,6 +27,7 @@ Everything goes through the `Makefile`; `make` alone lists the targets.
 | `make lint` / `make format` | ruff on `training/` and `scripts/` (check / fix) |
 | `make build` | `swift build -c release` |
 | `make demo` | Build and open the app on made-up eyes: no camera, nothing recorded |
+| `make demo-tour` | The demo walks through its own screens by itself, for filming (`Tour.swift`). It opens windows on this Mac: the owner runs it |
 | `make snapshots` | Render every screen and state, light and dark, to `build/screens` |
 | `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
 | `make monitor` | Install the app in `~/Applications` and start it |
@@ -119,8 +120,12 @@ camera frame -> EyeFinder (Vision landmarks -> 64x64 eye crops) -> EyeReader (mo
   whole value (`switchTo`). `Installation` decides which of two copies keeps running and
   knows when the app runs from its disk image. Launch options are in the header comment.
 - `Preferences` holds every stored choice. One small controller per subject.
-- **One `Notifier` shows every banner**: the low-rate reminder, the look-away break and
-  the routines, which register their own kinds through `extraCategories`.
+- **One `Notifier` shows every banner**: the low-rate reminder, the look-away break, the
+  routines, the summary of the day and the evening question. A new kind adds its buttons
+  with `extraCategories.append` and answers through `responders`; it never replaces the list.
+- **One `BannerGate` says yes or no to every banner** (`ReminderController` owns it). Quiet
+  has two sources, the one chosen in the panel and the time outside `WorkingHours`, and
+  the panel says which (`QuietWords`). A banner that can wait asks `mayShowLastBanner`.
 - **Look-away breaks**: `BreakPlan`, `BreakSchedule` and `BreakTally` in
   `BlinkCore/Monitoring`. The schedule has no clock and no window: it is told whether a
   face was in view at a time, and answers with events.
@@ -139,6 +144,9 @@ camera frame -> EyeFinder (Vision landmarks -> 64x64 eye crops) -> EyeReader (mo
 - **The demo** is the same binary under another identifier (`local.blinkmonitor.demo`),
   with made-up eyes behind the `FrameSource` protocol. Its readings enter `MonitorPipeline`
   after the camera stage and are counted by the real detector.
+- **History** shows weeks of seven days ending on a known day (`HistoryWeek`), not Monday
+  to Sunday. The app keeps the last days in memory; the earlier weeks are read from the
+  file while the History window is open (`HistoryController.loadEarlierInBackground`).
 - **Made-up data** lives in `SampleData.swift` only. `Snapshots.swift` lists the screens
   that `make snapshots` renders from it.
 
@@ -159,7 +167,12 @@ their numbers, and the file formats, across the two languages.
   model trained on them. Never commit them or copy them into tracked paths.
   `data/replay` holds whole camera frames, a film of a face.
 - The app's own files are in `~/Library/Application Support/BlinkMonitor/`: `history.csv`,
-  `routines.csv`, the sessions the setup recorded and the model trained from them.
+  `routines.csv`, `breaks.csv` (the break log, `CareStore`), `eye-notes.csv` (the answers
+  to the evening question), the sessions the setup recorded and the model trained from them.
+- **A new record is a file of its own**, never a new column: `history.csv` is read by the
+  Python side. It gets a row in the Privacy tab with Show in Finder and Erase, a line in
+  `DataExport.items`, a mention in `EraseWords.everything`, and a scratch copy for the
+  demo, the screenshots and the tests (`CareController.scratch`).
 - The installer never holds a model: `scripts/dmg.sh` checks the app before packing and
   the image afterwards.
 - Pictures in `docs/img` may show 64x64 eye crops and rendered screens, never a whole face.
@@ -182,6 +195,15 @@ their numbers, and the file formats, across the two languages.
   Without recordings that can measure a change, say so instead of guessing.
 - **No medical claim.** The app reminds people of a routine they chose and reports what
   studies found. It does not advise on treatment, and its words must not start to.
+  The evening note about how the eyes feel is stored and shown, never interpreted, and
+  the one comparison in History (`KeptFinding`) is two of the person's own numbers with
+  "they do not say why". Tests read those words and fail on "because", "better", "should".
+- **What a person did not switch on does not happen.** Every banner, sound, question and
+  shortcut added since the first release is a switch that starts off.
+- **A text style is asked with `textStyle(.callout)`**, never `font(.callout)`, and a small
+  control with `smallControl()`: "Larger text" reaches a view only through `TextScale`
+  (BlinkUI). A window's fixed width is `windowWidth(_:)`. `SourceTests` holds the first
+  two. Text drawn inside a chart keeps its size.
 - **One name for each thing a user reads.** "Your usual rate", "limit", "lowest limit",
   "recording", "reminder", "at the screen", "blinks a minute", "Quiet", "Show in Finder".
   `SourceTests` fails when a retired word returns in a quoted string. Names in the code
