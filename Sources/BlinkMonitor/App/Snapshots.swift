@@ -170,6 +170,14 @@ enum Snapshots {
             ("settings-breaks-long", settings(.breaks, scene: .lookingAway)),
             ("settings-breaks-off", settings(.breaks)),
             ("settings-data", settings(.data)),
+            // A 13-inch screen with a large Dock: the tab scrolls under the tab bar.
+            ("settings-routines-small-screen", AnyView(settings(.routines) { _, model in
+                SampleData.own(in: model, now: now, scene: .many)
+            }.environment(\.screenRoom, 700))),
+            ("settings-reminders-small-screen", AnyView(settings(.reminders).environment(\.screenRoom, 700))),
+            ("history-small-screen", AnyView(history(.watching).environment(\.screenRoom, 700))),
+            ("panel-small-screen", AnyView(routinePanel(.waiting).environment(\.screenRoom, 700))),
+            ("settings-breaks-notifications-off", settings(.breaks, scene: .notificationsOff)),
             ("settings-data-captures", settings(.data) { state, _ in
                 var disk = recorded
                 (disk.captures, disk.captureMegabytes) = (3, 41)

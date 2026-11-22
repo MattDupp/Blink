@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import BlinkCore
+import BlinkUI
 
 /// What the History window remembers while it is open.
 @MainActor
@@ -35,7 +36,8 @@ struct HistoryView: View {
         let weekRecords = days.flatMap { history.records(on: $0.day) }
         let week = DaySummary(records: weekRecords, threshold: limit)
 
-        return VStack(alignment: .leading, spacing: 18) {
+        // 44: the title bar. On a screen too low for the whole window, it scrolls.
+        return ScrollsWhenTall(reserved: 44) { VStack(alignment: .leading, spacing: 18) {
             if weekRecords.isEmpty {
                 NothingYet()
             } else {
@@ -97,6 +99,7 @@ struct HistoryView: View {
             }
         }
         .padding(20)
+        }
         .frame(width: 620)
     }
 

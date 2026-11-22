@@ -54,6 +54,11 @@ struct MenuPanelView: View {
     private func panel(now: Date) -> some View {
         let status = model.status(now: now)
         return VStack(alignment: .leading, spacing: 0) {
+          // Everything above the buttons scrolls when the screen is too small for it (many
+          // routines, a low screen). The buttons stay put. 250: the buttons, the pause
+          // choices when they are open, and the panel's own arrow.
+          ScrollsWhenTall(reserved: 250) {
+           VStack(alignment: .leading, spacing: 0) {
             if onDiskImage { DiskImageBanner() }
             if model.isDemo { DemoBanner(actions: actions) }
             VStack(alignment: .leading, spacing: 10) {
@@ -67,6 +72,8 @@ struct MenuPanelView: View {
             RoutineBlock(routines: model.routines, now: now)
             TodaySection(history: history, state: state, limit: preferences.limit, now: now)
                 .padding(16)
+           }
+          }
             Divider()
             ActionsSection(model: model, state: state, status: status, actions: actions)
                 .padding(.horizontal, 16)
@@ -294,6 +301,9 @@ private struct Notes: View {
         if preferences.breakNudgesOn, let tally = BreakWords.tally(reminders.breaks.tally(now: now)) {
             lines.append(("checkmark.circle", tally, .secondary))
         }
+        if reminders.notificationsRefused, preferences.remindersOn || preferences.breakNudgesOn {
+            lines.append(("bell.slash", "Notifications are off for Blink Monitor: a reminder is a sound only. Settings says how to allow them.", .orange))
+        }
         guard preferences.automaticLimit else { return lines }
         if let reference = preferences.reference {
             // A decline is SHOWN against the reference; the reference does not follow it.
@@ -506,12 +516,16 @@ private struct ActionsSection: View {
                 Spacer()
                 // "Leave me alone for an hour": every banner and sound is held, counting
                 // goes on. Pause is something else: it turns the camera off.
-                Menu("Quiet") {
+                Menu {
                     Button("For 30 Minutes") { model.reminders.setQuiet(.thirtyMinutes) }
                     Button("For 1 Hour") { model.reminders.setQuiet(.oneHour) }
                     Button("Until Tomorrow") { model.reminders.setQuiet(.untilTomorrow) }
+                } label: {
+                    Text("Quiet").font(.caption).foregroundStyle(.secondary)
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .controlSize(.small)
                 .fixedSize()
                 .help("No reminder, no look-away break and no sound for a while. Blinks are still counted.")
                 Button("Live View") { actions.openLiveView() }

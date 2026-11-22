@@ -99,6 +99,11 @@ final class ReminderController: ObservableObject {
         }
     }
 
+    /// Puts the answer in a state, for the screenshots.
+    func state(notifications: Notifications) {
+        self.notifications = notifications
+    }
+
     /// Reads what macOS says now, without asking anything. The answer can change behind
     /// the app's back, in System Settings: whoever shows it reads it again when it opens.
     func rereadNotifications() {

@@ -292,10 +292,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
                                                   openLiveView: { liveView.show() },
                                                   openSetup: { self?.showSetup($0) },
-                                                  closeSetup: { setup.close() }))
+                                                  closeSetup: { setup.close() },
+                                                  openNotificationSettings: Self.openNotificationSettings))
         }
         settings.onVisibilityChange = { open in
-            if open { settingsState.refresh(recordings) } else { settingsState.reset() }
+            // What macOS allows can have changed in System Settings since it was asked.
+            if open { settingsState.refresh(recordings); model.reminders.rereadNotifications() } else { settingsState.reset() }
         }
 
         // In a demo entered from the setup window, the way back is offered. The app that

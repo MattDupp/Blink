@@ -456,13 +456,6 @@ struct RoutineSettings: View {
                     Button("Show in Finder") { showRecord() }
                 }
             }
-            if routines.bannersRefused && routines.routines.contains(where: \.isOn) {
-                Label("Notifications are off for Blink Monitor in System Settings. The menu bar and the panel still show what is waiting.",
-                      systemImage: "bell.slash")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             Text("Blink Monitor reminds you of a routine that you, or your eye-care professional, chose. It does not say what to use or how often. "
                  + "A reminder is silent and waits until you are at the screen. It comes once more after \(routines.policy.repeatAfterMinutes) minutes, "
                  + "then a dot in the menu bar waits with it until its next time. "

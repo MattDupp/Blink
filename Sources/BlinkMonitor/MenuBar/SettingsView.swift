@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import BlinkCore
+import BlinkUI
 
 /// What the Settings window's buttons do outside of it.
 struct SettingsActions {
@@ -10,6 +11,8 @@ struct SettingsActions {
     var openSetup: (SetupModel.Purpose) -> Void = { _ in }
     /// Closes the setup window: what it shows is about to be deleted.
     var closeSetup: () -> Void = {}
+    /// System Settings, on the page of this app's notifications.
+    var openNotificationSettings: () -> Void = {}
 }
 
 /// Where the files that setup makes are kept.
@@ -111,20 +114,57 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .padding(.horizontal, 20)
 
-            switch state.tab {
-            case .general: general
-            case .reminders: remindersTab
-            case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
-                                    startBlinkBreak: actions.startBlinkBreak)
-            case .routines: RoutineSettings(routines: model.routines, moment: moment)
-            case .model: modelTab
-            case .data: data
-            case .sources: sources
+            // The tab bar stays put; a tab taller than the screen scrolls under it.
+            // 110: the title bar, the tab bar and the paddings around them.
+            ScrollsWhenTall(reserved: 110) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if remindsOnThisTab, reminders.notificationsRefused { notificationsOff }
+                    switch state.tab {
+                    case .general: general
+                    case .reminders: remindersTab
+                    case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
+                                            startBlinkBreak: actions.startBlinkBreak)
+                    case .routines: RoutineSettings(routines: model.routines, moment: moment)
+                    case .model: modelTab
+                    case .data: data
+                    case .sources: sources
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
         }
-        .padding(20)
+        .padding(.top, 20)
         .frame(width: 520, alignment: .top)
+    }
+
+    /// The three tabs whose reminders arrive as notifications.
+    private var remindsOnThisTab: Bool {
+        state.tab == .reminders || state.tab == .breaks || state.tab == .routines
+    }
+
+    /// Said at the top of each of those tabs, with the way out. It was said on one tab
+    /// only, at the bottom, and only when a switch of that tab was on.
+    private var notificationsOff: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "bell.slash")
+                .foregroundStyle(.orange)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Notifications are off for Blink Monitor")
+                    .fontWeight(.semibold)
+                Text("Reminders cannot show their banner or their buttons. The blink reminder and the breaks play a sound instead; routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink Monitor. There, the style Alerts keeps a banner on screen until you answer it.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Notification Settings") { actions.openNotificationSettings() }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: General
@@ -198,12 +238,10 @@ struct SettingsView: View {
                 }
             }
             studiesCard
-            if reminders.notificationsRefused && (preferences.remindersOn || preferences.breakNudgesOn) {
-                Label("Notifications are off for Blink Monitor in System Settings. A sound plays instead.",
-                      systemImage: "bell.slash")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
+            Text("A reminder is a banner at the top right of the screen. It leaves after a few seconds and then waits in Notification Centre. Its buttons show when the pointer is over it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
