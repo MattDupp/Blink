@@ -258,7 +258,7 @@ private struct Notes: View {
 
     var body: some View {
         let lines = self.lines
-        if !lines.isEmpty || reminders.snoozedUntil != nil || reminders.breaks.current != nil || preferences.offersOwnRate {
+        if !lines.isEmpty || showsNextBreak || reminders.snoozedUntil != nil || reminders.breaks.current != nil || preferences.offersOwnRate {
             VStack(alignment: .leading, spacing: 6) {
                 if preferences.offersOwnRate, let reference = preferences.reference { ownRateOffer(reference) }
                 if let current = reminders.breaks.current {
@@ -266,6 +266,11 @@ private struct Notes: View {
                     HStack(spacing: 6) {
                         NoteLine(symbol: "eye", text: BreakWords.running(current), tint: .primary)
                         Spacer(minLength: 4)
+                        // The banner's two buttons, for someone who missed the banner.
+                        if current.canPostpone {
+                            Button("Later (5 min)") { reminders.breaks.postpone() }
+                                .controlSize(.small)
+                        }
                         Button("Skip") { reminders.breaks.skip() }
                             .controlSize(.small)
                     }
@@ -277,6 +282,17 @@ private struct Notes: View {
                         Spacer(minLength: 4)
                         Button("End Quiet") { reminders.setQuiet(until: nil) }
                             .controlSize(.small)
+                    }
+                }
+                if showsNextBreak {
+                    HStack(spacing: 6) {
+                        NoteLine(symbol: "clock", text: BreakWords.atTheScreen(minutes: reminders.screenMinutes,
+                                                                               next: reminders.breaks.minutesUntilNext,
+                                                                               nextIsLong: reminders.breaks.nextIsLong))
+                        Spacer(minLength: 4)
+                        Button("Now") { reminders.breaks.startNow() }
+                            .controlSize(.small)
+                            .help("Start the look-away break now")
                     }
                 }
                 ForEach(lines, id: \.text) { line in
@@ -308,16 +324,17 @@ private struct Notes: View {
         .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
     }
 
+    /// Time at the screen and the next break, with its Now button.
+    private var showsNextBreak: Bool {
+        preferences.breakNudgesOn && status.isCameraOn && reminders.breaks.current == nil && reminders.screenMinutes >= 1
+    }
+
     private var lines: [(symbol: String, text: String, tint: Color)] {
         var lines: [(String, String, Color)] = []
         // Before the app can count, there is no rate to learn and nothing to compare.
         if status == .needsSetup { return lines }
         if case .settingUp = status { return lines }
-        if preferences.breakNudgesOn, status.isCameraOn, reminders.breaks.current == nil, reminders.screenMinutes >= 1 {
-            lines.append(("clock", BreakWords.atTheScreen(minutes: reminders.screenMinutes,
-                                                          nextIsLong: reminders.breaks.nextIsLong), .secondary))
-        }
-        if preferences.breakNudgesOn, let tally = BreakWords.tally(reminders.breaks.tally(now: now)) {
+        if preferences.breakNudgesOn, let tally = BreakWords.takenToday(reminders.breaks.tally(now: now)) {
             lines.append(("checkmark.circle", tally, .secondary))
         }
         if reminders.notificationsRefused, preferences.remindersOn || preferences.breakNudgesOn {

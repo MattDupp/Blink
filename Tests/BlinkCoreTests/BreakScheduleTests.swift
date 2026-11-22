@@ -409,4 +409,34 @@ struct BreakScheduleTests {
         tally.record(BreakOutcome(kind: .long, ending: .away, sameAbsence: true), dayStart: tomorrow)
         #expect(tally.taken == 1 && tally.long == 1 && tally.skipped == 0)
     }
+
+    @Test("The time to the next break counts down, and Now starts the break before it is due")
+    func nextAndNow() {
+        var day = Timeline(BreakPlan(workMinutes: 20, breakSeconds: 20))
+        day.watch(14 * 60)
+        let untilDue = day.schedule.secondsUntilDue(at: day.time)
+        #expect(untilDue == 360.0)
+        #expect(day.events.isEmpty)
+
+        // "Now": the break starts at once, cannot be put off, and ends like any other.
+        let event = day.schedule.startNow(at: day.time)
+        #expect(event == .due(.short, canPostpone: false))
+        #expect(day.schedule.secondsUntilDue(at: day.time) == nil, "nothing counts down during a break")
+        let second = day.schedule.startNow(at: day.time)
+        let putOff = day.postpone()
+        #expect(second == nil, "one break at a time")
+        #expect(!putOff)
+        day.watch(26, face: false)
+        #expect(day.events == [.ended(BreakOutcome(kind: .short, ending: .away))])
+
+        // Back at the screen, the count starts again from the full length.
+        day.watch(60)
+        let left = day.schedule.secondsUntilDue(at: day.time) ?? 0
+        #expect(left > 18 * 60 && left <= 20 * 60)
+
+        // Nothing observed yet: nothing to start, nothing to count down to.
+        var fresh = BreakSchedule(plan: BreakPlan(workMinutes: 20, breakSeconds: 20))
+        let nothing = fresh.startNow(at: 0)
+        #expect(nothing == nil && fresh.secondsUntilDue(at: 0) == nil)
+    }
 }

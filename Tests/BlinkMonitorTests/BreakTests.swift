@@ -105,6 +105,32 @@ struct BreakTests {
         #expect(BreakWords.tally(tally) == "Breaks today: 2 (1 away from the screen, 1 long), 1 skipped, 1 cut short")
     }
 
+    @Test("The panel says when the next break comes, and of today only the breaks taken")
+    func panelWords() {
+        #expect(BreakWords.atTheScreen(minutes: 14, next: 6, nextIsLong: false) == "14 min at the screen. Next look-away break in 6 min.")
+        #expect(BreakWords.atTheScreen(minutes: 20, next: 0, nextIsLong: true) == "20 min at the screen. The long break is due.")
+        let today = Calendar.current.startOfDay(for: morning)
+        var tally = BreakTally(day: today)
+        tally.record(BreakOutcome(kind: .short, ending: .skipped), dayStart: today)
+        #expect(BreakWords.takenToday(tally) == nil, "a skipped break is not shown all day")
+        tally.record(BreakOutcome(kind: .short, ending: .onTrust), dayStart: today)
+        #expect(BreakWords.takenToday(tally) == "Look-away breaks today: 1")
+    }
+
+    @Test("Now starts the break at once, with its banner and without the Later button")
+    func startNow() {
+        let preferences = Preferences(defaults: store())
+        preferences.breakNudgesOn = true
+        preferences.breakPlan = BreakPlan(workMinutes: 20, breakSeconds: 20)
+        let (breaks, heard) = controller(preferences)
+        breaks.frame(faceFound: true, now: morning)
+        let now = watch(breaks, from: morning, seconds: 300)
+        #expect(breaks.minutesUntilNext == 15 && heard.banners.isEmpty)
+        breaks.startNow(now: now)
+        #expect(breaks.current?.kind == .short && breaks.current?.canPostpone == false)
+        #expect(heard.banners.count == 1 && !heard.banners[0].canPostpone && breaks.minutesUntilNext == nil)
+    }
+
     // MARK: The controller
 
     @Test("With the settings changed, the break comes at the chosen time, lasts the chosen length, and every Nth is long")

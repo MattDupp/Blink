@@ -278,6 +278,7 @@ hand.
 | An absence as long as a break is a break, whenever it happens. | A break you take on your own counts. |
 | In a long break only seconds with no face count. Back early, the count waits. After twice its length it is recorded as **cut short** and the cycle goes on. | A long break means leaving the screen. Asking again and again would teach you to switch it off. |
 | A break can be put off for five minutes, once. It can be skipped, and that is counted. | Putting off should not become the habit. |
+| The panel says when the next break comes, and "Now" starts it early. A break started by hand cannot be put off. | You know when the interruption comes, and can take it when it suits. |
 | Time when nothing was observed (a sleeping screen, a pause) is absence. | Nobody was at the screen, as far as the app knows. |
 
 The day's breaks are counted by `BreakTally` and shown in the panel. The count to the next

@@ -73,8 +73,19 @@ enum BreakWords {
     }
 
     /// Time at the screen, while no break runs.
-    static func atTheScreen(minutes: Int, nextIsLong: Bool) -> String {
-        "At the screen for \(minutes) min without a break" + (nextIsLong ? ". The next one is the long break" : "")
+    /// `next`: whole minutes until the next break, when that is known.
+    static func atTheScreen(minutes: Int, next: Int? = nil, nextIsLong: Bool) -> String {
+        guard let next else {
+            return "At the screen for \(minutes) min without a break" + (nextIsLong ? ". The next one is the long break" : "")
+        }
+        let kind = nextIsLong ? "The long break" : "Next look-away break"
+        return "\(minutes) min at the screen. \(kind) " + (next <= 0 ? "is due." : "in \(next) min.")
+    }
+
+    /// What the panel says of today: the breaks taken, and nothing else. "1 skipped" and
+    /// "2 cut short" stayed there all day; the whole count is in Settings > Breaks.
+    static func takenToday(_ tally: BreakTally) -> String? {
+        tally.taken > 0 ? "Look-away breaks today: \(tally.taken)" : nil
     }
 
     /// Today's breaks; nil when there is nothing to say yet.

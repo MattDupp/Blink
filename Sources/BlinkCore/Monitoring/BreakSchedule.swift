@@ -195,6 +195,28 @@ public struct BreakSchedule: Sendable {
         step(time, face: nil, quiet: false, hold: false)
     }
 
+    /// Seconds until the next break falls due, while someone is at the screen and no break
+    /// runs. Nil otherwise: there is nothing to count down to.
+    public func secondsUntilDue(at time: Double) -> Double? {
+        guard running == nil, workStart != nil, let lastFace, time >= lastFace,
+              time - lastFace < Double(plan.breakSeconds) else { return nil }
+        var left = plan.workSeconds - screenSeconds(at: time)
+        if let postponedUntil { left = max(left, postponedUntil - time) }
+        return max(0, left)
+    }
+
+    /// "Now": the next break starts at once, before it is due. It was asked for, so it
+    /// cannot be put off. Nil when a break is running, or when nothing was observed yet.
+    public mutating func startNow(at time: Double) -> Event? {
+        guard running == nil, clock != nil else { return nil }
+        let kind = nextKind
+        running = Running(kind: kind, start: time,
+                          length: kind == .long ? plan.longSeconds : Double(plan.breakSeconds),
+                          canPostpone: false, presentSince: time)
+        postponedUntil = nil
+        return .due(kind, canPostpone: false)
+    }
+
     /// "In 5 minutes": once per break. False when it was not allowed.
     public mutating func postpone(at time: Double) -> Bool {
         guard let run = running, run.canPostpone else { return false }

@@ -31,6 +31,8 @@ final class ScreenBreakController: ObservableObject {
     @Published private(set) var current: Current?
     /// The next break to fall due is the long one.
     @Published private(set) var nextIsLong = false
+    /// Whole minutes until the next break falls due. Nil when nothing counts down.
+    @Published private(set) var minutesUntilNext: Int?
     @Published private var stored: BreakTally
 
     /// A break starts: show its banner (title, text, whether it can still be put off).
@@ -60,6 +62,8 @@ final class ScreenBreakController: ObservableObject {
         self.preferences = preferences
         self.screenMinutes = screenMinutes
         self.current = current
+        // (For the screenshots, which state the minutes: the schedule itself is empty.)
+        minutesUntilNext = screenMinutes > 0 ? max(0, preferences.breakPlan.workMinutes - screenMinutes) : nil
         schedule = BreakSchedule(plan: preferences.breakPlan)
         stored = tally ?? preferences.breakTally ?? BreakTally(day: .distantPast)
     }
@@ -114,6 +118,12 @@ final class ScreenBreakController: ObservableObject {
         guard schedule.postpone(at: now.timeIntervalSinceReferenceDate) else { return }
         ended()
         publish(now: now)
+    }
+
+    /// "Now", in the panel: the next break starts before it is due.
+    func startNow(now: Date = Date()) {
+        guard preferences.breakNudgesOn, let event = schedule.startNow(at: now.timeIntervalSinceReferenceDate) else { return }
+        handle([event], now: now)
     }
 
     /// "Skip".
@@ -174,5 +184,7 @@ final class ScreenBreakController: ObservableObject {
         if running != current { current = running }
         let long = schedule.nextKind == .long
         if long != nextIsLong { nextIsLong = long }
+        let next = schedule.secondsUntilDue(at: now.timeIntervalSinceReferenceDate).map { Int(($0 / 60).rounded(.up)) }
+        if next != minutesUntilNext { minutesUntilNext = next }
     }
 }
