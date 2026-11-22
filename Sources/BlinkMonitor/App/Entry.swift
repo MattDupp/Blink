@@ -223,7 +223,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             HistoryView(history: model.history, preferences: preferences, state: historyState,
                         export: { ExportPanel.run(history: model.history.store.file, routineLog: model.routines.store.file) })
         }
-        history.onVisibilityChange = { open in if open { historyState.selectedDay = nil } }   // opens on today
+        // It opens on today, in the last seven days. The earlier weeks are read from the
+        // file while the window is open, and let go when it closes. The demo's are made up.
+        history.onVisibilityChange = { open in
+            if open {
+                historyState.week = 0
+                historyState.selectedDay = nil
+                if !demo { model.history.loadEarlierInBackground() }
+            } else if !demo {
+                model.history.forgetEarlier()
+            }
+        }
         let liveView = WindowController(title: "Live View", text: preferences, resizable: true) {
             LiveView(model: model, captures: model.captures)
         }

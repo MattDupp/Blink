@@ -250,6 +250,21 @@ says so, because the app would say "Low" most of the time.
 [What is a healthy blink rate?](BLINK-RATE.md) is the research: the studies, their limits
 and how each was read.
 
+### History beyond seven days
+
+The file keeps every minute, and the window used to show seven days of it. It now goes
+back twelve weeks. A week there is seven whole days that end on a known day
+(`HistoryWeek`): week 0 is today and the six days before, week 1 the seven days before
+those. It is not Monday to Sunday: on a Monday morning a calendar week would show one
+bar and hide the week that just ended. Days are counted by the calendar, so a week that
+holds the night the clocks change is an hour longer or shorter and its days still start
+at midnight.
+
+The app itself needs the last days only, for the panel and the usual rate. The earlier
+weeks are read from the file when the History window opens and let go when it closes.
+The arrows and the row of weeks appear once something is on file before the last seven
+days: a first week looks as it always did.
+
 ### One gate for every banner
 
 The app has three kinds of reminder: the blink reminder, the look-away break and the

@@ -54,9 +54,12 @@ enum Snapshots {
                                      actions: SetupActions(tryDemo: model.isDemo ? nil : {})))
         }
         let recorded = SettingsState.OnDisk(sessions: 2, pictures: 1912, megabytes: 19)
-        func history(_ scene: SampleData.Scene, daysBack: Int = 0) -> AnyView {
+        /// `weeks`: ten earlier weeks are on file. `week`: the one shown (0: the last seven days).
+        func history(_ scene: SampleData.Scene, daysBack: Int = 0, weeks: Bool = false, week: Int = 0) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)
             let state = HistoryState()
+            if weeks { model.history.state(earlier: SampleData.earlierMinutes(now: now), readAt: now) }
+            state.week = week
             if daysBack > 0 {
                 state.selectedDay = Calendar.current.date(byAdding: .day, value: -daysBack, to: Calendar.current.startOfDay(for: now))
             }
@@ -150,6 +153,12 @@ enum Snapshots {
             ("history", history(.watching)),
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
+            // After ten weeks of use: the arrows, and the row of twelve weeks.
+            ("history-weeks", history(.watching, weeks: true)),
+            ("history-earlier-week", history(.watching, weeks: true, week: 3)),
+            // The sixth week back: away, nothing counted.
+            ("history-empty-week", history(.watching, weeks: true, week: 6)),
+            ("history-weeks-small-screen", AnyView(history(.watching, weeks: true).environment(\.screenRoom, 700))),
             ("settings-general", settings(.general)),
             ("settings-general-working-hours", settings(.general, scene: .outsideHours)),
             // A shortcut was chosen, and macOS refused it: said on the row, not swallowed.

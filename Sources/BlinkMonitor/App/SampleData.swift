@@ -69,6 +69,8 @@ enum SampleData {
         preferences.breakPlan = BreakPlan(workMinutes: 1, breakSeconds: 20, longEvery: 2, longMinutes: 1)
         let model = MonitorModel(preferences: preferences,
                                  history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        // The demo has a past: the History window can go back ten weeks.
+        model.history.state(earlier: earlierMinutes(now: now), readAt: now)
         demoRoutine(in: model, now: now)
         demoWeek(in: model, now: now)
         demoOwn(in: model, now: now)
@@ -429,6 +431,35 @@ enum SampleData {
         for back in [3, 2, 1] {
             sample.append(MinuteRecord(start: minuteNow.addingTimeInterval(-Double(back) * 60),
                                        observedSeconds: 58, blinks: low ? 6 : 13))
+        }
+        return sample
+    }
+
+    /// The weeks before those seven days: ten weeks of use, with one week away (the
+    /// sixth back) and nothing before the tenth, when the app was installed. Coarser
+    /// than `minutes`: one record a minute, a level per week.
+    static func earlierMinutes(now: Date, calendar: Calendar = .current) -> [MinuteRecord] {
+        var seed: UInt64 = 20_260_901
+        func random() -> Double {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            return Double(seed >> 33) / Double(1 << 31)
+        }
+        var sample: [MinuteRecord] = []
+        let today = calendar.startOfDay(for: now)
+        let weekLevel = [0, 12.5, 13.5, 11.0, 12.0, 14.0, 0, 13.0, 15.0, 14.5]      // by weeks back; 0: not used
+        for back in (7..<70).reversed() {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today), !calendar.isDateInWeekend(day),
+                  weekLevel[back / 7] > 0 else { continue }
+            for hour in [9, 10, 11, 13, 14, 15, 16] {
+                for minute in 0..<60 {
+                    guard let start = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day),
+                          random() > 0.15 else { continue }
+                    let focus = hour == 14 || hour == 15 ? 0.6 : 1.0
+                    let rate = max(2, weekLevel[back / 7] * focus + (random() - 0.5) * 8)
+                    let watched = 48 + random() * 12
+                    sample.append(MinuteRecord(start: start, observedSeconds: watched, blinks: Int((rate * watched / 60).rounded())))
+                }
+            }
         }
         return sample
     }

@@ -12,10 +12,14 @@ final class HistoryState: ObservableObject {
     @Published var hoveredDay: Int?
     @Published var hoveredHour: Int?
     @Published var hoveredCell: HeatMap.Cell?
+    /// The seven days shown: 0 = the last seven, 1 = the seven before (`HistoryWeek`).
+    @Published var week = 0 { didSet { if week != oldValue { selectedDay = nil } } }
+    @Published var hoveredWeek: Int?
 }
 
 /// The history window: your last seven days, any of them hour by hour, and the week as
-/// one picture.
+/// one picture. With more than a week on file, the earlier weeks too: two arrows go from
+/// week to week, and a row of the last twelve weeks shows them together.
 ///
 /// The question it answers is "WHEN do I blink too little?". One figure for a day hides it;
 /// the hours show it (typically: the stretch of deep concentration in the afternoon).
@@ -36,10 +40,18 @@ struct HistoryView: View {
 
     private func window(now: Date) -> some View {
         let calendar = Calendar.current
-        let days = history.lastDays(7, threshold: limit, now: now)
+        // The seven days shown. Week 0 is today and the six days before, as it always was.
+        let all = history.allRecords()
+        let shown = HistoryWeeks.week(state.week, now: now, calendar: calendar)
+        let weekRecords = shown.records(in: all)
+        let days = shown.days.map { (day: $0, summary: DaySummary(records: weekRecords.on($0, calendar: calendar), threshold: limit)) }
         let today = calendar.startOfDay(for: now)
-        let selected = state.selectedDay ?? today
-        let weekRecords = days.flatMap { history.records(on: $0.day) }
+        // In an earlier week no day is "today": its last day is the one opened.
+        let selected = state.selectedDay.flatMap { shown.contains($0) ? $0 : nil } ?? (shown.isInProgress ? today : shown.lastDay)
+        // The row of weeks appears once something is on file before these seven days.
+        let weeks = HistoryWeeks.weeks(now: now, calendar: calendar)
+        let hasEarlierWeeks = HistoryWeeks.hasEarlier(than: HistoryWeeks.week(0, now: now, calendar: calendar), records: all,
+                                                      now: now, calendar: calendar)
         let week = DaySummary(records: weekRecords, threshold: limit)
         // Both hour charts show the hours this week used, not the whole clock.
         let hours = Insights.hoursUsed(records: weekRecords)
@@ -47,11 +59,20 @@ struct HistoryView: View {
 
         // 44: the title bar. On a screen too low for the whole window, it scrolls.
         return ScrollsWhenTall(reserved: 44) { VStack(alignment: .leading, spacing: 18) {
-            if weekRecords.isEmpty {
+            if weekRecords.isEmpty && !hasEarlierWeeks {
                 NothingYet()
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle("Last 7 days")
+                    HStack {
+                        SectionTitle(HistoryWords.title(of: shown))
+                        Spacer()
+                        if hasEarlierWeeks {
+                            WeekStepper(week: state.week,
+                                        hasEarlier: HistoryWeeks.hasEarlier(than: shown, records: all, now: now, calendar: calendar)) {
+                                state.week = $0
+                            }
+                        }
+                    }
                     HStack(spacing: 8) {
                         StatTile(value: Format.duration(week.observedSeconds), caption: "at the screen")
                         StatTile(value: week.ratePerMinute.map(Format.rate) ?? Format.none, caption: "blinks a minute")
@@ -70,9 +91,10 @@ struct HistoryView: View {
                             .joined(separator: ", "))
                     ChartCaption(state.hoveredDay.flatMap { days.indices.contains($0) ? days[$0] : nil }.map { day in
                         Self.said(day.day.formatted(.dateTime.weekday(.wide)), day.summary)
-                    } ?? "Click a day to see its hours.")
+                    } ?? (weekRecords.isEmpty ? HistoryWords.emptyWeek : "Click a day to see its hours."))
                 }
 
+                if !weekRecords.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         SectionTitle(selected == today ? "Today, hour by hour" : "\(selected.formatted(.dateTime.weekday(.wide).day().month(.wide))), hour by hour")
@@ -104,7 +126,26 @@ struct HistoryView: View {
                     } ?? "Click a row to see that day. A dot marks an hour under your limit.")
                 }
 
-                let findings = self.findings(days: days, weekRecords: weekRecords, week: week)
+                }
+
+                if hasEarlierWeeks {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionTitle(HistoryWords.weeksTitle)
+                        let summaries = HistoryWeeks.summaries(of: weeks, records: all, threshold: limit)
+                        BarChart(bars: zip(weeks, summaries).map { week, summary in
+                            BarChart.Bar(label: Format.day(week.start), value: summary.ratePerMinute)
+                        }, threshold: limit, showValues: true,
+                                 selected: weeks.firstIndex { $0.index == state.week }, hovered: state.hoveredWeek,
+                                 onHover: { state.hoveredWeek = $0 }, onSelect: { state.week = weeks[$0].index }, namesLimit: false)
+                            .frame(height: 110)
+                            .accessibilityLabel("Blink rate for each of the last twelve weeks")
+                            .accessibilityValue(zip(weeks, summaries).map { HistoryWords.said($0, $1) }.joined(separator: ", "))
+                        ChartCaption(state.hoveredWeek.flatMap { weeks.indices.contains($0) ? $0 : nil }.map { HistoryWords.said(weeks[$0], summaries[$0]) }
+                                     ?? HistoryWords.weeksHint)
+                    }
+                }
+
+                let findings = self.findings(days: days, weekRecords: weekRecords, week: week, isLastSeven: shown.isInProgress)
                 if !findings.isEmpty {
                     VStack(alignment: .leading, spacing: 7) {
                         SectionTitle("What stands out")
@@ -148,7 +189,7 @@ struct HistoryView: View {
     /// highest and lowest day repeated the chart, "matches your usual rate" said nothing,
     /// and the studies line never changed: it is in Settings.)
     private func findings(days: [(day: Date, summary: DaySummary)], weekRecords: [MinuteRecord],
-                          week: DaySummary) -> [(symbol: String, text: String, tint: Color)] {
+                          week: DaySummary, isLastSeven: Bool) -> [(symbol: String, text: String, tint: Color)] {
         var findings: [(String, String, Color)] = []
 
         // The two lowest hours, in the order of the day.
@@ -159,7 +200,8 @@ struct HistoryView: View {
                              .primary))
         }
 
-        if preferences.automaticLimit, let reference = preferences.reference,
+        // "This week" is said of the last seven days only.
+        if isLastSeven, preferences.automaticLimit, let reference = preferences.reference,
            let drift = Baseline.drift(reference: reference, recent: weekRecords) {
             let measured = "your usual rate of \(Format.rate(reference.rate)) a minute, measured on \(Format.day(reference.measuredOn))"
             if drift >= Baseline.driftWorthSaying {
@@ -212,6 +254,48 @@ private struct NothingYet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
+    }
+}
+
+/// The words of the weeks: which seven days are shown, and the row of twelve.
+enum HistoryWords {
+    /// "Last 7 days", or the two dates an earlier week runs between: "7 Nov to 13 Nov".
+    static func title(of week: HistoryWeek) -> String {
+        week.isInProgress ? "Last 7 days" : span(week)
+    }
+
+    static func span(_ week: HistoryWeek) -> String {
+        "\(Format.day(week.start)) to \(Format.day(week.lastDay))"
+    }
+
+    static let weeksTitle = "The last 12 weeks"
+    static let weeksHint = "Click a week to see its days. Each bar is seven days; the last one ends today."
+    static let emptyWeek = "Nothing was counted in these seven days."
+
+    /// "7 Nov to 13 Nov: 11.4 blinks a minute, 30 h 5 min at the screen".
+    static func said(_ week: HistoryWeek, _ summary: DaySummary) -> String {
+        HistoryView.said(week.isInProgress ? "Last 7 days" : span(week), summary)
+    }
+}
+
+/// The two arrows that move the window from week to week. Week 0 is the latest.
+private struct WeekStepper: View {
+    let week: Int
+    let hasEarlier: Bool
+    let select: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button { select(week + 1) } label: { Image(systemName: "chevron.left") }
+                .disabled(!hasEarlier)
+                .help(hasEarlier ? "The seven days before" : "Nothing is recorded before these days")
+                .accessibilityLabel("Earlier week")
+            Button { select(week - 1) } label: { Image(systemName: "chevron.right") }
+                .disabled(week <= 0)
+                .help(week > 0 ? "The seven days after" : "")
+                .accessibilityLabel("Later week")
+        }
+        .smallControl()
     }
 }
 
@@ -361,6 +445,9 @@ struct BarChart: View {
     var hovered: Int?
     var onHover: ((Int?) -> Void)?
     var onSelect: ((Int) -> Void)?
+    /// Off for the row of weeks: twelve bars leave the name no room beside the last
+    /// value, and the charts above have already named the line.
+    var namesLimit = true
 
     var body: some View {
         Canvas { context, size in
@@ -422,6 +509,7 @@ struct BarChart: View {
             }
 
             // The dashed line says what it is, at its right end.
+            guard namesLimit else { return }
             let name = context.resolve(Text("limit \(Int(threshold))").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary))
             let measured = name.measure(in: size)
             let plate = CGRect(x: size.width - measured.width - 6, y: lineY - measured.height - 3, width: measured.width + 4, height: measured.height + 1)

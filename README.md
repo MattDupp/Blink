@@ -109,6 +109,8 @@ and shipping it inside a real app.
   answer as a curve, and a sound at each blink it counts.
 - Keeps a **minute-by-minute history** (numbers only): today, the last hour, any of the last
   seven days hour by hour, the week as a heat map, and a few sentences on what stands out.
+  With more than a week on file, two arrows go back week by week, and a row shows the last
+  twelve weeks.
 - **Reminds you** when your rate stays low for three minutes, and never for the time you
   were away. A reminder left unanswered backs off: the next comes after 5, 15, 30, then 60
   minutes, and only the first two make a sound. A blink break answers it: none for 20
