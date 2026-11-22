@@ -439,4 +439,23 @@ struct BreakScheduleTests {
         let nothing = fresh.startNow(at: 0)
         #expect(nothing == nil && fresh.secondsUntilDue(at: 0) == nil)
     }
+
+    @Test("Time the app did not look at is not a break, while a sleeping screen still is an absence")
+    func notObserved() {
+        var paused = Timeline(BreakPlan(workMinutes: 20, breakSeconds: 20, longEvery: 3, longMinutes: 5))
+        paused.watch(10 * 60)
+        paused.schedule.notObserved()
+        paused.dark(3600)
+        paused.watch(60)
+        #expect(paused.events.isEmpty, "an hour's pause is not written down as a long break")
+        #expect(paused.screenSeconds <= 60, "and the time at the screen starts again")
+
+        var asleep = Timeline(BreakPlan(workMinutes: 20, breakSeconds: 20, longEvery: 3, longMinutes: 5))
+        asleep.watch(10 * 60)
+        asleep.dark(3600)
+        asleep.watch(60)
+        #expect(asleep.events == [.ended(BreakOutcome(kind: .long, ending: .away))])
+
+        #expect(!BreakSchedule.foundLate(sinceLastLook: 1) && BreakSchedule.foundLate(sinceLastLook: 60))
+    }
 }

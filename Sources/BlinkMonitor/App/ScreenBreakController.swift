@@ -39,9 +39,13 @@ final class ScreenBreakController: ObservableObject {
     var announce: (String, String, Bool) -> Void = { _, _, _ in }
     /// A break is over: its banner has nothing left to say.
     var withdraw: () -> Void = {}
-    /// The sound that says a break is over (`Notifier.breakOver`). Not called when the
-    /// end sound is switched off in Settings, nor while "Quiet" is on.
-    var playEnd: () -> Void = { NSSound(named: "Glass")?.play() }
+    /// A break is over and you are told (`Notifier.breakOver`): a short banner, with a
+    /// sound when `true`. The banner is what says "over" to a muted Mac. Not called while
+    /// "Quiet" is on, nor for an end found late (the Mac slept through it).
+    var playEnd: (Bool) -> Void = { sound in if sound { NSSound(named: "Glass")?.play() } }
+    /// Something to say about a long break, without a sound: "4 of 5 minutes away" when
+    /// you are back early, "Long break done" when you are back after it.
+    var tell: (String, String) -> Void = { _, _ in }
     /// "Quiet" is on at this moment: a break that falls due is passed over, and one that
     /// ends makes no sound.
     var isSnoozed: (Date) -> Bool = { _ in false }
@@ -56,6 +60,12 @@ final class ScreenBreakController: ObservableObject {
     private var timer: Timer?
     /// The break in progress was announced, so its end is worth a sound.
     private var announced = false
+    /// When the schedule was last told anything: an end found long after it is found late.
+    private var lastLook: Date?
+    /// A long break ended while you were away: said, without a sound, when you are back.
+    private var longDoneUnsaid = false
+    /// A face was in view at the last look (to notice the moment you come back).
+    private var faceWasInView = true
 
     /// `screenMinutes`, `current`, `tally`: what the screenshots start from.
     init(preferences: Preferences, screenMinutes: Int = 0, current: Current? = nil, tally: BreakTally? = nil) {
@@ -91,12 +101,41 @@ final class ScreenBreakController: ObservableObject {
         let events = schedule.observe(time: now.timeIntervalSinceReferenceDate, faceFound: faceFound,
                                       quiet: !wanted || isSnoozed(now), hold: isHeld())
         handle(events, now: now)
+        if faceFound && !faceWasInView { cameBack(now: now) }
+        faceWasInView = faceFound
+    }
+
+    /// You are back in view. After a long break that ended in an empty room: one silent
+    /// line. During one that is not over: how far it is, once per return.
+    private func cameBack(now: Date) {
+        if longDoneUnsaid {
+            longDoneUnsaid = false
+            if !isSnoozed(now) { tell(BreakWords.longDoneTitle, BreakWords.longDoneBody(plan: schedule.plan)) }
+        } else if announced, let run = schedule.running, run.kind == .long, run.away >= 30, run.away < run.length, !isSnoozed(now) {
+            tell(BreakWords.backEarlyTitle(awaySeconds: Int(run.away), ofSeconds: Int(run.length)), BreakWords.backEarlyBody)
+        }
+    }
+
+    /// The app stops looking on purpose (the camera is paused by hand, or the setup has
+    /// it). That time is not observed: it is not a break, and nothing is recorded.
+    func notObserved() {
+        if schedule.running != nil, announced { ended() }
+        schedule.notObserved()
+        lastLook = nil
+        longDoneUnsaid = false
+        publish(now: Date())
     }
 
     /// Once a second during a break: it must end on time even when no frame arrives
     /// (the camera sends few updates while nobody is in view, and none while it sleeps).
     func tick(now: Date = Date()) {
         handle(schedule.advance(to: now.timeIntervalSinceReferenceDate), now: now)
+    }
+
+    /// Stops the once-a-second look, for the tests: they tell the time themselves.
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
     }
 
     /// A break falls due within `seconds`: the other banners let it go first.
@@ -133,21 +172,30 @@ final class ScreenBreakController: ObservableObject {
     }
 
     private func handle(_ events: [BreakSchedule.Event], now: Date) {
+        // A break falls due, the lid closes, and an hour later a chime played on opening
+        // it: an end found long after the last look makes no sound.
+        let late = lastLook.map { BreakSchedule.foundLate(sinceLastLook: now.timeIntervalSince($0)) } ?? false
+        lastLook = now
         for event in events {
             switch event {
             case .due(let kind, let canPostpone):
                 announced = true
                 Log.app.notice("Look-away break starts: \(kind.rawValue, privacy: .public), \(Int(self.schedule.running?.length ?? 0)) s")
-                let minutes = max(1, Int(schedule.plan.workMinutes))
                 announce(BreakWords.bannerTitle(kind, plan: schedule.plan),
-                         BreakWords.bannerBody(kind, screenMinutes: minutes), canPostpone)
+                         BreakWords.bannerBody(kind, endSound: preferences.breakEndSound), canPostpone)
                 onAnnounced(now)
                 startTimer()
             case .ended(let outcome):
                 // An absence nobody announced (you simply left) ends without a sound.
                 if announced {
-                    if (outcome.ending == .away || outcome.ending == .onTrust) && !isSnoozed(now) && preferences.breakEndSound {
-                        playEnd()
+                    if (outcome.ending == .away || outcome.ending == .onTrust) && !isSnoozed(now) && !late {
+                        if outcome.kind == .long && !faceWasInView {
+                            // The room is empty: a sound there is heard by nobody. It is
+                            // said when you are back, in words.
+                            longDoneUnsaid = true
+                        } else {
+                            playEnd(preferences.breakEndSound)
+                        }
                     }
                     ended()
                 }

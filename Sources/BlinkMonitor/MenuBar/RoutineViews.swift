@@ -214,7 +214,7 @@ private struct WeekRow: View {
                             .help("Ends the timer without marking it done")
                     } else {
                         if let slot = day.due {
-                            Button("Later") { actions.later(slot) }
+                            Button("Later (\(laterMinutes) min)") { actions.later(slot) }
                                 .help("Remind me again in \(Format.count(laterMinutes, "minute"))")
                         }
                         if let minutes = day.routine.sessionMinutes {
@@ -369,7 +369,7 @@ private struct RoutineRow: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 6)
             if offerLater {
-                Button("Later") { later(slot) }
+                Button("Later (\(laterMinutes) min)") { later(slot) }
                     .help("Remind me again in \(Format.count(laterMinutes, "minute"))")
             }
             if let minutes = day.routine.sessionMinutes {

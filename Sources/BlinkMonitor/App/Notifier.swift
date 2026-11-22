@@ -25,6 +25,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         case snooze
         case postponeBreak
         case skipBreak
+        /// A click on a banner itself, of any kind: the panel opens. It holds the right
+        /// buttons for whatever the banner was about.
+        case openPanel
     }
 
     private enum Identifier {
@@ -120,11 +123,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard allowed, let center else {
             // No right to show a banner: a soft sound is better than silence. A break has
             // a sound of its own for its start: "Glass" is the one that says it is over.
-            switch notice {
-            case .screenBreak(_, _, _, let sound): if sound { NSSound(named: "Ping")?.play() }
-            case .lowRate(_, let sound): if sound { NSSound(named: "Glass")?.play() }
-            case .lowRateTest: NSSound(named: "Glass")?.play()
-            }
+            // ONE MEANING PER SOUND. "Ping": a break starts. "Glass" means "over, you may
+            // come back", and nothing else: the blink reminder used to borrow it here. It
+            // now stays silent without banners: the menu bar's orange number says it.
+            if case .screenBreak(_, _, _, let sound) = notice, sound { NSSound(named: "Ping")?.play() }
             return
         }
         let content = UNMutableNotificationContent()
@@ -164,17 +166,33 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// played a sound file directly, every 20 minutes, whatever the Mac was set to.) The
     /// short banner that carries it also says "over" to a muted Mac; it is taken back
     /// after a few seconds. Without the right to notify, the sound file is all there is.
-    func breakOver() {
+    /// `sound` false (switched off in Settings): the banner alone, which is also what a
+    /// muted Mac gets. A break must not end unseen AND unheard.
+    func breakOver(sound: Bool = true) {
         guard allowed, let center else {
-            NSSound(named: "Glass")?.play()
+            if sound { NSSound(named: "Glass")?.play() }
             return
         }
         let content = UNMutableNotificationContent()
         content.title = "Break over"
         content.body = "You can look back at the screen."
-        content.sound = .default
+        content.sound = sound ? .default : nil
         center.add(UNNotificationRequest(identifier: Identifier.breakOver, content: content, trigger: nil))
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            center.removeDeliveredNotifications(withIdentifiers: [Identifier.breakOver])
+        }
+    }
+
+    /// A silent line about a break ("Long break done", "4 of 5 minutes away"), taken back
+    /// after a while. Nothing without the right to notify: the panel says the same.
+    func breakNote(title: String, body: String) {
+        guard allowed, let center else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = nil
+        center.add(UNNotificationRequest(identifier: Identifier.breakOver, content: content, trigger: nil))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
             center.removeDeliveredNotifications(withIdentifiers: [Identifier.breakOver])
         }
     }
@@ -215,15 +233,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         // The test banner: nothing it carries does anything.
         if response.notification.request.content.categoryIdentifier == Identifier.lowRateTest { return completionHandler() }
-        let aboutLowRate = response.notification.request.content.categoryIdentifier == Identifier.lowRate
         let action: Action?
         switch response.actionIdentifier {
         case Identifier.blinkBreak: action = .blinkBreak
         case Identifier.snooze: action = .snooze
         case Identifier.postponeBreak: action = .postponeBreak
         case Identifier.skipBreak: action = .skipBreak
-        // A click on the "time to blink" banner itself is taken as "yes, let us do it".
-        case UNNotificationDefaultActionIdentifier: action = aboutLowRate ? .blinkBreak : nil
+        // A click on a banner itself opens the panel, whatever the banner. On the blink
+        // banner it used to start the exercise, sounds included, and on the others it did
+        // nothing one could see; many people click a banner only to make it go.
+        case UNNotificationDefaultActionIdentifier: action = .openPanel
         default: action = nil
         }
         if let action {

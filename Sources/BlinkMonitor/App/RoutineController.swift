@@ -63,6 +63,8 @@ final class RoutineController: ObservableObject {
     private let defaults: UserDefaults
     private var timer: Timer?
     private var dueShown: [String] = []
+    /// The routines that had a time waiting at the last look.
+    private var dueWasShown: Set<String> = []
     /// The count of each routine "at the screen", by routine id (see `ScreenCount`).
     /// In memory only: a relaunch starts them from zero.
     private var counts: [String: ScreenCount] = [:]
@@ -200,6 +202,12 @@ final class RoutineController: ObservableObject {
         // menu bar and the panel are told all the same.
         let keys = due.compactMap { $0.due?.id }
         if keys != dueShown {
+            // A routine that was waiting and no longer is (its time was dropped, or the
+            // day ended): its banner goes too. Yesterday's stayed in Notification Centre,
+            // and its Done did nothing.
+            let waiting = Set(due.map(\.routine.id))
+            for routine in routines where dueWasShown.contains(routine.id) && !waiting.contains(routine.id) { onSettled(routine) }
+            dueWasShown = waiting
             dueShown = keys
             // Ids only: a routine's name is the user's own words, and stays out of the log.
             Log.app.notice("Routines waiting: \(due.map(\.routine.id).joined(separator: " "), privacy: .public)")

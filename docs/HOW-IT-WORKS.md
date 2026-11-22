@@ -242,6 +242,8 @@ facts, and its tests are moments written by hand.
 | At least two minutes between two banners | Three gentle reminders in one minute are not gentle |
 | A break goes first: the others stay away when one falls due within two minutes | The break has a clock running. The blink reminder comes back by itself |
 | Quiet (30 minutes, an hour, until tomorrow) holds every banner and every sound | "Leave me alone" is one thing to say, not three. Counting goes on, and it is remembered |
+| A click on a banner itself opens the panel, whatever the banner | Many people click a banner only to make it go. Only a named button starts something |
+| A banner that stopped being true is taken back: the blink banner when the rate is back above the limit or the camera is paused, a routine's when nothing of it waits any more | Notification Centre should not hold yesterday's requests |
 
 The blink reminder also backs off (`ReminderPolicy`). While the rate stays low and
 nothing answers, the next reminder comes after 5, 15, 30, then 60 minutes, and only the
@@ -258,6 +260,19 @@ Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 | `BreakSchedule` | The look-away breaks: which one is due, short or long, and what counts as taken. See below. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
 
+### One meaning for each sound
+
+| Sound | Means |
+|---|---|
+| The Mac's notification sound, with a banner | A blink reminder (the first two only), or a look-away break that starts or ends |
+| "Ping" | A look-away break starts, when banners are not allowed |
+| "Glass" | Over, you may come back: a look-away break when banners are not allowed, the tenth blink of a blink break, a routine's timer (twice) |
+| "Pop" | One blink counted: in a blink break, and in Live View when its switch is on |
+| "Tink" | The setup: a pose is done, or a tick of the test |
+
+A blink reminder makes no sound of its own when banners are not allowed: the orange
+number in the menu bar says it.
+
 ### Look-away breaks
 
 You choose four numbers (`BreakPlan`): the minutes between breaks, the seconds of a break,
@@ -273,13 +288,17 @@ hand.
 | Time at the screen runs while a face is in view. Losing the face for less than a short break changes nothing. | People look down, and the camera misses frames. |
 | A due break starts by itself. A sound says when it is over. | A countdown on the screen would keep the eyes on the screen. |
 | The sound at the end goes through macOS notifications, with a short "Break over" banner. The start sound and the end sound each have a switch. | The sound then follows the Mac's own notification sound and keeps quiet under a Focus. A muted Mac still sees that the break ended. |
+| With the end sound switched off, the "Break over" banner still comes, silent. | With the Mac muted, or for someone who cannot hear, a break would otherwise never end. |
 | A short break lasts its seconds plus five. | Time to read the banner and turn away. |
 | With no face in view for 60% of it, the break is recorded as **away**. Otherwise it is **on trust**. | The camera cannot tell where you look. The app does not claim what it did not see. |
 | An absence as long as a break is a break, whenever it happens. | A break you take on your own counts. |
 | In a long break only seconds with no face count. Back early, the count waits. After twice its length it is recorded as **cut short** and the cycle goes on. | A long break means leaving the screen. Asking again and again would teach you to switch it off. |
 | A break can be put off for five minutes, once. It can be skipped, and that is counted. | Putting off should not become the habit. |
 | The panel says when the next break comes, and "Now" starts it early. A break started by hand cannot be put off. | You know when the interruption comes, and can take it when it suits. |
-| Time when nothing was observed (a sleeping screen, a pause) is absence. | Nobody was at the screen, as far as the app knows. |
+| Time when the screen slept is absence. | Nobody was at the screen, as far as the app knows. |
+| Time when the camera was paused by hand, or lent to the setup, is not observed: no break is written down for it, and the time at the screen starts again afterwards. | The app does not claim what it did not see. An hour's call with the camera paused is not a long break. |
+| An end found more than 10 seconds late (the lid was closed) makes no sound. | A chime an hour after the break explains nothing. |
+| A long break that ends while you are away is said in words when you are back, without a sound. Back early, one line says how far it is. | A sound in an empty room is heard by nobody. |
 
 The day's breaks are counted by `BreakTally` and shown in the panel. The count to the next
 long break does not stop at midnight; the tally does.

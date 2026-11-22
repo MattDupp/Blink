@@ -236,6 +236,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         model.blinkBreak.onFinished = { blinkBreak.close() }
         model.reminders.onBlinkBreak = { blinkBreak.show() }      // the reminder banner's button
+        model.reminders.onOpenPanel = { [weak self] in self?.running?.statusItem.showPanel() }
+        // In the demo no banner can say that a break began: the panel opens and says it.
+        if demo { model.reminders.onBreakUnannounced = { [weak self] in self?.running?.statusItem.showPanel() } }
 
         // The setup. In the demo it runs on painted eyes and writes to a temporary folder.
         let parts = demo ? SampleData.demoSetupParts(monitor: model)

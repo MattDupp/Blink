@@ -28,19 +28,32 @@ enum BreakWords {
     static func bannerTitle(_ kind: BreakKind, plan: BreakPlan) -> String {
         switch kind {
         case .short: return "Look far away for \(length(of: .short, in: plan))"
-        case .long: return "Long break: leave the screen for \(length(of: .long, in: plan))"
+        case .long: return "Long break: \(length(of: .long, in: plan)) away from the screen"
         }
     }
 
-    static func bannerBody(_ kind: BreakKind, screenMinutes: Int) -> String {
-        let atTheScreen = "You have been at the screen for \(Format.count(screenMinutes, "minute"))."
+    /// Short enough to be read in a banner. It names no time at the screen: after "Later
+    /// (5 min)" the first version still said "20 minutes" at 25.
+    static func bannerBody(_ kind: BreakKind, endSound: Bool = true) -> String {
         switch kind {
         case .short:
-            return "\(atTheScreen) Pick something across the room, or out of the window. A sound says when it is over."
+            return "Across the room, or out of the window. " + (endSound ? "A sound marks the end." : "A banner says when it is over.")
         case .long:
-            return "\(atTheScreen) Stand up and walk away: only time away from the screen counts. A sound says when it is done."
+            return "Stand up and walk away. Only time away from the screen counts."
         }
     }
+
+    /// Back at the screen after a long break that ended while you were away.
+    static let longDoneTitle = "Long break done"
+    static func longDoneBody(plan: BreakPlan) -> String {
+        "\(length(of: .long, in: plan)) away from the screen."
+    }
+
+    /// Back before a long break is over.
+    static func backEarlyTitle(awaySeconds: Int, ofSeconds: Int) -> String {
+        "Long break: \(awaySeconds / 60) of \(length(seconds: ofSeconds)) away"
+    }
+    static let backEarlyBody = "Leave the screen a little longer, or press Skip."
 
     // MARK: Settings
 
@@ -65,7 +78,7 @@ enum BreakWords {
     static func running(_ current: ScreenBreakController.Current) -> String {
         switch current.kind {
         case .short:
-            return "Look far away for \(length(seconds: current.seconds)). A sound says when it is over."
+            return "Look far away for \(length(seconds: current.seconds)). A sound marks the end."
         case .long:
             let whole = current.seconds / 60
             return "Long break: \(current.awaySeconds / 60) of \(whole) min away from the screen."

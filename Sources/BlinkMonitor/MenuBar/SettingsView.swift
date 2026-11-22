@@ -155,7 +155,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Notifications are off for Blink Monitor")
                     .fontWeight(.semibold)
-                Text("Reminders cannot show their banner or their buttons. The blink reminder and the breaks play a sound instead; routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink Monitor. There, the style Alerts keeps a banner on screen until you answer it.")
+                Text("Reminders cannot show their banner or their buttons. A look-away break then starts and ends with a sound only; the blink reminder and routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink Monitor. There, the style Alerts keeps a banner on screen until you answer it.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

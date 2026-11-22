@@ -21,6 +21,10 @@ struct BreakTests {
         var banners: [(title: String, body: String, canPostpone: Bool)] = []
         var withdrawn = 0
         var endSounds = 0
+        /// Ends said by a banner alone: the end sound is switched off.
+        var silentEnds = 0
+        /// Silent lines about a long break.
+        var told: [(title: String, body: String)] = []
     }
 
     private func controller(_ preferences: Preferences) -> (ScreenBreakController, Heard) {
@@ -28,7 +32,8 @@ struct BreakTests {
         let breaks = ScreenBreakController(preferences: preferences)
         breaks.announce = { heard.banners.append(($0, $1, $2)) }
         breaks.withdraw = { heard.withdrawn += 1 }
-        breaks.playEnd = { heard.endSounds += 1 }
+        breaks.playEnd = { sound in if sound { heard.endSounds += 1 } else { heard.silentEnds += 1 } }
+        breaks.tell = { heard.told.append(($0, $1)) }
         return (breaks, heard)
     }
 
@@ -73,13 +78,13 @@ struct BreakTests {
     @Test("Every text names the chosen numbers: nothing says 20 seconds when the break is 40")
     func wordsFollowThePlan() {
         let plan = BreakPlan(workMinutes: 25, breakSeconds: 40, longEvery: 3, longMinutes: 7)
-        let texts = [BreakWords.bannerTitle(.short, plan: plan), BreakWords.bannerBody(.short, screenMinutes: 25),
-                     BreakWords.bannerTitle(.long, plan: plan), BreakWords.bannerBody(.long, screenMinutes: 25),
+        let texts = [BreakWords.bannerTitle(.short, plan: plan), BreakWords.bannerBody(.short),
+                     BreakWords.bannerTitle(.long, plan: plan), BreakWords.bannerBody(.long),
                      BreakWords.summary(plan), BreakWords.running(.init(kind: .short, seconds: 40)),
                      BreakWords.running(.init(kind: .long, seconds: 420, awaySeconds: 130))]
         for text in texts { #expect(!text.contains("20"), "\(text)") }
         #expect(texts[0] == "Look far away for 40 seconds")
-        #expect(texts[2] == "Long break: leave the screen for 7 minutes")
+        #expect(texts[2] == "Long break: 7 minutes away from the screen")
         #expect(texts[4] == "Every 25 minutes at the screen, look far away for 40 seconds. After 3 of these, leave the screen for 7 minutes.")
         #expect(texts[6] == "Long break: 2 of 7 min away from the screen.")
     }
@@ -159,13 +164,53 @@ struct BreakTests {
         #expect(breaks.nextIsLong)
 
         now = watch(breaks, from: now, seconds: 120)
-        #expect(heard.banners.count == 3 && heard.banners[2].title == "Long break: leave the screen for 1 minute")
-        now = watch(breaks, from: now, seconds: 60, face: false)
-        #expect(heard.endSounds == 3 && breaks.tally(now: now).long == 1 && !breaks.nextIsLong)
+        #expect(heard.banners.count == 3 && heard.banners[2].title == "Long break: 1 minute away from the screen")
+        // Back after 40 seconds: one silent line says how far it is.
+        now = watch(breaks, from: now, seconds: 40, face: false)
+        now = watch(breaks, from: now, seconds: 2)
+        #expect(heard.told.count == 1 && heard.told[0].title == "Long break: 0 of 1 minute away")
+        // Away again until it is done: the room is empty, so no sound. It is said on the way back.
+        now = watch(breaks, from: now, seconds: 21, face: false)
+        #expect(heard.endSounds == 2 && breaks.tally(now: now).long == 1 && !breaks.nextIsLong)
+        #expect(heard.told.count == 1)
+        now = watch(breaks, from: now, seconds: 1)
+        #expect(heard.told.count == 2 && heard.told[1].title == "Long break done" && heard.told[1].body == "1 minute away from the screen.")
 
         // The tally is stored: it is there after a relaunch, and gone the next day.
         #expect(preferences.breakTally?.taken == 3)
         #expect(breaks.tally(now: now.addingTimeInterval(86_400)).taken == 0)
+    }
+
+    @Test("An end found late makes no sound; with the end sound off a banner still says it; a pause is not a break")
+    func lateSilentAndPaused() {
+        let preferences = Preferences(defaults: store())
+        preferences.breakNudgesOn = true
+        preferences.breakPlan = BreakPlan(workMinutes: 1, breakSeconds: 20)
+        let (breaks, heard) = controller(preferences)
+        breaks.frame(faceFound: true, now: morning)
+        var now = watch(breaks, from: morning, seconds: 60)
+        breaks.stopTimer()
+        #expect(heard.banners.count == 1)
+        // The lid closes, and opens an hour later: the break is over, and nothing chimes.
+        now = now.addingTimeInterval(3600)
+        breaks.frame(faceFound: true, now: now)
+        #expect(breaks.current == nil && heard.endSounds == 0 && heard.silentEnds == 0)
+
+        // The end sound switched off: the end is still said, by a banner alone.
+        preferences.breakEndSound = false
+        now = watch(breaks, from: now, seconds: 60)
+        now = watch(breaks, from: now, seconds: 25)
+        #expect(heard.banners.count == 2 && heard.endSounds == 0 && heard.silentEnds == 1)
+
+        // Paused by hand for an hour: not a break, and the time at the screen starts afresh.
+        let before = breaks.tally(now: now)
+        now = watch(breaks, from: now, seconds: 30)
+        breaks.notObserved()
+        now = now.addingTimeInterval(3600)
+        breaks.frame(faceFound: true, now: now)
+        now = watch(breaks, from: now, seconds: 5)
+        #expect(breaks.tally(now: now) == before, "nothing is claimed for time the app did not look at")
+        #expect(breaks.screenMinutes == 0 && breaks.current == nil)
     }
 
     @Test("A break ends on time by the clock alone, when the camera sends nothing")

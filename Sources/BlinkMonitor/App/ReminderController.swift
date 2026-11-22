@@ -28,6 +28,10 @@ final class ReminderController: ObservableObject {
 
     /// The banner's "Start Blink Break" button was pressed.
     var onBlinkBreak: () -> Void = {}
+    /// A banner itself was clicked: show the panel.
+    var onOpenPanel: () -> Void = {}
+    /// A break started and no banner could say so (no right to notify, as in the demo).
+    var onBreakUnannounced: () -> Void = {}
 
     /// What you are in the middle of (a blink break, a timer, the setup): asked by the
     /// gate before every banner. The model says.
@@ -55,13 +59,16 @@ final class ReminderController: ObservableObject {
             case .snooze: self?.snooze(minutes: 60)
             case .postponeBreak: self?.breaks.postpone()
             case .skipBreak: self?.breaks.skip()
+            case .openPanel: self?.onOpenPanel()
             }
         }
         breaks.announce = { [weak self] title, body, canPostpone in
             self?.notifier.show(.screenBreak(title: title, body: body, canPostpone: canPostpone,
                                              sound: preferences.breakStartSound))
+            if self?.notifier.allowed == false { self?.onBreakUnannounced() }
         }
-        breaks.playEnd = { [weak self] in self?.notifier.breakOver() }
+        breaks.playEnd = { [weak self] sound in self?.notifier.breakOver(sound: sound) }
+        breaks.tell = { [weak self] title, body in self?.notifier.breakNote(title: title, body: body) }
         breaks.withdraw = { [weak self] in self?.notifier.withdrawScreenBreak() }
         breaks.isSnoozed = { [weak self] now in self?.gate.isQuiet(at: now) ?? false }
         // A break does not wait for the gate's two minutes: it goes first, and the other
@@ -171,6 +178,9 @@ final class ReminderController: ObservableObject {
         // came back above the limit, which ends its back-off.
         let rate = policy.recentRate(records: minutes, now: now)
         let allowed = preferences.remindersOn && gate.mayShow(.blink, busy: busy(), soon: soon(now: now), now: now)
+        // A banner that stopped being true is taken back: "About 6 blinks a minute" sat
+        // in Notification Centre for hours after the rate had come back.
+        if let rate, rate >= Double(preferences.limit) { notifier.withdrawLowRate() }
         guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now, allowed: allowed),
               let rate else { return }
         gate.shown(at: now)
@@ -181,6 +191,12 @@ final class ReminderController: ObservableObject {
     /// is taken back, and none comes for 20 minutes (`ReminderPolicy.blinkBreakDone`).
     func blinkBreakDone(now: Date = Date()) {
         policy.blinkBreakDone(at: now)
+        notifier.withdrawLowRate()
+    }
+
+    /// The camera was paused, or the Mac goes to sleep: what the blink banner says is no
+    /// longer about now.
+    func stoppedLooking() {
         notifier.withdrawLowRate()
     }
 

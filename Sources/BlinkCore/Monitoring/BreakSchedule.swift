@@ -118,7 +118,11 @@ public struct BreakOutcome: Equatable, Sendable {
 ///   recorded as cut short and the cycle goes on: asking again and again would only teach
 ///   you to switch it off.
 /// - An absence as long as a long break is a long break, whenever it happens.
-/// - Time when nothing was observed (a sleeping screen, a paused camera) is absence.
+/// - Time when nothing was observed because the screen slept is absence.
+/// - Time when the app chose not to look (the camera paused by hand, or lent to the setup)
+///   is not observed at all: `notObserved` forgets the stretch. An hour's call with the
+///   camera paused was written down as a long break "away from the screen", which the
+///   app had not seen.
 public struct BreakSchedule: Sendable {
 
     public enum Event: Equatable, Sendable {
@@ -230,6 +234,24 @@ public struct BreakSchedule: Sendable {
     public mutating func skip(at time: Double) -> Event? {
         guard let run = running else { return nil }
         return .ended(finish(run, .skipped, at: time, present: true))
+    }
+
+    /// An end found more than this long after the last look is found late (the Mac
+    /// slept through it): it makes no sound.
+    public static let lateSeconds = 10.0
+    public static func foundLate(sinceLastLook seconds: Double) -> Bool { seconds > lateSeconds }
+
+    /// The app stopped looking on purpose (Pause, or the setup has the camera). Whatever
+    /// comes next starts a new stretch: no break is credited for the time not observed,
+    /// and none is recorded. The count to the long break is kept.
+    public mutating func notObserved() {
+        clock = nil
+        running = nil
+        workStart = nil
+        lastFace = nil
+        credited = nil
+        postponedUntil = nil
+        postponed = false
     }
 
     /// Breaks were switched off: forget the one in progress, record nothing.

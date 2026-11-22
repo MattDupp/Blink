@@ -1169,15 +1169,15 @@ private struct NotificationPoint: View {
         case .unknown:
             WelcomePoint(symbol: "bell", title: "macOS is asking about notifications",
                          text: "Look at the top right of the screen and choose Allow. If the question has gone, it waits in Notification Centre: click the clock in the menu bar. "
-                             + "Reminders come as notifications: one when your blink rate stays low for a few minutes, and less often while you leave it unanswered.")
+                             + "Reminders come as notifications: a blink reminder when your rate stays low for 3 minutes, less and less often while you leave it. Breaks and routines, if you switch them on, use notifications too.")
         case .allowed:
             WelcomePoint(symbol: "bell", title: "Notifications are allowed",
-                         text: "One reminder when your blink rate stays low for a few minutes, and less often while you leave it unanswered. "
+                         text: "A blink reminder when your rate stays low for 3 minutes, less and less often while you leave it. Breaks and routines, if you switch them on, use notifications too. "
                              + "A reminder's buttons show when the pointer is over it.")
         case .refused:
             VStack(alignment: .leading, spacing: 6) {
                 WelcomePoint(symbol: "bell.slash", title: "Notifications are not allowed",
-                             text: "A reminder is then a sound only, with no words. You can allow them in System Settings > Notifications > Blink Monitor.")
+                             text: "Reminders then only show in the menu bar and the panel, and a look-away break is a sound with no words. You can allow them in System Settings > Notifications > Blink Monitor.")
                 Button("Open Notification Settings") { actions.openNotificationSettings() }
                     .padding(.leading, 42)
             }

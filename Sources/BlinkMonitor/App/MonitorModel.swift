@@ -301,6 +301,7 @@ final class MonitorModel: ObservableObject {
     /// The setup window goes to work on something that needs no camera (training, or
     /// painted eyes): the camera is switched off. Nothing is counted until `leaveSetup`.
     func enterSetup(_ stage: MonitorStatus.SetupStage) {
+        reminders.breaks.notObserved()      // the setup's time is not time at the screen, nor a break
         setupStage = stage
         live = live.withCameraOff
         preview = nil
@@ -316,6 +317,7 @@ final class MonitorModel: ObservableObject {
         if Options.noCamera {
             throw CameraCapture.CameraError.cannotConfigure("it was left off when the app was started")
         }
+        reminders.breaks.notObserved()
         setupStage = stage
         live = live.withCameraOff
         preview = nil
@@ -476,6 +478,12 @@ final class MonitorModel: ObservableObject {
     }
 
     private func setPause(_ state: PauseState) {
+        // Paused by hand: that time is not looked at, so it is no break (`BreakSchedule`),
+        // and a blink banner on screen is about a rate nobody is measuring any more.
+        if state != .running {
+            reminders.breaks.notObserved()
+            reminders.stoppedLooking()
+        }
         pause = state
         preferences.pause = state
         resumeTimer?.invalidate()
@@ -491,6 +499,7 @@ final class MonitorModel: ObservableObject {
     /// screen: the camera is switched off until it wakes.
     func setAsleep(_ value: Bool, now: Date = Date()) {
         asleep = value
+        if value { reminders.stoppedLooking() }
         // A timer does not run while the Mac sleeps: a pause that ended meanwhile ends now.
         if !value && isPaused && !pause.isPaused(at: now) {
             resume()

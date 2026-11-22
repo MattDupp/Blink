@@ -347,7 +347,7 @@ private struct Notes: View {
             lines.append(("checkmark.circle", tally, .secondary))
         }
         if reminders.notificationsRefused, preferences.remindersOn || preferences.breakNudgesOn {
-            lines.append(("bell.slash", "Notifications are off for Blink Monitor: a reminder is a sound only. Settings says how to allow them.", .orange))
+            lines.append(("bell.slash", "Notifications are off for Blink Monitor: reminders only show here and in the menu bar. Settings says how to allow them.", .orange))
         }
         guard preferences.automaticLimit else { return lines }
         if let reference = preferences.reference {
