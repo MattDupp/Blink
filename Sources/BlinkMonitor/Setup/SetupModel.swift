@@ -468,6 +468,15 @@ final class SetupModel: ObservableObject {
     var faceInView: Bool { recentFaces.isEmpty ? faceFound : faceSteady }
     var canLeaveCameraCheck: Bool { camera == .on && faceInView }
 
+    /// A training is under way (for the question asked before quitting).
+    var trainingUnderWay: Bool {
+        guard isOpen, step == .train else { return false }
+        switch training {
+        case .done, .failed: return false
+        default: return true
+        }
+    }
+
     /// Has the training said nothing for a while? Asked once a second.
     @discardableResult
     func checkTraining(now: Date = Date()) -> Bool {

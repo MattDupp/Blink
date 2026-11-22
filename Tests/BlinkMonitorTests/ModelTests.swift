@@ -102,6 +102,34 @@ struct ModelTests {
         #expect(model.blinkBreak.exercise?.count == 2)
         model.blinkBreak.stop()
     }
+
+    @Test("Quitting writes the minute in progress when it holds enough to have a rate")
+    func minuteSavedOnQuit() {
+        let history = HistoryController(store: SampleData.scratchHistory())
+        let start = Date(timeIntervalSince1970: 1_800_000_040)
+        history.update(current: MinuteRecord(start: start, observedSeconds: 8, blinks: 2))
+        history.saveCurrentMinute(now: start)
+        #expect(history.minutes.isEmpty, "eight seconds are too few to be a minute's rate")
+        history.update(current: MinuteRecord(start: start, observedSeconds: 41, blinks: 9))
+        history.saveCurrentMinute(now: start)
+        #expect(history.minutes.count == 1 && history.minutes[0].blinks == 9 && history.currentMinute == nil)
+        #expect(history.store.load(since: .distantPast).count == 1)
+    }
+
+    @Test("A finished blink break says its result: the blinks it counted, and how long they took")
+    func blinkBreakResult() {
+        let breaks = BlinkBreakController()
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        breaks.start(now: start)
+        for index in 0..<10 {
+            #expect(breaks.seconds == nil)
+            breaks.record(.blink(Blink(start: Double(index), end: Double(index) + 0.2)), now: start.addingTimeInterval(Double(index + 1) * 3.8))
+        }
+        #expect(breaks.exercise?.isDone == true && breaks.seconds == 38)
+        #expect(BlinkBreakWords.result(blinks: 10, seconds: 38) == "10 blinks in 38 seconds. No blink reminder for 20 minutes.")
+        #expect(!BlinkBreakWords.result(blinks: 10, seconds: nil).contains("full"), "it counts any blink, and does not claim more")
+        breaks.stop()
+    }
 }
 
 /// The demo: made-up eyes, counted by the real code.

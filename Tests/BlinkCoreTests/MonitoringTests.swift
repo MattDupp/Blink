@@ -90,4 +90,14 @@ struct MonitoringTests {
         #expect(snapshot.lastBlinkSeconds.map { abs($0 - 0.2) < 0.001 } == true)
         #expect(BlinkStats().snapshot(now: 0) == BlinkStats.Snapshot())
     }
+
+    @Test("Quit asks only when something would be lost: a timer, a recording, a training")
+    func quitQuestion() {
+        #expect(QuitQuestion.question(.init()) == nil, "an ordinary quit is immediate")
+        #expect(QuitQuestion.question(.init(timer: "Heated eye mask"))?.text.contains("Heated eye mask") == true)
+        #expect(QuitQuestion.question(.init(recording: true))?.title == "A recording is in progress")
+        #expect(QuitQuestion.question(.init(training: true))?.title == "Your model is being trained")
+        // The timer goes first: covered eyes are waiting for its sound.
+        #expect(QuitQuestion.question(.init(timer: "Mask", recording: true, training: true))?.title == "A timer is running")
+    }
 }

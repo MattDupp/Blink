@@ -39,6 +39,14 @@ final class HistoryController: ObservableObject {
         }
     }
 
+    /// The app is quitting: the minute being filled is written as far as it got, when it
+    /// holds enough to have a rate. It was lost before, up to a minute at each quit.
+    func saveCurrentMinute(now: Date = Date()) {
+        guard let current = currentMinute, current.ratePerMinute != nil else { return }
+        minuteEnded(current, now: now)
+        currentMinute = nil
+    }
+
     /// Forgets every recorded minute, on disk too. The minute being filled goes on.
     func erase() {
         if store.erase() { minutes = [] }

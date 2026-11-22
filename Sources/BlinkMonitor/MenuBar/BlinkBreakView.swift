@@ -1,6 +1,15 @@
 import SwiftUI
 import BlinkCore
 
+/// What the blink break says at its end. It counts every blink the camera sees, slow or
+/// not, so it says "10 blinks": "10 full blinks" claimed something it does not check.
+enum BlinkBreakWords {
+    static func result(blinks: Int, seconds: Int?) -> String {
+        let counted = seconds.map { "\(blinks) blinks in \(BreakWords.length(seconds: $0))." } ?? "\(blinks) blinks."
+        return "\(counted) No blink reminder for \(Int(ReminderPolicy.quietAfterBlinkBreak / 60)) minutes."
+    }
+}
+
 /// The blink break window: ten slow, full blinks, counted as the camera sees them.
 ///
 /// Why an exercise at all: at a screen people blink less AND less completely - the lid
@@ -12,6 +21,8 @@ struct BlinkBreakView: View {
     @ObservedObject var blinkBreak: BlinkBreakController
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
+    /// "Stop", and Escape: closes the window, which ends the exercise.
+    var stop: () -> Void = {}
 
     var body: some View {
         let exercise = blinkBreak.exercise ?? BlinkBreak()
@@ -49,7 +60,7 @@ struct BlinkBreakView: View {
             .accessibilityLabel("\(exercise.count) of \(exercise.target) blinks")
 
             VStack(spacing: 6) {
-                Text(exercise.isDone ? "Done" : "Close your eyes gently, hold, open")
+                Text(exercise.isDone ? "Done" : "Close gently, hold for a second, open")
                     .font(.system(size: 17, weight: .semibold))
                 Text(note(done: exercise.isDone))
                     .font(.callout)
@@ -57,14 +68,19 @@ struct BlinkBreakView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
+            // A way out that is not the red button, and Escape for a hand on the keyboard.
+            Button(exercise.isDone ? "Close" : "Stop") { stop() }
+                .keyboardShortcut(.cancelAction)
+                .help(exercise.isDone ? "Closes this window" : "Ends the blink break. Nothing is marked.")
         }
         .padding(24)
-        .frame(width: 340, height: 312, alignment: .top)
+        .frame(width: 340, height: 356, alignment: .top)
     }
 
     /// What to do - or why nothing is being counted.
     private func note(done: Bool) -> String {
-        if done { return "\(blinkBreak.exercise?.target ?? 10) full blinks. This window closes by itself." }
+        if done { return BlinkBreakWords.result(blinks: blinkBreak.exercise?.target ?? 10, seconds: blinkBreak.seconds) }
         switch model.status(now: moment.now) {
         case .watching, .low:
             return "Slowly, all the way down. A sound marks each blink: no need to look."

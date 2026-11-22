@@ -229,7 +229,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The blink break: its window opening starts the exercise, its closing ends it,
         // and the exercise ending closes the window.
         let blinkBreak = WindowController(title: "Blink Break") {
-            BlinkBreakView(model: model, blinkBreak: model.blinkBreak)
+            BlinkBreakView(model: model, blinkBreak: model.blinkBreak,
+                           stop: { [weak self] in self?.running?.windows["blink-break"]?.close() })
         }
         blinkBreak.onVisibilityChange = { open in
             if open { model.blinkBreak.start() } else { model.blinkBreak.stop() }
@@ -452,6 +453,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    /// Quit asks first when something would be lost (`QuitQuestion`), and only then.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let running else { return .terminateNow }
+        let routines = running.model.routines
+        let timer = routines.session.session.flatMap { session in routines.routines.first { $0.id == session.routine }?.title }
+        let facts = QuitQuestion.Facts(timer: timer, recording: running.setup.sessionRunning, training: running.setup.trainingUnderWay)
+        guard let question = QuitQuestion.question(facts) else { return .terminateNow }
+        let alert = NSAlert()
+        alert.messageText = question.title
+        alert.informativeText = question.text
+        // Cancel is the default: Return must not be the key that loses the work.
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Quit Anyway")
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertFirstButtonReturn ? .terminateCancel : .terminateNow
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        running?.model.history.saveCurrentMinute()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

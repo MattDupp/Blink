@@ -265,7 +265,8 @@ final class WindowController: NSObject, NSWindowDelegate {
             if !resizable { host.sizingOptions = [.preferredContentSize] }
             let window = NSWindow(contentViewController: host)
             window.title = title
-            window.styleMask = resizable ? [.titled, .closable, .miniaturizable, .resizable] : [.titled, .closable]
+            // Every window can be minimized: Cmd-M beeped on most of them.
+            window.styleMask = resizable ? [.titled, .closable, .miniaturizable, .resizable] : [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

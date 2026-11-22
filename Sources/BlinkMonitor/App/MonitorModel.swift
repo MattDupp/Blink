@@ -141,7 +141,7 @@ final class MonitorModel: ObservableObject {
         self.modelStore = modelStore
         self.history = history ?? HistoryController()
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
-        blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak)
+        blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak, seconds: initial?.blinkBreak?.isDone == true ? 38 : nil)
         loginItem = LoginItem(demo: demo)
         // Made-up eyes or a made-up state: the routine record is a scratch one too.
         routines = demo || initial != nil ? .scratch(defaults: preferences.defaults) : RoutineController(defaults: preferences.defaults)

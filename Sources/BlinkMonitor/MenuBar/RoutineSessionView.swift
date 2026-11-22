@@ -66,8 +66,11 @@ struct RoutineSessionView: View {
             if running != nil {
                 Button("Stop") { session.stop() }
                     .help("Ends the timer without marking it done")
+                    // No Escape here, on purpose: a stray key must not stop a timer that
+                    // someone with covered eyes is waiting on.
             } else if shown != nil {
                 Button("Close") { session.dismiss() }
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
@@ -81,6 +84,6 @@ struct RoutineSessionView: View {
         }
         guard finished else { return "Start one from the menu-bar panel." }
         let count = week.map { "\($0.done) of \($0.target) this week. " } ?? ""
-        return "Marked done. \(count)The camera is on again. This window closes by itself."
+        return "Marked done. \(count)The camera is on again. This window closes in \(Int(RoutineSessionController.shownDoneSeconds / 60)) minutes."
     }
 }
