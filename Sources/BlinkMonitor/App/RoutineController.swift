@@ -358,14 +358,76 @@ final class RoutineController: ObservableObject {
     /// Gives a routine of your own another kind of schedule, at that kind's starting
     /// point. What waited under the old kind no longer waits: its banner goes, and the
     /// new schedule asks from now on (as when a routine is switched on).
+    ///
+    /// While the Settings window is open, each kind's schedule is remembered: looking at
+    /// "At the screen" and coming back no longer throws away every time that was typed.
     func setKind(_ id: String, _ kind: RoutineSchedule.Kind, now: Date = Date()) {
         guard let routine = routines.first(where: { $0.id == id }), !routine.isBuiltIn, routine.schedule.kind != kind else { return }
         onSettled(routine)
         counts[id] = nil
+        var rows = drafts[id]
+        rememberedSchedules[id, default: [:]][routine.schedule.kind] = (routine.schedule, rows)
+        let remembered = rememberedSchedules[id]?[kind]
+        rows = remembered?.rows
+        drafts[id] = rows
         change(id) {
-            $0.schedule = RoutineSchedule.starting(kind)
+            $0.schedule = remembered?.schedule ?? RoutineSchedule.starting(kind)
             if $0.isOn { $0.onSince = now }
         }
+    }
+
+    // MARK: Times, while they are being edited
+
+    /// The times of a routine as the Settings window shows them: in the order they were
+    /// entered, a double included, for as long as the window is open.
+    ///
+    /// WHY NOT THE STORED TIMES. Those are sorted and without doubles, which is what the
+    /// reminders need. Shown as they are stored, the rows changed place under the cursor
+    /// (stepping 08:00 past 13:00 moved the row being edited), and stepping one time onto
+    /// another made a row vanish. So the rows are kept apart while they are edited, and
+    /// sorted and merged when the window closes (`endEditing`).
+    func shownTimes(of routine: Routine) -> [TimeOfDay] {
+        drafts[routine.id] ?? routine.times
+    }
+
+    /// The row that already has this row's time, if any: said beside it.
+    func double(of index: Int, in routine: Routine) -> Int? {
+        let rows = shownTimes(of: routine)
+        guard rows.indices.contains(index) else { return nil }
+        return rows.indices.first { $0 != index && rows[$0] == rows[index] }
+    }
+
+    func setTime(_ id: String, at index: Int, to new: TimeOfDay) {
+        editRows(id) { if $0.indices.contains(index) { $0[index] = new } }
+    }
+
+    /// Adds a row: an hour after the last one, or the first free hour of the day.
+    func addTimeRow(_ id: String) {
+        editRows(id) { rows in
+            let hours = Set(rows.map(\.hour))
+            let after = (rows.last?.hour ?? 7) + 1
+            if let hour = (Array(after..<24) + Array(0..<after)).first(where: { !hours.contains($0) }) {
+                rows.append(TimeOfDay(hour: hour))
+            }
+        }
+    }
+
+    func removeTime(_ id: String, at index: Int) {
+        editRows(id) { if $0.count > 1, $0.indices.contains(index) { $0.remove(at: index) } }
+    }
+
+    /// The Settings window closed: the rows are the stored times again, sorted and merged.
+    func endEditing() {
+        if !drafts.isEmpty { drafts = [:] }
+        rememberedSchedules = [:]
+    }
+
+    private func editRows(_ id: String, _ edit: (inout [TimeOfDay]) -> Void) {
+        guard let routine = routines.first(where: { $0.id == id }), case .timesOfDay = routine.schedule else { return }
+        var rows = shownTimes(of: routine)
+        edit(&rows)
+        drafts[id] = rows
+        changeTimes(id, keepRows: true) { _ in rows }
     }
 
     /// "Every so many minutes at the screen": how many.
@@ -404,6 +466,10 @@ final class RoutineController: ObservableObject {
         changeTimes(id) { $0.map { $0 == old ? new : $0 } }
     }
 
+    /// The rows being edited, and each kind's schedule as it was left (see `setKind`).
+    @Published private(set) var drafts: [String: [TimeOfDay]] = [:]
+    private var rememberedSchedules: [String: [RoutineSchedule.Kind: (schedule: RoutineSchedule, rows: [TimeOfDay]?)]] = [:]
+
     func setTimes(_ id: String, _ times: [TimeOfDay]) {
         changeTimes(id) { _ in times }
     }
@@ -428,7 +494,10 @@ final class RoutineController: ObservableObject {
         onBanner(RoutineBanner(routine: routine, slot: nil))
     }
 
-    private func changeTimes(_ id: String, _ change: ([TimeOfDay]) -> [TimeOfDay]) {
+    /// `keepRows`: the change comes from the rows being edited; any other change of the
+    /// times makes the rows follow what is stored.
+    private func changeTimes(_ id: String, keepRows: Bool = false, _ change: ([TimeOfDay]) -> [TimeOfDay]) {
+        if !keepRows, drafts[id] != nil { drafts[id] = nil }
         self.change(id) { routine in
             guard case .timesOfDay(_, let weekdays) = routine.schedule else { return }
             routine.schedule = .timesOfDay(times: Array(Set(change(routine.times))).sorted(), weekdays: weekdays)

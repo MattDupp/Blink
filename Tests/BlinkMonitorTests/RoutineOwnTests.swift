@@ -179,6 +179,25 @@ struct RoutineOwnTests {
         #expect(controller.days(now: at(9, 3)).first?.week?.target == 3)
     }
 
+    @Test("Looking at another kind and coming back keeps the times typed, while Settings is open")
+    func kindRemembered() throws {
+        let controller = controller(Desk())
+        let id = try #require(controller.add(times, now: at(8)))
+        controller.setTime(id, at: 0, to: TimeOfDay(hour: 6, minute: 40))
+        let typed = try #require(controller.routines.last?.times)
+        #expect(typed.contains(TimeOfDay(hour: 6, minute: 40)))
+        controller.setKind(id, .atScreen, now: at(9))
+        controller.setScreenMinutes(id, 25)
+        controller.setKind(id, .timesOfDay, now: at(9, 1))
+        #expect(controller.routines.last?.times == typed)
+        controller.setKind(id, .atScreen, now: at(9, 2))
+        #expect(controller.routines.last?.screenMinutes == 25)
+        // Once the window has closed, another kind starts from its starting point again.
+        controller.endEditing()
+        controller.setKind(id, .timesOfDay, now: at(9, 3))
+        #expect(controller.routines.last?.schedule == RoutineSchedule.starting(.timesOfDay))
+    }
+
     @Test("A timer given to a routine of times: run to its end, it marks the waiting time done")
     func timer() throws {
         let desk = Desk()

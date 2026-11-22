@@ -217,6 +217,40 @@ struct RoutineControllerTests {
         #expect(times() == ["00:00", "23:00"])
     }
 
+    @Test("While Settings is open the rows keep their place and a double is kept; closing sorts and merges")
+    func editingRows() {
+        let desk = Desk()
+        let controller = switchedOn(desk)
+        func rows() -> [String] { controller.shownTimes(of: controller.routines[0]).map(\.text) }
+        func stored() -> [String] { controller.routines[0].times.map(\.text) }
+        #expect(rows() == ["08:00", "13:00", "17:00"])
+
+        // Stepping the first time past the second: the row being edited stays first.
+        controller.setTime(id, at: 0, to: TimeOfDay(hour: 14))
+        #expect(rows() == ["14:00", "13:00", "17:00"])
+        #expect(stored() == ["13:00", "14:00", "17:00"])          // the reminders follow at once
+
+        // Onto another time: no row vanishes, and the double is said.
+        controller.setTime(id, at: 0, to: TimeOfDay(hour: 13))
+        #expect(rows() == ["13:00", "13:00", "17:00"])
+        #expect(controller.double(of: 0, in: controller.routines[0]) == 1)
+        #expect(controller.double(of: 2, in: controller.routines[0]) == nil)
+        #expect(stored() == ["13:00", "17:00"])                   // one reminder at 13:00
+        // And off it again: nothing was lost.
+        controller.setTime(id, at: 0, to: TimeOfDay(hour: 9))
+        #expect(rows() == ["09:00", "13:00", "17:00"] && stored() == ["09:00", "13:00", "17:00"])
+
+        controller.addTimeRow(id)
+        controller.setTime(id, at: 3, to: TimeOfDay(hour: 7))
+        #expect(rows() == ["09:00", "13:00", "17:00", "07:00"])
+        controller.removeTime(id, at: 1)
+        #expect(rows() == ["09:00", "17:00", "07:00"])
+
+        // The window closes: sorted, as stored.
+        controller.endEditing()
+        #expect(rows() == ["07:00", "09:00", "17:00"])
+    }
+
     // MARK: Somebody there
 
     @Test("With the camera paused, an awake screen counts as somebody there; a sleeping one does not")

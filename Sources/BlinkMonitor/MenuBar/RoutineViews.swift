@@ -494,15 +494,16 @@ struct RoutineSettings: View {
             }
             own(routine)
             // By position, not by time: a row keeps its place (and the keyboard) while its time is typed.
-            ForEach(Array(routine.times.enumerated()), id: \.offset) { index, time in
+            // And in the order entered while the window is open (`RoutineController.shownTimes`).
+            ForEach(Array(routines.shownTimes(of: routine).enumerated()), id: \.offset) { index, time in
                 Divider()
                 timeRow(routine, index: index, time: time)
             }
             timer(routine)
             Divider()
             HStack(spacing: 12) {
-                Button("Add a Time") { routines.addTime(routine.id) }
-                    .disabled(routine.times.count >= 12)
+                Button("Add a Time") { routines.addTimeRow(routine.id) }
+                    .disabled(routines.shownTimes(of: routine).count >= 12)
                 Spacer(minLength: 12)
                 foot(routine)
             }
@@ -701,18 +702,24 @@ struct RoutineSettings: View {
         HStack(spacing: 12) {
             Text("Reminder \(index + 1)")
                 .foregroundStyle(routine.isOn ? .primary : .secondary)
+            if let other = routines.double(of: index, in: routine) {
+                // Two rows at one time are one reminder. Said, not silently merged.
+                Text("Same time as Reminder \(other + 1): one reminder")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+            }
             Spacer(minLength: 12)
             DatePicker("Time of reminder \(index + 1)", selection: Binding(
                 get: { Self.date(of: time, on: moment.now) },
-                set: { routines.setTime(routine.id, from: time, to: Self.time(of: $0)) }),
+                set: { routines.setTime(routine.id, at: index, to: Self.time(of: $0)) }),
                        displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .fixedSize()
-            Button { routines.removeTime(routine.id, time) } label: {
+            Button { routines.removeTime(routine.id, at: index) } label: {
                 Image(systemName: "minus.circle")
             }
             .buttonStyle(.borderless)
-            .disabled(routine.times.count <= 1)
+            .disabled(routines.shownTimes(of: routine).count <= 1)
             .help("Remove this time")
             .accessibilityLabel("Remove reminder \(index + 1)")
         }

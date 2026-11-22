@@ -297,7 +297,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.onVisibilityChange = { open in
             // What macOS allows can have changed in System Settings since it was asked.
-            if open { settingsState.refresh(recordings); model.reminders.rereadNotifications() } else { settingsState.reset() }
+            if open {
+                settingsState.refresh(recordings)
+                model.reminders.rereadNotifications()
+            } else {
+                settingsState.reset()
+                model.routines.endEditing()       // the times are sorted and merged now, not under the cursor
+            }
         }
 
         // In a demo entered from the setup window, the way back is offered. The app that
