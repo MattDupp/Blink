@@ -64,7 +64,7 @@ Apple has not scanned it. All of its code is in this repository.
 - **Update:** quit Blink Monitor (click the eye, then *Quit*). Open the new disk image, drag
   again, and choose *Replace*.
 - **Remove:** Settings > Privacy > *Delete Everything and Quit…* removes the recordings, the
-  model, the history, the routine log and every setting, after one question. Then drag the
+  model, the history, the routine log, the break log and every setting, after one question. Then drag the
   app from Applications to the Trash. Dragging alone leaves those files in
   `~/Library/Application Support/BlinkMonitor`.
 
@@ -111,6 +111,8 @@ and shipping it inside a real app.
   seven days hour by hour, the week as a heat map, and a few sentences on what stands out.
   With more than a week on file, two arrows go back week by week, and a row shows the last
   twelve weeks.
+- **What was kept**: History counts, for the seven days shown, the look-away breaks taken
+  or skipped, the blink breaks finished, the blink reminders shown and the routines done.
 - **Reminds you** when your rate stays low for three minutes, and never for the time you
   were away. A reminder left unanswered backs off: the next comes after 5, 15, 30, then 60
   minutes, and only the first two make a sound. A blink break answers it: none for 20
@@ -389,6 +391,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - While it counts, each camera picture is read and discarded at once.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a recording) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Model shows them and deletes them, for good.
 - **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it. History > *Export…* copies it, with the routine log, to a folder you choose.
+- One line each time a look-away break is taken or skipped, a blink break is finished or a blink reminder is shown, in `breaks.csv` in the same folder. Settings > Privacy shows the file and can erase it, and *Export…* copies it too.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.

@@ -71,6 +71,7 @@ enum SampleData {
                                  history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
         // The demo has a past: the History window can go back ten weeks.
         model.history.state(earlier: earlierMinutes(now: now), readAt: now)
+        model.care.state(events: care(now: now))
         demoRoutine(in: model, now: now)
         demoWeek(in: model, now: now)
         demoOwn(in: model, now: now)
@@ -462,6 +463,30 @@ enum SampleData {
             }
         }
         return sample
+    }
+
+    /// A break log to go with `earlierMinutes`: some days with many look-away breaks,
+    /// some with few, a blink reminder now and then and the blink break that answered it.
+    static func care(now: Date, calendar: Calendar = .current) -> [CareEvent] {
+        var events: [CareEvent] = []
+        let today = calendar.startOfDay(for: now)
+        for back in (0..<70).reversed() {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today), !calendar.isDateInWeekend(day),
+                  back / 7 != 6 else { continue }
+            // Tuesdays and Thursdays are the days full of meetings: fewer breaks taken.
+            let weekday = calendar.component(.weekday, from: day)
+            let taken = weekday == 3 || weekday == 5 ? 3 : 8
+            for index in 0..<taken {
+                let at = day.addingTimeInterval(9.5 * 3600 + Double(index) * 50 * 60)
+                if at < now { events.append(CareEvent(at: at, kind: .lookAway)) }
+            }
+            if back % 3 == 0 { events.append(CareEvent(at: day.addingTimeInterval(14.6 * 3600), kind: .skipped)) }
+            if back % 2 == 0 {
+                events.append(CareEvent(at: day.addingTimeInterval(14.3 * 3600), kind: .blinkReminder))
+                events.append(CareEvent(at: day.addingTimeInterval(14.32 * 3600), kind: .blinkBreak))
+            }
+        }
+        return events.filter { $0.at < now }
     }
 
     // MARK: Routines

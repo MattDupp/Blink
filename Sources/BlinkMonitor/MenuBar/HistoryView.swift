@@ -27,6 +27,10 @@ struct HistoryView: View {
     @ObservedObject var history: HistoryController
     @ObservedObject var preferences: Preferences
     @ObservedObject var state: HistoryState
+    /// The break log and the routines: what "Kept in these seven days" counts. Nil
+    /// where the window is drawn without them.
+    var care: CareController?
+    var routines: RoutineController?
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
     /// "Export…": copies the history and the routine log where the user chooses.
@@ -145,6 +149,10 @@ struct HistoryView: View {
                     }
                 }
 
+                if let care {
+                    KeptBlock(care: care, routines: routines, week: shown, records: all, now: now, calendar: calendar)
+                }
+
                 let findings = self.findings(days: days, weekRecords: weekRecords, week: week, isLastSeven: shown.isInProgress)
                 if !findings.isEmpty {
                     VStack(alignment: .leading, spacing: 7) {
@@ -254,6 +262,42 @@ private struct NothingYet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
+    }
+}
+
+/// "Kept in these seven days": the breaks taken, the blink breaks finished, the
+/// reminders shown and the routines done, counted from the two logs. Drawn only when
+/// there is something to count: a week without any of it says nothing.
+private struct KeptBlock: View {
+    @ObservedObject var care: CareController
+    let routines: RoutineController?
+    let week: HistoryWeek
+    let records: [MinuteRecord]
+    let now: Date
+    let calendar: Calendar
+
+    var body: some View {
+        // The routines keep the last days in memory; the earlier weeks are read from
+        // their log while the window is open.
+        let routineEvents = week.isInProgress ? routines?.events ?? [] : care.routineLog ?? routines?.events ?? []
+        let lines = KeptWords.lines(Kept(week: week, care: care.events, routines: routineEvents))
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                SectionTitle(KeptWords.title)
+                ForEach(lines, id: \.text) { line in
+                    Label(line.text, systemImage: line.symbol)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                // One comparison, over every day on file, and only when both groups of
+                // days are large enough (`KeptFinding`).
+                if let finding = KeptFinding.find(records: records, care: care.events, now: now, calendar: calendar) {
+                    Label(KeptWords.finding(finding), systemImage: "equal.circle")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .textStyle(.callout)
+        }
     }
 }
 

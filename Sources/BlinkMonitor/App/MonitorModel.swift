@@ -114,6 +114,8 @@ final class MonitorModel: ObservableObject {
     @Published private(set) var failure: StartFailure?
     let routines: RoutineController
     let captures = CaptureController()
+    /// The break log: what was taken, finished and shown.
+    let care: CareController
     /// The optional shortcut for a blink break. It registers nothing until the app
     /// delegate starts it.
     private(set) lazy var shortcut = ShortcutController(preferences: preferences)
@@ -154,7 +156,7 @@ final class MonitorModel: ObservableObject {
 
     /// `demo`: run on made-up eyes, without the camera or the model (see `DemoCamera`).
     init(preferences: Preferences, history: HistoryController? = nil, initial: InitialState? = nil, demo: Bool = false,
-         modelStore: ModelStore = .standard) {
+         modelStore: ModelStore = .standard, care: CareController? = nil) {
         self.preferences = preferences
         self.modelStore = modelStore
         self.history = history ?? HistoryController()
@@ -163,6 +165,7 @@ final class MonitorModel: ObservableObject {
         loginItem = LoginItem(demo: demo)
         // Made-up eyes or a made-up state: the routine record is a scratch one too.
         routines = demo || initial != nil ? .scratch(defaults: preferences.defaults) : RoutineController(defaults: preferences.defaults)
+        self.care = care ?? (demo || initial != nil ? .scratch() : CareController())
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {
@@ -179,7 +182,12 @@ final class MonitorModel: ObservableObject {
             pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
         routines.connect(to: self)
-        blinkBreak.onDone = { [weak self] in self?.reminders.blinkBreakDone() }
+        blinkBreak.onDone = { [weak self] in
+            self?.reminders.blinkBreakDone()
+            self?.care.record(.blinkBreak)
+        }
+        reminders.onBlinkReminder = { [weak self] now in self?.care.record(.blinkReminder, now: now) }
+        reminders.breaks.onOutcome = { [weak self] outcome, now in self?.care.record(CareEvent(outcome, at: now)) }
         // The exercise is left out of the count for as long as it runs (`MonitorPipeline.setExercise`).
         exerciseWatch = blinkBreak.$exercise.sink { [weak self] exercise in
             self?.pipeline?.setExercise(exercise.map { !$0.isDone } ?? false)

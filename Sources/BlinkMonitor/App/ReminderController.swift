@@ -32,6 +32,8 @@ final class ReminderController: ObservableObject {
     var onOpenPanel: () -> Void = {}
     /// A break started and no banner could say so (no right to notify, as in the demo).
     var onBreakUnannounced: () -> Void = {}
+    /// The blink reminder was shown: written to the break log.
+    var onBlinkReminder: (Date) -> Void = { _ in }
 
     /// What you are in the middle of (a blink break, a timer, the setup): asked by the
     /// gate before every banner. The model says.
@@ -209,6 +211,7 @@ final class ReminderController: ObservableObject {
         guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now, allowed: allowed) else { return }
         gate.shown(at: now)
         notifier.show(.lowRate(limit: preferences.limit, sound: due.sound))
+        onBlinkReminder(now)
     }
 
     /// A blink break was finished: the reminder that asked for it is answered. Its banner

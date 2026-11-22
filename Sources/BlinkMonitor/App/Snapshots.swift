@@ -58,12 +58,16 @@ enum Snapshots {
         func history(_ scene: SampleData.Scene, daysBack: Int = 0, weeks: Bool = false, week: Int = 0) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)
             let state = HistoryState()
-            if weeks { model.history.state(earlier: SampleData.earlierMinutes(now: now), readAt: now) }
+            if weeks {
+                model.history.state(earlier: SampleData.earlierMinutes(now: now), readAt: now)
+                model.care.state(events: SampleData.care(now: now))
+            }
             state.week = week
             if daysBack > 0 {
                 state.selectedDay = Calendar.current.date(byAdding: .day, value: -daysBack, to: Calendar.current.startOfDay(for: now))
             }
-            return AnyView(HistoryView(history: model.history, preferences: model.preferences, state: state, moment: Moment(frozen: now)))
+            return AnyView(HistoryView(history: model.history, preferences: model.preferences, state: state,
+                                       care: model.care, routines: model.routines, moment: Moment(frozen: now)))
         }
         func blinkBreak(_ scene: SampleData.Scene) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)

@@ -255,7 +255,8 @@ struct HistoryTests {
         try FileManager.default.createDirectory(at: chosen, withIntermediateDirectories: true)
         let history = home.appendingPathComponent("history.csv"), log = home.appendingPathComponent("routines.csv")
         try "minute,blinks\n".write(to: history, atomically: true, encoding: .utf8)
-        let items = DataExport.items(history: history, routineLog: log)
+        let breaks = home.appendingPathComponent("breaks.csv")
+        let items = DataExport.items(history: history, routineLog: log, breakLog: breaks)
 
         // No routine was ever shown: its log does not exist, and that is not an error.
         var copies = try DataExport.copy(items, to: chosen)
@@ -265,6 +266,8 @@ struct HistoryTests {
         try "at,routine\n".write(to: log, atomically: true, encoding: .utf8)
         copies = try DataExport.copy(items, to: chosen)
         #expect(copies.map(\.lastPathComponent) == ["Blink Monitor history.csv", "Blink Monitor routine log.csv"])
+        try "at,what,note\n".write(to: breaks, atomically: true, encoding: .utf8)
+        #expect(try DataExport.copy(items, to: chosen).map(\.lastPathComponent).last == "Blink Monitor break log.csv")
         #expect(try String(contentsOf: copies[0], encoding: .utf8).hasSuffix("1,12\n"), "the earlier export was replaced")
         // The app's own files are where they were.
         #expect(FileManager.default.fileExists(atPath: history.path) && FileManager.default.fileExists(atPath: log.path))

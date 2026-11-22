@@ -111,6 +111,12 @@ enum EraseWords {
             + "The routines and their times stay. This cannot be undone.",
         button: "Erase")
 
+    static let breakLog = Confirm.Question(
+        title: "Erase the break log?",
+        text: "The breaks you took or skipped, the blink breaks you finished and the blink reminders shown are erased: "
+            + "History no longer counts them. Your history of blinks stays. This cannot be undone.",
+        button: "Erase")
+
     static func captures(_ count: Int) -> Confirm.Question {
         Confirm.Question(title: "Erase the captures from Live View?",
                          text: "\(Format.count(count, "capture")) of your eyes, saved with Live View's record buttons. This cannot be undone.",
@@ -136,7 +142,7 @@ enum EraseWords {
 
     static let everything = Confirm.Question(
         title: "Delete everything and quit?",
-        text: "The recordings of your eyes, your model, the history, the routine log and every setting are removed from this Mac, "
+        text: "The recordings of your eyes, your model, the history, the routine log, the break log and every setting are removed from this Mac, "
             + "and Blink Monitor quits. Afterwards, move Blink Monitor itself to the Trash. This cannot be undone.",
         button: "Delete Everything and Quit")
 }
@@ -651,6 +657,7 @@ struct SettingsView: View {
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
                     DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them under Model.")
                     DataPoint(symbol: "checklist", text: "Kept with a routine switched on: one line each time a reminder is shown, done, postponed or missed.")
+                    DataPoint(symbol: "eye.slash", text: "Kept about breaks: one line each time a look-away break is taken or skipped, a blink break is finished or a blink reminder is shown.")
                     if state.onDisk.captures > 0 {
                         DataPoint(symbol: "record.circle", text: "Kept from Live View: \(Format.count(state.onDisk.captures, "capture")) of your eyes"
                                   + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
@@ -682,6 +689,16 @@ struct SettingsView: View {
                     }
                     .disabled(!FileManager.default.fileExists(atPath: log.path))
                 }
+                Divider()
+                let breakLog = model.care.store.file
+                Row(KeptWords.fileTitle, detail: "\(KeptWords.fileDetail) \(Self.size(of: breakLog))") {
+                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([breakLog]) }
+                        .disabled(!FileManager.default.fileExists(atPath: breakLog.path))
+                    Button("Erase…") {
+                        if Confirm.destructive(EraseWords.breakLog) { model.care.erase() }
+                    }
+                    .disabled(!FileManager.default.fileExists(atPath: breakLog.path))
+                }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
                     Divider()
                     Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View."
@@ -699,7 +716,7 @@ struct SettingsView: View {
             if let deleteEverything = actions.deleteEverythingAndQuit {
                 Card {
                     Row("Remove Blink Monitor from this Mac",
-                        detail: "Deletes the recordings, the model, the history, the routine log and every setting, then quits. Afterwards, move the app itself to the Trash.") {
+                        detail: "Deletes the recordings, the model, the history, the routine log, the break log and every setting, then quits. Afterwards, move the app itself to the Trash.") {
                         Button("Delete Everything and Quit…") {
                             if Confirm.destructive(EraseWords.everything) { deleteEverything() }
                         }

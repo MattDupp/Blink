@@ -49,6 +49,8 @@ final class ScreenBreakController: ObservableObject {
     /// "Quiet" is on at this moment: a break that falls due is passed over, and one that
     /// ends makes no sound.
     var isSnoozed: (Date) -> Bool = { _ in false }
+    /// A break ended, one way or another: written to the break log (`CareController`).
+    var onOutcome: (BreakOutcome, Date) -> Void = { _, _ in }
     /// A blink break, a routine's timer or the setup is under way: a break that falls due
     /// waits for it to be over (`BannerGate`).
     var isHeld: () -> Bool = { false }
@@ -201,6 +203,7 @@ final class ScreenBreakController: ObservableObject {
                 }
                 Log.app.notice("Break ended: \(outcome.kind.rawValue, privacy: .public), \(String(describing: outcome.ending), privacy: .public)")
                 stored.record(outcome, dayStart: Calendar.current.startOfDay(for: now))
+                onOutcome(outcome, now)
                 preferences.breakTally = stored
             }
         }

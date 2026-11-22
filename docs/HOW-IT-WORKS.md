@@ -265,6 +265,27 @@ weeks are read from the file when the History window opens and let go when it cl
 The arrows and the row of weeks appear once something is on file before the last seven
 days: a first week looks as it always did.
 
+### What was kept
+
+The app wrote down the minutes and the routines, and forgot the rest at midnight: today's
+look-away breaks were a count in the settings, and nothing said that a blink break had
+been done. A third file, `breaks.csv`, now takes one line each time a look-away break is
+taken, skipped or cut short, a blink break is finished, or the blink reminder is shown.
+It is a file of its own because `history.csv` is read by the Python side and its format
+must not change. Nothing is decided from it: no reminder comes sooner or later because
+of a line there.
+
+History counts these lines, with the routines marked done, under "Kept in these seven
+days". A short break that grew into a long one is one break, as in the day's count.
+
+Under the counts there can be one comparison: your blink rate on the days with more
+look-away breaks, beside your rate on the other days (`KeptFinding`). It is two of your
+own numbers and the sentence "they do not say why": days with more breaks differ from
+the others in many ways, so the app names no cause and gives no advice. It is stated
+only when a day has at least an hour at the screen, when the days split at their median
+number of breaks leave five days or more on each side, and never with today or with the
+days before the log began, when no break was written down.
+
 ### One gate for every banner
 
 The app has three kinds of reminder: the blink reminder, the look-away break and the
