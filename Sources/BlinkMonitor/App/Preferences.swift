@@ -12,6 +12,7 @@ final class Preferences: ObservableObject {
 
     private enum Key {
         static let showRate = "showRateInMenuBar"
+        static let orangeWhenLow = "orangeRateWhenLow"
         static let blinkBack = "blinkBack"
         static let remindersOn = "remindersOn"
         static let automaticLimit = "automaticLimit"
@@ -40,6 +41,9 @@ final class Preferences: ObservableObject {
 
     /// The menu bar shows the rate next to the eye (off: the eye alone).
     @Published var showRateInMenuBar: Bool { didSet { defaults.set(showRateInMenuBar, forKey: Key.showRate) } }
+    /// The rate in the menu bar is written in orange while it is low. The badge on the
+    /// eye alone was nearly invisible (audit of 22 November 2026, item 2.17).
+    @Published var orangeRateWhenLow: Bool { didSet { defaults.set(orangeRateWhenLow, forKey: Key.orangeWhenLow) } }
 
     /// The eye in the menu bar closes for a moment each time you blink.
     @Published var blinkBack: Bool { didSet { defaults.set(blinkBack, forKey: Key.blinkBack) } }
@@ -168,6 +172,7 @@ final class Preferences: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         showRateInMenuBar = defaults.object(forKey: Key.showRate) as? Bool ?? true
+        orangeRateWhenLow = defaults.object(forKey: Key.orangeWhenLow) as? Bool ?? true
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true

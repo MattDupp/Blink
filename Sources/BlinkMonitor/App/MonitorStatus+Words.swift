@@ -124,6 +124,49 @@ extension MonitorStatus {
     }
 }
 
+/// What the menu-bar item shows beside the eye and the rate: one small symbol for each
+/// thing that is going on, each said in the tooltip. Before, a "•" meant "a routine is
+/// waiting", and a break, a quiet period or a timer showed nothing at all.
+struct MenuBarMarks: Equatable {
+    struct Routine: Equatable {
+        var title: String
+        var symbol: String
+    }
+    /// Routines waiting to be done.
+    var waiting: [Routine] = []
+    /// A look-away break is running.
+    var onBreak = false
+    /// Reminders are held until this moment.
+    var quietUntil: Date?
+    /// A routine's timer runs until this moment.
+    var timerUntil: Date?
+
+    /// The symbols to draw, in order.
+    var symbols: [String] {
+        var symbols: [String] = []
+        if timerUntil != nil { symbols.append("timer") }
+        if onBreak { symbols.append("eyes") }
+        if quietUntil != nil { symbols.append("bell.slash") }
+        // One routine shows its own symbol; several, one dot.
+        if waiting.count == 1 { symbols.append(waiting[0].symbol) } else if waiting.count > 1 { symbols.append("circle.fill") }
+        return symbols
+    }
+
+    /// The sentences the tooltip adds, each ending without a full stop.
+    var sentences: [String] {
+        var sentences: [String] = []
+        if let timerUntil { sentences.append("Timer until \(Format.time(timerUntil))") }
+        if onBreak { sentences.append("Look-away break") }
+        if let quietUntil { sentences.append("Quiet until \(Format.pauseEnd(quietUntil))") }
+        if !waiting.isEmpty { sentences.append("Waiting: " + waiting.map(\.title).joined(separator: ", ")) }
+        return sentences
+    }
+
+    func tooltip(after status: String) -> String {
+        ([status] + sentences).joined(separator: ". ")
+    }
+}
+
 /// How far the app is from knowing your usual rate, said with what is left.
 /// "50% done" stopped at 50% for the whole first day and gave no reason: the measure
 /// needs three hours at the screen AND two different days.

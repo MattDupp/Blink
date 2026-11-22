@@ -188,6 +188,12 @@ struct SettingsView: View {
                 Toggle("Show the rate in the menu bar", isOn: $preferences.showRateInMenuBar)
             }
             Divider()
+            Row("Orange when the rate is low", detail: "The number in the menu bar turns orange while your rate is under your limit.") {
+                Toggle("Orange when the rate is low", isOn: $preferences.orangeRateWhenLow)
+                    .disabled(!preferences.showRateInMenuBar)
+                    .help(preferences.showRateInMenuBar ? "" : "The rate is not shown in the menu bar.")
+            }
+            Divider()
             Row("The menu-bar eye blinks with you", detail: "It closes for a moment at each blink the camera counts.") {
                 Toggle("The menu-bar eye blinks with you", isOn: $preferences.blinkBack)
             }

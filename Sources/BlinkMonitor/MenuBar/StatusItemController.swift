@@ -21,10 +21,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// The eye is drawn closed until this moment (see `blinkBack`).
     private var eyeClosedUntil = Date.distantPast
     /// What the item currently draws: the status, and whether the rate is written next to it.
-    private var shown: (status: MonitorStatus, withRate: Bool, routines: [String])?
+    private var shown: Drawn?
+    private let actions: PanelActions
+
+    /// Everything the item's picture depends on.
+    private struct Drawn: Equatable {
+        var status: MonitorStatus
+        var withRate: Bool
+        var orange: Bool
+        var marks: MenuBarMarks
+    }
 
     init(model: MonitorModel, actions: PanelActions) {
         self.model = model
+        self.actions = actions
         super.init()
 
         // Each action first closes the panel, then does its work.
@@ -38,7 +48,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                                   openSettings: closing(actions.openSettings), openLiveView: closing(actions.openLiveView),
                                   openCameraSettings: closing(actions.openCameraSettings),
                                   openSetup: closing(actions.openSetup), leaveDemo: actions.leaveDemo.map(closing),
-                                  quit: actions.quit))
+                                  tryDemo: actions.tryDemo.map(closing), quit: actions.quit))
         let host = NSHostingController(rootView: panel)
         host.sizingOptions = [.preferredContentSize]    // the panel takes its content's size
         popover.contentViewController = host
@@ -47,7 +57,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
         if let button = item.button {
             button.target = self
-            button.action = #selector(togglePanel)
+            button.action = #selector(clicked)
+            // Both buttons arrive here: the left one opens the panel, the right one a menu.
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.imagePosition = .imageLeading
             // Digits of equal width: the item does not twitch when 9 becomes 10.
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -60,7 +72,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // later the status is asked again and the item redrawn if it differs. Nothing has
         // to remember to "update the menu bar".
         subscription = model.objectWillChange
-            .merge(with: model.history.objectWillChange, model.preferences.objectWillChange, model.routines.objectWillChange)
+            .merge(with: model.history.objectWillChange, model.preferences.objectWillChange, model.routines.objectWillChange,
+                   model.reminders.objectWillChange, model.reminders.breaks.objectWillChange, model.routines.session.objectWillChange)
             .throttle(for: .milliseconds(250), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] in self?.refresh() }
         blinks = model.blinked.sink { [weak self] in self?.blinkBack() }
@@ -115,11 +128,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard Date() >= eyeClosedUntil else { return }      // mid-blink: `blinkBack` redraws in a moment
         let status = model.status()
         let withRate = model.preferences.showRateInMenuBar
-        // A routine waiting to be done: a dot after the rate, until it is done.
-        let routines = model.routines.due().map(\.routine.title)
-        guard status != shown?.status || withRate != shown?.withRate || routines != shown?.routines,
-              let button = item.button else { return }
-        shown = (status, withRate, routines)
+        let marks = MenuBarMarks(waiting: model.routines.due().map { .init(title: $0.routine.title, symbol: $0.routine.symbol) },
+                                 onBreak: model.reminders.breaks.current != nil,
+                                 quietUntil: model.reminders.isQuiet() ? model.reminders.snoozedUntil : nil,
+                                 timerUntil: model.routines.session.session?.end)
+        let drawn = Drawn(status: status, withRate: withRate, orange: model.preferences.orangeRateWhenLow && status.isLow, marks: marks)
+        guard drawn != shown, let button = item.button else { return }
+        shown = drawn
         let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "Blink Monitor")
             ?? NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink Monitor")
         // A "template" image is drawn by macOS in the menu bar's own colour: black on a
@@ -127,11 +142,80 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         image?.isTemplate = true
         button.image = image
         let demo = model.isDemo ? " demo" : ""
-        button.title = (withRate && !status.menuBarText.isEmpty ? " " + status.menuBarText : "")
-            + (routines.isEmpty ? "" : " \u{2022}") + demo
-        button.toolTip = (model.isDemo ? "Demo, on made-up eyes. " : "") + status.tooltip
-            + (routines.isEmpty ? "" : ". Waiting to be done: " + routines.joined(separator: ", "))
+        let title = NSMutableAttributedString()
+        let font = button.font ?? NSFont.menuBarFont(ofSize: 0)
+        if withRate && !status.menuBarText.isEmpty {
+            // Orange for the number alone, and only while low: the eye stays the bar's colour.
+            title.append(NSAttributedString(string: " " + status.menuBarText,
+                                            attributes: drawn.orange ? [.foregroundColor: NSColor.systemOrange, .font: font] : [.font: font]))
+        }
+        for symbol in marks.symbols {
+            guard let mark = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 11, weight: .regular)) else { continue }
+            mark.isTemplate = true
+            let attachment = NSTextAttachment()
+            attachment.image = mark
+            title.append(NSAttributedString(string: " ", attributes: [.font: font]))
+            title.append(NSAttributedString(attachment: attachment))
+        }
+        if !demo.isEmpty { title.append(NSAttributedString(string: demo, attributes: [.font: font])) }
+        button.attributedTitle = title
+        let said = marks.tooltip(after: status.tooltip)
+        button.toolTip = (model.isDemo ? "Demo, on made-up eyes. " : "") + said
+        // VoiceOver heard "Blink Monitor" whatever the rate or the state.
+        button.setAccessibilityLabel(status.tooltip.hasPrefix("Blink Monitor") ? said : "Blink Monitor. " + said)
+        if case .watching(let rate?) = status { button.setAccessibilityLabel("Blink Monitor. \(Int(rate.rounded())) blinks a minute. " + said) }
     }
+
+    @objc private func clicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp { showMenu() } else { togglePanel() }
+    }
+
+    /// The right-click menu: the same actions as the panel, for a hand that expects one.
+    private func showMenu() {
+        popover.performClose(nil)
+        let menu = NSMenu()
+        func add(_ title: String, _ selector: Selector, enabled: Bool = true) {
+            let entry = NSMenuItem(title: title, action: enabled ? selector : nil, keyEquivalent: "")
+            entry.target = self
+            menu.addItem(entry)
+        }
+        let status = model.status()
+        if status == .needsSetup {
+            add("Set Up Blink Monitor…", #selector(menuSetup))
+        } else {
+            add("Blink Break", #selector(menuBlinkBreak), enabled: status.isCameraOn)
+            if model.isPaused {
+                add("Resume", #selector(menuResume))
+            } else {
+                add("Pause for 1 Hour", #selector(menuPause), enabled: model.lifecycle == .running)
+            }
+            if model.reminders.isQuiet() {
+                add("End Quiet", #selector(menuEndQuiet))
+            } else {
+                add("Quiet for 1 Hour", #selector(menuQuiet))
+            }
+            menu.addItem(.separator())
+            add("History", #selector(menuHistory))
+        }
+        add("Settings…", #selector(menuSettings))
+        menu.addItem(.separator())
+        add("Quit Blink Monitor", #selector(menuQuit))
+        // Shown once, then taken away again: with a menu set, the left click would open it too.
+        item.menu = menu
+        item.button?.performClick(nil)
+        item.menu = nil
+    }
+
+    @objc private func menuSetup() { actions.openSetup() }
+    @objc private func menuBlinkBreak() { actions.startBlinkBreak() }
+    @objc private func menuResume() { model.resume() }
+    @objc private func menuPause() { model.pause(for: .oneHour) }
+    @objc private func menuQuiet() { model.reminders.setQuiet(.oneHour) }
+    @objc private func menuEndQuiet() { model.reminders.setQuiet(until: nil) }
+    @objc private func menuHistory() { actions.openHistory() }
+    @objc private func menuSettings() { actions.openSettings() }
+    @objc private func menuQuit() { actions.quit() }
 
     @objc private func togglePanel() {
         guard let button = item.button else { return }

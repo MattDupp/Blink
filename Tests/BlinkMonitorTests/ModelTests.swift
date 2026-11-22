@@ -451,3 +451,27 @@ struct SourceTests {
         #expect(try #require(updates.last?.live.counters).observedSeconds > before.observedSeconds + 9)
     }
 }
+
+@Suite("The menu-bar item")
+struct MenuBarMarksTests {
+
+    @Test("Each thing going on has its symbol, and the tooltip says each in words")
+    func marks() {
+        #expect(MenuBarMarks().symbols.isEmpty)
+        #expect(MenuBarMarks().tooltip(after: "Blink Monitor is paused") == "Blink Monitor is paused")
+
+        let drops = MenuBarMarks.Routine(title: "Eye drops", symbol: "drop")
+        var marks = MenuBarMarks(waiting: [drops])
+        #expect(marks.symbols == ["drop"], "one routine shows its own symbol")
+        #expect(marks.tooltip(after: "Low") == "Low. Waiting: Eye drops")
+
+        marks.waiting.append(.init(title: "Heated eye mask", symbol: "eye"))
+        marks.onBreak = true
+        #expect(marks.symbols == ["eyes", "circle.fill"], "several routines share one dot")
+        #expect(marks.sentences == ["Look-away break", "Waiting: Eye drops, Heated eye mask"])
+
+        let quiet = MenuBarMarks(quietUntil: Date(timeIntervalSince1970: 1_800_000_000), timerUntil: Date(timeIntervalSince1970: 1_800_000_600))
+        #expect(quiet.symbols == ["timer", "bell.slash"])
+        #expect(quiet.sentences.count == 2 && quiet.sentences[0].hasPrefix("Timer until ") && quiet.sentences[1].hasPrefix("Quiet until "))
+    }
+}
