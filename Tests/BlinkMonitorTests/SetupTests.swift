@@ -177,6 +177,11 @@ struct SetupTests {
         bench.setup.apply(saved)
         bench.setup.sessionEnded(folder: bench.parts.sessionsRoot.appendingPathComponent("20270101-110000"), stopped: false)
         #expect(bench.setup.sessions.count == 2 && bench.setup.enoughSessions)
+
+        // Stopped late, a recording that passes its check is kept.
+        try bench.record("20270101-120000", pictures: full)
+        bench.setup.sessionEnded(folder: bench.parts.sessionsRoot.appendingPathComponent("20270101-120000"), stopped: true)
+        #expect(bench.setup.sessions.count == 3, "\(bench.setup.sessions.map(\.name)) \(bench.setup.sessionNote ?? "-")")
         bench.setup.close()
     }
 
@@ -278,17 +283,22 @@ struct SetupTests {
 
         bench.setup.finish()                                             // not accepted: finishing does nothing
         #expect(bench.setup.step == .proof)
+        // One failure is often a missed tick: it is counted, and a second one in a row
+        // is what makes "Record One More" the first choice.
+        #expect(bench.setup.failedTests == 1)
         bench.setup.testAgain()
         #expect(bench.setup.proof == .ready)
+        bench.setup.testEnded()                                          // no tick answered
+        #expect(bench.setup.failedTests == 2)
         bench.setup.recordOneMore()
-        #expect(bench.setup.step == .record && bench.setup.targetSessions == 1)
+        #expect(bench.setup.step == .record && bench.setup.targetSessions == 1 && bench.setup.failedTests == 0)
 
         bench.setup.close()
         bench.setup.open()                                               // still waiting for its test
         #expect(bench.setup.step == .proof)
         bench.setup.useAnyway()
         #expect(bench.setup.step == .done)
-        #expect(bench.parts.store.info()?.isAccepted == true && bench.parts.store.info()?.proof?.found == 6)
+        #expect(bench.parts.store.info()?.isAccepted == true && bench.parts.store.info()?.proof?.found == 0)
         bench.setup.close()
     }
 

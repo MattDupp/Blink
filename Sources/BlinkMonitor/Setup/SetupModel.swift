@@ -159,6 +159,9 @@ final class SetupModel: ObservableObject {
     // The test.
     @Published private(set) var proof = Proof.ready
     @Published private(set) var proofTest = ProofTest()
+    /// Tests failed in a row on this model. One is often a missed tick, so the first
+    /// offers the test again; the second offers one more recording.
+    @Published private(set) var failedTests = 0
     /// The model reads the eyes as closed right now (the ring shows it).
     @Published private(set) var eyesClosed = false
 
@@ -609,7 +612,9 @@ final class SetupModel: ObservableObject {
     func sessionEnded(folder: URL, stopped: Bool) {
         let pictures = sessionOpen + sessionClosed
         let share = SessionCheck.share(pictures: pictures, pace: parts.pace)
-        if stopped || share < SessionCheck.smallestShare {
+        // Stopped late, a recording that passes its check is kept: a stray click at pose 15
+        // of 16 threw two minutes away (audit of 22 November 2026, item 2.1).
+        if share < SessionCheck.smallestShare {
             // A developer's folder is not ours to empty: there, the session goes to the Trash.
             try? SessionStore.discard(folder, toTrash: !parts.ownSessions)
             let fate = parts.ownSessions ? "It was not kept." : "It was moved to the Trash."
@@ -746,6 +751,7 @@ final class SetupModel: ObservableObject {
     func testEnded(now: Date = Date()) {
         let result = proofTest.result
         proof = .finished(result)
+        failedTests = result.passed ? 0 : failedTests + 1
         try? parts.store.setProof(ModelInfo.Proof(found: result.found, of: result.of, extra: result.extra, on: now,
                                                   accepted: result.passed))
         rescan()
@@ -764,6 +770,7 @@ final class SetupModel: ObservableObject {
         testTask?.cancel()
         targetSessions = sessions.count + 1
         sessionNote = nil
+        failedTests = 0
         enter(.record)
     }
 

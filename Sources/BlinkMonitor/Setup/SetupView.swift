@@ -163,17 +163,25 @@ private struct WelcomePage: View {
 
             VStack(alignment: .leading, spacing: 9) {
                 SectionTitle("The next eight minutes")
-                TimelineRow(number: 1, title: "Check the camera", time: "half a minute")
-                TimelineRow(number: 2, title: "Record your eyes, twice", time: "two minutes each, a voice guides you")
-                TimelineRow(number: 3, title: "Train your model", time: "seconds; the app shows the time left")
+                TimelineRow(number: 1, title: "Check the camera", time: model.isDemo ? "a moment" : "half a minute")
+                TimelineRow(number: 2, title: "Record your eyes, twice",
+                            time: model.isDemo ? "a few seconds each, in silence" : "two minutes each, a voice guides you")
+                TimelineRow(number: 3, title: "Train your model", time: "under a minute")
                 TimelineRow(number: 4, title: "Test it: you blink, it counts", time: "fifteen seconds")
+                Text(model.isDemo
+                     ? "In the demo the eyes are painted and blink by themselves: you only press the buttons."
+                     : "You need sound: the voice guides you while your eyes are closed, for half of each recording. You can stop at any step and come back later: what is recorded stays.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
 
             HStack(spacing: 10) {
-                Text(model.isDemo ? "Nothing is asked of macOS: the eyes are painted." : "Next, macOS will ask for the camera.")
+                Text(model.isDemo ? "The demo does not use the camera." : "Next, macOS will ask for the camera.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -495,9 +503,10 @@ private struct RecordPage: View {
     @ViewBuilder
     private var buttons: some View {
         if model.sessionRunning {
+            // No Escape here: a stray key must not end two minutes of recording.
             Button("Stop") { model.stopSession() }
-                .keyboardShortcut(.cancelAction)
                 .controlSize(.large)
+                .help("Ends this recording. It is kept if most of it was done.")
         } else if model.enoughSessions {
             Button("Play the Voice") { model.playVoice() }
                 .controlSize(.large)
@@ -591,6 +600,11 @@ private struct SessionBanner: View {
             return ("\(recorded) recordings: enough to train",
                     ["One more recording in another light makes the model steadier. It takes two more minutes."])
         }
+        if model.isDemo && recorded == 0 {
+            return ("Recording 1 of \(model.targetSessions): painted eyes",
+                    ["The real setup takes two minutes here, and a voice asks for \(SessionScript.phases.count) poses. The demo goes through them in seconds, in silence.",
+                     "Why poses: every picture is saved with what you were asked to do. That is how the model gets the right answer."])
+        }
         if recorded == 0 {
             return ("Recording 1 of \(model.targetSessions): record your eyes",
                     ["A voice asks for \(SessionScript.phases.count) poses, three seconds each: about two minutes.",
@@ -598,7 +612,8 @@ private struct SessionBanner: View {
                      "Why poses: every picture is saved with what you were asked to do. That is how the model gets the right answer."])
         }
         return ("Recording \(recorded) is saved. Change the light before recording \(recorded + 1)",
-                ["Open or close the blinds, switch a lamp on or off, put your glasses on or take them off.",
+                ["Open or close the blinds, or switch a lamp on or off. Wear what you wear at the screen.",
+                 "With glasses, check the picture: if a lamp or the screen shines on the lenses and hides your eyes, move the lamp or tilt the screen a little.",
                  "Why: one recording shows the model your eyes in one light. It has to work in all of yours."])
     }
 }
@@ -858,8 +873,11 @@ private struct ProofPage: View {
                 text = "Your model sees your blinks."
             } else if result.passed {
                 text = "Good enough to count on. The lightest blinks are the hardest to see; one more recording in this light would help."
+            } else if model.failedTests < 2 {
+                text = "Too few to trust the count. A missed tick is the usual reason: test again, and blink at each tick as it sounds, "
+                    + "lightly but all the way down."
             } else {
-                text = "Too few to trust the count. One more recording, where you sit now, usually fixes it: "
+                text = "Too few again. One more recording, where you sit now, usually fixes it: "
                     + "the model then learns from eyes in this light."
             }
             if result.extra > 0 {
@@ -892,10 +910,22 @@ private struct ProofPage: View {
                     Button("Go Back to the Model I Had") { model.goBackToPrevious() }
                 }
                 Button("Use It Anyway") { model.useAnyway() }
-                Button("Test Again") { model.testAgain() }
-                Button("Record One More") { model.recordOneMore() }
-                    .keyboardShortcut(.defaultAction)
-                    .controlSize(.large)
+                    .help("The app will count with this model and may miss blinks, so your rate can read lower than it is. You can test or record again later in Settings > Your Model.")
+                // A first failure is often a missed tick: the test again comes first.
+                // After a second one, two more minutes of recording are worth it.
+                if model.failedTests < 2 {
+                    Button("Record One More") { model.recordOneMore() }
+                        .controlSize(.large)
+                    Button("Test Again") { model.testAgain() }
+                        .keyboardShortcut(.defaultAction)
+                        .controlSize(.large)
+                } else {
+                    Button("Test Again") { model.testAgain() }
+                        .controlSize(.large)
+                    Button("Record One More") { model.recordOneMore() }
+                        .keyboardShortcut(.defaultAction)
+                        .controlSize(.large)
+                }
             }
         }
     }
