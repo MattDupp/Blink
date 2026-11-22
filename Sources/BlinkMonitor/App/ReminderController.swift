@@ -11,7 +11,14 @@ import BlinkCore
 @MainActor
 final class ReminderController: ObservableObject {
 
-    @Published private(set) var notificationsRefused = false
+    /// What macOS answered about notifications. `unknown`: not asked yet, or the
+    /// question is still on screen (or waiting in Notification Centre).
+    enum Notifications {
+        case unknown, allowed, refused
+    }
+
+    @Published private(set) var notifications = Notifications.unknown
+    var notificationsRefused: Bool { notifications == .refused }
     @Published private(set) var snoozedUntil: Date?
     /// The look-away breaks. Its changes are passed on, so a view that watches the
     /// reminders is redrawn by them too.
@@ -30,9 +37,10 @@ final class ReminderController: ObservableObject {
     private var breaksChanged: AnyCancellable?
     private var prepared = false
 
-    /// `screenMinutes`: what the screenshots start from.
-    init(preferences: Preferences, screenMinutes: Int = 0) {
+    /// `screenMinutes`, `notifications`: what the screenshots start from.
+    init(preferences: Preferences, screenMinutes: Int = 0, notifications: Notifications = .unknown) {
         self.preferences = preferences
+        self.notifications = notifications
         breaks = ScreenBreakController(preferences: preferences, screenMinutes: screenMinutes)
         notifier.onAction = { [weak self] action in
             switch action {
@@ -70,7 +78,18 @@ final class ReminderController: ObservableObject {
     private func askForNotifications() {
         guard prepared else { return }      // not before the Welcome window has been read
         notifier.requestPermission { [weak self] granted in
-            self?.notificationsRefused = !granted
+            self?.notifications = granted ? .allowed : .refused
+        }
+    }
+
+    /// Reads what macOS says now, without asking anything. The answer can change behind
+    /// the app's back, in System Settings: whoever shows it reads it again when it opens.
+    func rereadNotifications() {
+        guard prepared else { return }
+        notifier.readPermission { [weak self] allowed in
+            guard let self, let allowed else { return }
+            let new: Notifications = allowed ? .allowed : .refused
+            if self.notifications != new { self.notifications = new }
         }
     }
 
@@ -78,7 +97,7 @@ final class ReminderController: ObservableObject {
     /// for three minutes to find out whether banners are allowed.
     func sendTest() {
         notifier.requestPermission { [weak self] granted in
-            self?.notificationsRefused = !granted
+            self?.notifications = granted ? .allowed : .refused
             self?.notifier.show(.lowRate(recent: 6))
         }
     }

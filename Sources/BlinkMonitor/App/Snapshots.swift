@@ -114,6 +114,7 @@ enum Snapshots {
             ("setup-camera-dark", setup(.cameraDark)),
             ("setup-camera-refused", setup(.cameraRefused)),
             ("setup-record", setup(.recordFirst)),
+            ("setup-record-muted", setup(.recordMuted)),
             ("setup-record-session", setup(.recording)),
             ("setup-record-short", setup(.recordShort)),
             ("setup-record-next", setup(.recordNext)),

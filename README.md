@@ -26,6 +26,7 @@ No terminal.
 3. Open Blink Monitor from Applications. The first time, macOS stops it: see
    [If macOS stops it](#if-macos-stops-it).
 4. An eye appears in the menu bar, at the top right of the screen, and the setup window opens.
+   While the setup is open, Blink Monitor also has an icon in the Dock.
 
 **The app comes without a model, and makes one with you.** It counts blinks with a model
 trained on one person's eyes. That model is personal, so none comes with the app. The
@@ -377,7 +378,7 @@ takes and why.
 | Step | What happens | How long |
 |---|---|---|
 | Camera | You see the camera with a square on each eye, and three checks: a face in view, eyes large enough, enough light. macOS asks for the camera here. | half a minute |
-| Record | A voice asks for 16 poses, eyes open and closed, three seconds each. Then once more in another light. Every picture is saved with the pose you were asked for: that is how the model gets the right answer. | two minutes, twice |
+| Record | A voice asks for 16 poses, eyes open and closed, three seconds each. Then once more in another light. Every picture is saved with the pose you were asked for: that is how the model gets the right answer. If the camera loses your face during a pose, the voice says so and asks for that pose once more. The display stays awake meanwhile. | two minutes, twice |
 | Train | The model is trained on this Mac. The window shows the passes, the time left as measured on your Mac, and your own pictures as the model is shown them. | seconds: 22 for four sessions on an M5 Pro, about half for two |
 | Test | Ten ticks, and you blink at each. The ring fills with every blink the model counts, and the eye in the menu bar blinks with you. | fifteen seconds |
 

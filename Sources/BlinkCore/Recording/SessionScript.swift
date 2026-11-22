@@ -8,6 +8,11 @@ public struct Phase: Equatable {
     /// "on which poses does the model fail?" instead of only "how often does it fail?".
     public let variant: String
     public let instruction: String
+
+    /// The pose in a few words, for a sentence: "eyes closed, chin down".
+    public var poseName: String {
+        "\(label == .open ? "eyes open" : "eyes closed"), \(variant.replacingOccurrences(of: "-", with: " "))"
+    }
 }
 
 /// How fast a session goes.
@@ -120,4 +125,17 @@ public enum SessionCheck {
     public static func isComplete(pictures: Int, pace: SessionPace = .usual) -> Bool {
         share(pictures: pictures, pace: pace) >= smallestShare
     }
+
+    /// Under this share of what ONE pose can hold, the camera lost the face during it
+    /// (chin lowered, head turned): the pose is asked for again, once.
+    public static let smallestPoseShare = 0.5
+
+    /// One pose kept enough pictures to count as recorded.
+    public static func poseIsWhole(pictures: Int, pace: SessionPace = .usual) -> Bool {
+        let full = Double(pace.fullSessionPictures) / Double(max(SessionScript.phases.count, 1))
+        return Double(pictures) >= full * smallestPoseShare
+    }
+
+    /// What the voice says when a pose lost the face, before asking for it again.
+    public static let faceLostWords = "I can't see your face. Lift your head a little."
 }

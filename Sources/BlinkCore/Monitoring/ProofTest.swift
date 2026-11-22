@@ -14,6 +14,10 @@ public struct ProofTest: Equatable {
 
     public static let ticks = 10
     public static let secondsBetweenTicks = 1.5
+    /// The calm before the first tick. The click on "Start the Test" leaves a hand on the
+    /// trackpad and eyes on the button: at 0.8 s the first tick was often missed, and one
+    /// miss is half of what the test allows. The window says "Get ready" meanwhile.
+    public static let secondsBeforeFirstTick = 2.0
     /// Blinks to find for the model to be trusted. The app's own bar, during development,
     /// was every marked blink found with at most one false one: 8 of 10 leaves room for a
     /// tick you missed yourself.

@@ -32,6 +32,20 @@ struct InstallationTests {
         #expect(Installation.start(own: applications, running: [roundabout]) == .replacing)
     }
 
+    @Test("A copy still running from the disk image gives way to the one installed since")
+    func diskImageCopyGivesWay() {
+        let image = URL(fileURLWithPath: "/Volumes/Blink Monitor/Blink Monitor.app", isDirectory: true)
+        let onImage: (URL) -> Bool = { $0.path.hasPrefix("/Volumes/") }
+        // Opened from Applications while the disk image's copy runs: the new one stays.
+        #expect(Installation.start(own: applications, running: [image], onReadOnlyDisk: onImage) == .replacing)
+        // Opened from the disk image while the installed copy runs: the installed one stays.
+        #expect(Installation.start(own: image, running: [applications], onReadOnlyDisk: onImage) == .yielding)
+        // An installed copy elsewhere is running too: nothing is taken down.
+        #expect(Installation.start(own: applications, running: [image, ownApplications], onReadOnlyDisk: onImage) == .yielding)
+        // A bare program is not known to be on a disk image.
+        #expect(Installation.start(own: applications, running: [nil], onReadOnlyDisk: onImage) == .yielding)
+    }
+
     @Test("A folder one can write in is not a disk image")
     func ordinaryFolder() {
         #expect(!Installation.isOnReadOnlyVolume(FileManager.default.temporaryDirectory))

@@ -131,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Installation.showPanelRequest(identifier: identifier), object: nil, userInfo: nil, deliverImmediately: true)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.terminate(nil) }
         case .replacing:
-            Log.app.notice("An older build of this app is still running: it is asked to quit")
+            Log.app.notice("An older build of this app, or a copy on its disk image, is still running: it is asked to quit")
             others.forEach { $0.terminate() }
             launch(after: others)
         }
@@ -229,12 +229,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tryDemo: demo ? nil : { self?.switchTo(demo: true) },
                 openCameraSettings: Self.openCameraSettings,
                 showFiles: { NSWorkspace.shared.activateFileViewerSelecting([parts.store.base]) },
-                close: { self?.running?.windows["setup"]?.close() }))
+                close: { self?.running?.windows["setup"]?.close() },
+                // The window closing leaves nothing on screen, and the eye may be hidden
+                // behind the notch: Done shows where the app lives from now on.
+                done: {
+                    self?.running?.windows["setup"]?.close()
+                    self?.running?.statusItem.showPanel()
+                },
+                watchItCount: {
+                    self?.running?.windows["setup"]?.close()
+                    self?.running?.windows["live-view"]?.show()
+                },
+                openSettings: { self?.running?.windows["settings"]?.show() },
+                openNotificationSettings: Self.openNotificationSettings))
         }
         // The window opening starts (or resumes) the setup; its closing stops whatever
         // was under way. What was finished is on disk, so nothing is lost.
         setup.onVisibilityChange = { [weak self] open in
             if open { setupModel.open(self?.setupPurpose ?? .resume) } else { setupModel.close() }
+            // A DOCK ICON WHILE THE SETUP IS OPEN. An app with none has no entry under
+            // Cmd-Tab either: one click on another app (System Settings, to allow the
+            // camera) and the setup window was behind everything, with no way back that a
+            // newcomer knows. The icon goes when the window closes.
+            NSApp.setActivationPolicy(open ? .regular : .accessory)
+            if open { NSApp.activate(ignoringOtherApps: true) }
         }
 
         // A routine's timer: starting it opens the window, its end closes it. Closing the
@@ -287,7 +305,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // No model of your eyes yet: the first thing to do is to make one. The camera
             // is not touched until the setup's first page has said why.
             Task { await model.start() }
-            if !Options.noCamera { DispatchQueue.main.async { [weak self] in self?.showSetup(.resume) } }
+            if !Options.noCamera {
+                DispatchQueue.main.async { [weak self] in
+                    // Six minutes of setup in a copy that goes away with its disk: ask first.
+                    if Installation.isOnDiskImage, !Self.continueFromDiskImage() { return NSApp.terminate(nil) }
+                    self?.showSetup(.resume)
+                }
+            }
         } else if preferences.welcomed || Options.noCamera {
             Task { await model.start() }
         } else {
@@ -331,6 +355,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             running.welcome?.close()
             running.statusItem.remove()
             running.model.shutDown()
+            // The setup window was closed without its handler: its Dock icon goes with it.
+            NSApp.setActivationPolicy(.accessory)
         }
         running = nil
         launch(demo: demo)
@@ -359,6 +385,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             running?.statusItem.showPanel()
         }
         Log.app.notice("Opened again while running: shown")
+    }
+
+    /// Asked before the setup when the app was opened inside its disk image, without
+    /// being dragged to Applications. The panel says so too, but nobody has opened the
+    /// panel yet, and the setup would take six minutes in the wrong place. True to go on.
+    private static func continueFromDiskImage() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Blink Monitor is running from its disk image"
+        alert.informativeText = """
+            Move it to Applications first: quit, drag Blink Monitor onto the Applications \
+            folder in the disk image's window, and open it from there.
+
+            It works from here, for a look. But this copy goes away when the disk image \
+            is ejected, and it cannot start at login.
+            """
+        alert.addButton(withTitle: "Quit")                  // the default: Return quits
+        alert.addButton(withTitle: "Continue Anyway")
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
+    /// System Settings, on the page of this app's notifications.
+    static func openNotificationSettings() {
+        let identifier = Bundle.main.bundleIdentifier ?? ""
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(identifier)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     /// System Settings, on the page where the camera is allowed app by app.

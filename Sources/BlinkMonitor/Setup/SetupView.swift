@@ -10,6 +10,33 @@ struct SetupActions {
     var openCameraSettings: () -> Void = {}
     var showFiles: () -> Void = {}
     var close: () -> Void = {}
+    /// "Done", on the last page: closes the window and shows where the app lives.
+    var done: () -> Void = {}
+    /// "Watch It Count", on the last page: closes the window and opens Live View.
+    var watchItCount: () -> Void = {}
+    var openSettings: () -> Void = {}
+    /// System Settings, on the page of this app's notifications.
+    var openNotificationSettings: () -> Void = {}
+}
+
+/// What a failed training is called, in a sentence for a person. The trainer's own
+/// words (a signal number, an assertion) go to the log and to "Copy the Details".
+enum TrainingFailureWords {
+    static func plain(_ reason: String) -> String {
+        if reason.hasPrefix("The trainer stopped before the end") { return "The training program stopped unexpectedly." }
+        if reason.hasPrefix("The trainer stopped answering") { return "The training stopped making progress, and was ended." }
+        if reason.hasPrefix("The trainer could not be started") { return "The training program could not be started." }
+        if reason.hasPrefix("The model's folder could not be prepared") || reason.hasPrefix("The trained model could not be put in place") {
+            return "The model could not be written to disk."
+        }
+        // What the training said itself is already a sentence (too few pictures, a check
+        // that failed): its first line.
+        return reason.split(whereSeparator: \.isNewline).first.map(String.init) ?? "The training stopped."
+    }
+
+    static let advice = "Quit apps that work the graphics processor hard (games, video editing), or restart the Mac, then try again."
+    /// Where a problem is reported. The browser opens it: the app itself connects to nothing.
+    static let reportPage = URL(string: "https://github.com/MattDupp/blink-monitor/issues/new")
 }
 
 /// The setup window: one page per step, and above them where you are.
@@ -447,7 +474,7 @@ private struct RecordPage: View {
             HStack(spacing: 10) {
                 Text(footnote)
                     .font(.callout)
-                    .foregroundStyle(model.faceFound || model.sessionRunning ? Color.secondary : Color.orange)
+                    .foregroundStyle((model.faceFound && !model.soundMuted) || model.sessionRunning ? Color.secondary : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 buttons
@@ -461,6 +488,7 @@ private struct RecordPage: View {
         if !model.parts.ownSessions {
             return "Sessions are saved in \(model.parts.sessionsRoot.path). For the Python route, close this window and run: make train"
         }
+        if model.soundMuted { return "The Mac's sound is off: you would not hear the voice that guides you. Turn it up, then press Play the Voice." }
         return "Sound on: the voice is your guide while your eyes are closed."
     }
 
@@ -471,6 +499,8 @@ private struct RecordPage: View {
                 .keyboardShortcut(.cancelAction)
                 .controlSize(.large)
         } else if model.enoughSessions {
+            Button("Play the Voice") { model.playVoice() }
+                .controlSize(.large)
             Button("Record Another Session") { model.startSession() }
                 .controlSize(.large)
                 .disabled(!model.canStartSession)
@@ -478,6 +508,9 @@ private struct RecordPage: View {
                 .keyboardShortcut(.defaultAction)
                 .controlSize(.large)
         } else {
+            Button("Play the Voice") { model.playVoice() }
+                .controlSize(.large)
+                .help("Says one sentence, to check that you can hear the guide before you close your eyes.")
             Button("Start Session \(model.nextSession)") { model.startSession() }
                 .keyboardShortcut(.defaultAction)
                 .controlSize(.large)
@@ -707,19 +740,25 @@ private struct TrainPage: View {
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 8) {
                 Text(attempts < 2 ? "It stopped before the end" : "It stopped again").font(.headline)
-                Text("Your recordings are untouched, and no half-made model was installed."
-                     + (attempts < 2 ? " Trying again is usually enough." : " Here is what the trainer said:"))
+                Text(TrainingFailureWords.plain(reason))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Your recordings are kept, and no half-made model was installed. "
+                     + (attempts < 2 ? "Trying again is usually enough." : TrainingFailureWords.advice))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                // The first failure may be a passing one. A second deserves its reason.
+                // The first failure may be a passing one. After a second, there must be
+                // somewhere to take it: the details to copy, and a place to report them.
                 if attempts >= 2 {
-                    Text(reason)
-                        .font(.system(.callout, design: .monospaced))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                    HStack(spacing: 10) {
+                        Button("Copy the Details") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(reason, forType: .string)
+                        }
+                        if let page = TrainingFailureWords.reportPage {
+                            Button("Report It") { NSWorkspace.shared.open(page) }
+                                .help("Opens the project's page in your browser. Blink Monitor itself sends nothing.")
+                        }
+                    }
                 }
             }
         }
@@ -800,7 +839,7 @@ private struct ProofPage: View {
     private var headline: String {
         switch model.proof {
         case .ready: return "Ten ticks. Blink once at each."
-        case .running: return "Blink at each tick"
+        case .running: return model.proofTest.answered.isEmpty ? "Get ready" : "Blink at each tick"
         case .finished(let result):
             return result.passed ? "\(result.found) of \(result.of) blinks counted" : "Only \(result.found) of \(result.of) blinks counted"
         }
@@ -971,19 +1010,29 @@ private struct DonePage: View {
                     WelcomePoint(symbol: "folder", title: "Your recordings and your model stay on this Mac",
                                  text: String(format: "%.0f MB, in a folder only your account can read: %@", model.megabytesOnDisk,
                                               model.place))
-                    WelcomePoint(symbol: "slider.horizontal.3", title: "Settings > Your Model",
-                                 text: "Add a session in another light, take the test again, or delete the recordings and the model.")
-                    WelcomePoint(symbol: "bell", title: "macOS now asks for notifications",
-                                 text: "They carry one nudge when your blink rate stays low for a few minutes. Never more than one every five minutes.")
+                    NotificationPoint(reminders: model.monitor.reminders, actions: actions)
+                    WelcomePoint(symbol: "slider.horizontal.3", title: "Also in Settings",
+                                 text: """
+                                     Look-away breaks (20-20-20): off until you switch them on.
+                                     Routines: eye drops, a heated mask, or your own.
+                                     Your Model: add a session in another light, or delete the recordings and the model.
+                                     """)
+                    LoginPoint(loginItem: model.monitor.loginItem)
                 }
             }
 
             HStack {
                 if !model.isDemo {
                     Button("Show the Files") { actions.showFiles() }
+                    Button("Open Settings") { actions.openSettings() }
                 }
                 Spacer()
-                Button("Done") { actions.close() }
+                if !model.isDemo {
+                    Button("Watch It Count") { actions.watchItCount() }
+                        .controlSize(.large)
+                        .help("Opens Live View: the camera's picture, your two eyes, and each blink as it is counted.")
+                }
+                Button("Done") { actions.done() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.large)
             }
@@ -994,6 +1043,60 @@ private struct DonePage: View {
         guard let info = model.info, let proof = info.proof else { return "Setup is finished." }
         return "Your model was trained on \(info.pictures.formatted()) pictures of your eyes, and counted "
             + "\(proof.found) of \(proof.of) blinks in its test."
+    }
+}
+
+/// The notification question, said where it can be answered: macOS asks in a small
+/// banner at the top right that leaves after a few seconds, and a banner nobody saw
+/// counts as a refusal. The line follows what macOS answered.
+private struct NotificationPoint: View {
+    @ObservedObject var reminders: ReminderController
+    let actions: SetupActions
+
+    var body: some View {
+        switch reminders.notifications {
+        case .unknown:
+            WelcomePoint(symbol: "bell", title: "macOS is asking about notifications",
+                         text: "Look at the top right of the screen and choose Allow. If the question has gone, it waits in Notification Centre: click the clock in the menu bar. "
+                             + "Reminders come as notifications: one when your blink rate stays low for a few minutes, and less often while you leave it unanswered.")
+        case .allowed:
+            WelcomePoint(symbol: "bell", title: "Notifications are allowed",
+                         text: "One reminder when your blink rate stays low for a few minutes, and less often while you leave it unanswered. "
+                             + "A reminder's buttons show when the pointer is over it.")
+        case .refused:
+            VStack(alignment: .leading, spacing: 6) {
+                WelcomePoint(symbol: "bell.slash", title: "Notifications are not allowed",
+                             text: "A reminder is then a sound only, with no words. You can allow them in System Settings > Notifications > Blink Monitor.")
+                Button("Open Notification Settings") { actions.openNotificationSettings() }
+                    .padding(.leading, 42)
+            }
+        }
+    }
+}
+
+/// Start at login, offered once at the end of the setup. A menu-bar app has no Dock
+/// icon to remind anyone of it: after the first restart it would simply be gone.
+private struct LoginPoint: View {
+    @ObservedObject var loginItem: LoginItem
+
+    var body: some View {
+        if loginItem.available {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "power")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 30)
+                Toggle(isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start Blink Monitor when I log in").fontWeight(.semibold)
+                        Text(loginItem.problem ?? "Without this, it is gone after a restart until you open it again. You can change it in Settings > General.")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(.switch)
+            }
+        }
     }
 }
 

@@ -193,7 +193,7 @@ enum SampleData {
     enum SetupScene {
         case welcome, demoWelcome
         case camera, cameraNoFace, cameraDark, cameraRefused
-        case recordFirst, recording, recordShort, recordNext, recordEnough
+        case recordFirst, recordMuted, recording, recordShort, recordNext, recordEnough
         case training, trainingFailed, trainingFailedAgain, trained
         case testReady, testRunning, testPassed, testFailed
         case done
@@ -242,9 +242,13 @@ enum SampleData {
         case .recordShort:
             state.step = .record
             state.sessions = [first]
-            state.sessionNote = "That session holds 58% of what it should: your face was out of view during some poses. "
-                + "It was not kept. Record it again, staying in front of the camera."
+            state.sessionNote = "The camera lost your face for about 42% of that session, most of all during: "
+                + "eyes closed, chin down; eyes closed, turned. It was not kept. "
+                + "Record it again: in those poses, move your head a little less."
             (state.sessionOpen, state.sessionClosed) = (301, 256)
+        case .recordMuted:
+            state.step = .record
+            state.soundMuted = true
         case .recordNext:
             state.step = .record
             state.sessions = [first]

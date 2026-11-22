@@ -86,6 +86,24 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// What macOS says now, without asking: true, false, or nil when the question was
+    /// never answered (or there is no app to ask for).
+    func readPermission(_ done: @escaping @MainActor (Bool?) -> Void) {
+        guard let center else { return }
+        center.getNotificationSettings { [weak self] settings in
+            let answer: Bool?
+            switch settings.authorizationStatus {
+            case .authorized, .provisional: answer = true
+            case .denied: answer = false
+            default: answer = nil
+            }
+            Task { @MainActor in
+                if let answer { self?.allowed = answer }
+                done(answer)
+            }
+        }
+    }
+
     func show(_ notice: Notice) {
         guard allowed, let center else {
             // No right to show a banner: a soft sound is better than silence. A break has

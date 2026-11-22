@@ -37,15 +37,25 @@ enum Installation {
         /// all the same: it is an older build, still in memory after the app was replaced
         /// on disk. It is asked to quit and this one takes its place, or the update would
         /// only show after a quit nobody knows they have to do.
+        /// The same when what is running sits on a disk image and this copy does not.
         case replacing
     }
 
     /// `own`: where this copy is. `running`: where each other running copy is (nil for a
-    /// bare program, which has no app around it).
-    static func start(own: URL, running: [URL?]) -> Start {
+    /// bare program, which has no app around it). `onReadOnlyDisk` says whether a place is
+    /// a disk image (handed in, so that the tests need no disk image).
+    static func start(own: URL, running: [URL?],
+                      onReadOnlyDisk: (URL) -> Bool = isOnReadOnlyVolume) -> Start {
         if running.isEmpty { return .alone }
         let here = own.standardizedFileURL.path
-        return running.allSatisfy { $0?.standardizedFileURL.path == here } ? .replacing : .yielding
+        if running.allSatisfy({ $0?.standardizedFileURL.path == here }) { return .replacing }
+        // Someone opened the app inside its disk image, was told to drag it to
+        // Applications, did, and opened that copy without quitting the first. The
+        // installed copy is the one that must stay: the other goes away with its disk.
+        // (The first version made the new copy quit, and the panel went on saying
+        // "Running from the disk image".)
+        if !onReadOnlyDisk(own), running.allSatisfy({ $0.map(onReadOnlyDisk) ?? false }) { return .replacing }
+        return .yielding
     }
 
     /// The name under which a copy that gives way asks the running one to show its panel.

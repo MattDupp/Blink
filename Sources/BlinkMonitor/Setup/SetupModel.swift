@@ -97,6 +97,7 @@ final class SetupModel: ObservableObject {
         var sessionOpen = 0
         var sessionClosed = 0
         var sessionNote: String?
+        var soundMuted = false
         var targetSessions = SessionScript.sessionsBeforeTraining
         var training = Training.waiting
         var alteredSamples: [CGImage] = []
@@ -144,6 +145,11 @@ final class SetupModel: ObservableObject {
     /// Sessions wanted before training is offered.
     @Published private(set) var targetSessions = SessionScript.sessionsBeforeTraining
     @Published private(set) var problem: String?
+    /// The poses of the last session during which the camera lost the face, even when
+    /// asked a second time.
+    @Published private(set) var lostPoses: [Phase] = []
+    /// The Mac's sound is muted or at zero: the voice would not be heard.
+    @Published private(set) var soundMuted = false
 
     // Training.
     @Published private(set) var training = Training.waiting
@@ -188,6 +194,8 @@ final class SetupModel: ObservableObject {
     private var isOpen = false
     private var statedMegabytes: Double?
     private var statedPlace: String?
+    /// Held while a session or the test runs: see `stayAwake`.
+    private var awake: NSObjectProtocol?
 
     init(parts: Parts, initial: InitialState? = nil) {
         self.parts = parts
@@ -210,6 +218,7 @@ final class SetupModel: ObservableObject {
             sessionOpen = initial.sessionOpen
             sessionClosed = initial.sessionClosed
             sessionNote = initial.sessionNote
+            soundMuted = initial.soundMuted
             targetSessions = initial.targetSessions
             training = initial.training
             alteredSamples = initial.alteredSamples
@@ -262,6 +271,7 @@ final class SetupModel: ObservableObject {
         sessionTask?.cancel()
         testTask?.cancel()
         speaker.stop()
+        letSleep()
         job?.cancel()
         job = nil
         parts.store.discardStaging()
@@ -421,8 +431,25 @@ final class SetupModel: ObservableObject {
     private func watchForSilence() {
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.checkForSilence() }
+            MainActor.assumeIsolated {
+                self?.checkForSilence()
+                self?.checkSound()
+            }
         }
+        checkSound()
+    }
+
+    /// "Play the Voice": one sentence, to hear that the guide can be heard BEFORE closing
+    /// your eyes. On a muted Mac a session looked like a frozen app, seen two minutes later.
+    func playVoice() {
+        guard !sessionRunning else { return }
+        speaker.stop()
+        Task { await speaker.say("This is the voice that will guide you. If you can hear it, you are ready.") }
+    }
+
+    private func checkSound() {
+        let muted = step == .record && !sessionRunning && parts.painted == nil && SoundOutput.isMuted
+        if muted != soundMuted { soundMuted = muted }
     }
 
     func checkForSilence(now: Date = Date()) {
@@ -484,15 +511,31 @@ final class SetupModel: ObservableObject {
     func startSession() {
         guard canStartSession else { return }
         sessionRunning = true
+        stayAwake("Recording a session of the setup")
         sessionTask = Task {
             await runSession()
             sessionRunning = false
+            letSleep()
         }
     }
 
     func stopSession() {
         sessionTask?.cancel()
         speaker.stop()
+    }
+
+    /// Asks macOS to keep the display on. A session is two minutes with no key pressed
+    /// and the eyes closed half the time: a display that sleeps turns the camera off
+    /// (`MonitorModel.setAsleep`), and the session is then thrown away as too short. The
+    /// routine timer does the same for a Mac under a mask (`RoutineSessionController`).
+    private func stayAwake(_ reason: String) {
+        guard awake == nil else { return }
+        awake = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleDisplaySleepDisabled], reason: reason)
+    }
+
+    private func letSleep() {
+        if let awake { ProcessInfo.processInfo.endActivity(awake) }
+        awake = nil
     }
 
     private func pause(_ seconds: Double) async {
@@ -518,25 +561,38 @@ final class SetupModel: ObservableObject {
         phaseState = .listening
         if pace.spoken { await speaker.say("Starting. Follow my voice, and blink whenever you need to.") }
 
+        lostPoses = []
         for (index, phase) in SessionScript.phases.enumerated() {
-            if Task.isCancelled { break }
-            phaseIndex = index
-            phaseState = .listening
-            parts.painted?.follow(.hold(phase, session: number))
-            if pace.spoken { await speaker.say(phase.instruction) }
-            if Task.isCancelled { break }
+            // A POSE THAT LOST THE FACE IS ASKED FOR AGAIN, ONCE. Chin down, head turned,
+            // leaned back: the poses themselves are what hides a face from the camera, and
+            // the person has their eyes closed. Before this, nothing was said until the
+            // whole session was refused two minutes later.
+            for attempt in 0..<2 {
+                if Task.isCancelled { break }
+                phaseIndex = index
+                phaseState = .listening
+                parts.painted?.follow(.hold(phase, session: number))
+                if attempt > 0, pace.spoken { await speaker.say(SessionCheck.faceLostWords) }
+                if pace.spoken { await speaker.say(phase.instruction) }
+                if Task.isCancelled { break }
 
-            phaseState = .settling
-            await pause(pace.settleSeconds)
-            if Task.isCancelled { break }
+                phaseState = .settling
+                await pause(pace.settleSeconds)
+                if Task.isCancelled { break }
 
-            phaseState = .recording
-            withAnimation(.linear(duration: pace.recordSeconds)) { recordProgress = 1 }
-            pipeline.setRecording(SessionPipeline.Recording(writer: writer, phaseIndex: index, phase: phase))
-            await pause(pace.recordSeconds)
-            pipeline.setRecording(nil)
-            recordProgress = 0
-            if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
+                phaseState = .recording
+                let before = sessionOpen + sessionClosed
+                withAnimation(.linear(duration: pace.recordSeconds)) { recordProgress = 1 }
+                pipeline.setRecording(SessionPipeline.Recording(writer: writer, phaseIndex: index, phase: phase))
+                await pause(pace.recordSeconds)
+                pipeline.setRecording(nil)
+                recordProgress = 0
+                if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
+
+                if Task.isCancelled { break }
+                if SessionCheck.poseIsWhole(pictures: sessionOpen + sessionClosed - before, pace: pace) { break }
+                if attempt == 1 { lostPoses.append(phase) }
+            }
         }
 
         pipeline.setRecording(nil)
@@ -557,10 +613,12 @@ final class SetupModel: ObservableObject {
             // A developer's folder is not ours to empty: there, the session goes to the Trash.
             try? SessionStore.discard(folder, toTrash: !parts.ownSessions)
             let fate = parts.ownSessions ? "It was not kept." : "It was moved to the Trash."
+            let lost = lostPoses.map(\.poseName).joined(separator: "; ")
             sessionNote = stopped
                 ? "Stopped: a session only teaches when it is whole. \(fate)"
-                : "That session holds \(Int(share * 100))% of what it should: your face was out of view during some poses. "
-                    + "\(fate) Record it again, staying in front of the camera."
+                : "The camera lost your face for about \(100 - Int(share * 100))% of that session"
+                    + (lost.isEmpty ? ". " : ", most of all during: \(lost). ")
+                    + "\(fate) Record it again: in those poses, move your head a little less."
         }
         rescan()
     }
@@ -668,8 +726,10 @@ final class SetupModel: ObservableObject {
         guard canStartTest else { return }
         proofTest = ProofTest()
         proof = .running
+        stayAwake("The test at the end of the setup")
         testTask = Task {
-            await pause(0.8)                     // a moment of calm before the first tick
+            defer { letSleep() }
+            await pause(ProofTest.secondsBeforeFirstTick)     // "Get ready"
             for _ in 0..<ProofTest.ticks {
                 if Task.isCancelled { return }
                 (tickSound?.copy() as? NSSound)?.play()

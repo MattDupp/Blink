@@ -167,7 +167,7 @@ struct SetupTests {
         let folder = bench.parts.sessionsRoot.appendingPathComponent("20270101-100000")
         bench.setup.sessionEnded(folder: folder, stopped: false)
         #expect(!FileManager.default.fileExists(atPath: folder.path))
-        #expect(bench.setup.sessionNote?.contains("50%") == true)
+        #expect(bench.setup.sessionNote?.contains("about 50%") == true)
         #expect(bench.setup.sessions.count == 1 && !bench.setup.enoughSessions)
 
         // A whole one counts, and two are enough to train.
@@ -181,6 +181,29 @@ struct SetupTests {
     }
 
     // MARK: Training
+
+    @Test("A failed training is said in a sentence for a person, never as the trainer's own words")
+    func trainingFailureWords() {
+        let crash = "The trainer stopped before the end (signal 6).\nMPSGraphVariable.mm:69: failed assertion"
+        #expect(TrainingFailureWords.plain(crash) == "The training program stopped unexpectedly.")
+        #expect(!TrainingFailureWords.plain(crash).contains("signal"))
+        #expect(TrainingFailureWords.plain("The trainer stopped answering, and was ended.").contains("was ended"))
+        // What the training said itself is a sentence already: its first line is kept.
+        #expect(TrainingFailureWords.plain("Too few pictures to learn from.\nmore") == "Too few pictures to learn from.")
+        #expect(TrainingFailureWords.plain("") == "The training stopped.")
+    }
+
+    @Test("A pose that kept under half its pictures lost the face; the test waits two seconds before its first tick")
+    func poseAndLeadIn() {
+        let full = SessionPace.usual.fullSessionPictures / SessionScript.phases.count
+        #expect(full == 60)
+        #expect(SessionCheck.poseIsWhole(pictures: 60))
+        #expect(SessionCheck.poseIsWhole(pictures: 30))
+        #expect(!SessionCheck.poseIsWhole(pictures: 29))
+        #expect(!SessionCheck.poseIsWhole(pictures: 0))
+        #expect(SessionScript.phases[5].poseName == "eyes closed, chin down")
+        #expect(ProofTest.secondsBeforeFirstTick >= 2)
+    }
 
     @Test("A training that fails can be tried again; the second failure shows its reason; a finished one is installed")
     func trainingWords() throws {
