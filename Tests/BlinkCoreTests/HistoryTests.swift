@@ -108,6 +108,9 @@ struct HistoryTests {
         let before = [minute(-2, watched: 60, blinks: 12), minute(-1, watched: 60, blinks: 9)]
         let atLaunch = LastHour(minutes: before, current: nil, now: launch)
         #expect(atLaunch.rate(minutesAgo: 1) == 9 && atLaunch.rate(minutesAgo: 2) == 12)
+        // The chart in words, for VoiceOver.
+        #expect(atLaunch.summary(limit: 10) == "Lowest 9, highest 12. 1 of 2 minutes under the limit of 10")
+        #expect(LastHour(minutes: [], current: nil, now: launch).summary(limit: 10) == "Nothing counted in the last hour")
 
         let later = before + [minute(0, watched: 60, blinks: 14), minute(1, watched: 60, blinks: 15)]
         let twoMinutesOn = LastHour(minutes: later, current: minute(2, watched: 30, blinks: 8), now: launch.addingTimeInterval(120))

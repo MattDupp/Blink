@@ -380,6 +380,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 VStack(alignment: .leading, spacing: 8) {
+                    DataPoint(symbol: "light.beacon.max", text: "The green light beside the camera is Blink Monitor counting. Pause, in the menu-bar panel, turns the camera and the light off.")
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
                     DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them in Your Model.")
                     if state.onDisk.captures > 0 {

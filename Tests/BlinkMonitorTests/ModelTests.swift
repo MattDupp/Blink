@@ -452,6 +452,20 @@ struct SourceTests {
     }
 }
 
+@Suite("The panel's sentence")
+struct PanelSentenceTests {
+
+    @Test("A pause held by a routine's timer names the routine; an ordinary pause does not")
+    func timerPause() {
+        let until = Date(timeIntervalSince1970: 1_800_000_000)
+        let timed = MonitorStatus.paused(until: until).explanation(limit: 10, timer: "Heated eye mask")
+        #expect(timed.hasPrefix("Paused for Heated eye mask, until ") && timed.contains("by itself"))
+        let plain = MonitorStatus.paused(until: until).explanation(limit: 10)
+        #expect(plain.hasPrefix("The camera is off until ") && plain.contains("Routines still remind you"))
+        #expect(MonitorStatus.watching(rate: 12).explanation(limit: 10, timer: "Heated eye mask").contains("Your limit is 10"))
+    }
+}
+
 @Suite("The menu-bar item")
 struct MenuBarMarksTests {
 

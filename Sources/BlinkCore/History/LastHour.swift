@@ -24,6 +24,16 @@ public struct LastHour: Equatable {
 
     public var isEmpty: Bool { rates.allSatisfy { $0 == nil } }
 
+    /// The chart in words, for someone who cannot see it: the lowest and highest minute,
+    /// and how many were under the limit.
+    public func summary(limit: Double) -> String {
+        let counted = rates.compactMap { $0 }
+        guard let lowest = counted.min(), let highest = counted.max() else { return "Nothing counted in the last hour" }
+        let under = counted.filter { $0 < limit }.count
+        return "Lowest \(Int(lowest.rounded())), highest \(Int(highest.rounded())). "
+            + "\(under) of \(counted.count) minute\(counted.count == 1 ? "" : "s") under the limit of \(Int(limit))"
+    }
+
     public func rate(minutesAgo: Int) -> Double? {
         rates.indices.contains(minutesAgo) ? rates[minutesAgo] : nil
     }

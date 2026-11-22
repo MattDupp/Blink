@@ -53,6 +53,12 @@ struct MenuPanelView: View {
         AtPresent(moment: moment) { now in panel(now: now) }
     }
 
+    /// The title of the routine whose timer is running.
+    private var timerRoutine: String? {
+        guard let session = model.routines.session.session else { return nil }
+        return model.routines.routines.first { $0.id == session.routine }?.title
+    }
+
     private func panel(now: Date) -> some View {
         let status = model.status(now: now)
         let bare = status == .needsSetup
@@ -67,6 +73,7 @@ struct MenuPanelView: View {
             VStack(alignment: .leading, spacing: 10) {
                 NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed,
                            limit: preferences.limit, offersSetup: model.failure?.offersSetup ?? false,
+                           timer: timerRoutine,
                            tryAgain: { Task { await model.tryAgain() } }, actions: actions)
                 // The four actions sit directly under the rate, at the same place each time
                 // the panel opens: at the bottom they moved with every routine and note.
@@ -158,6 +165,8 @@ private struct NowSection: View {
     var limit = 10
     /// The failure is one the setup can mend (no readable model).
     var offersSetup = false
+    /// The routine whose timer holds the pause, if one runs.
+    var timer: String?
     var tryAgain: () -> Void = {}
     let actions: PanelActions
 
@@ -182,7 +191,7 @@ private struct NowSection: View {
                     StatusPill(text: status.label, color: status.tint, pulse: blinks)
                 }
             }
-            Text(status.explanation(limit: limit))
+            Text(status.explanation(limit: limit, timer: timer))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -411,7 +420,7 @@ private struct TodaySection: View {
                     Spacer()
                     HStack(spacing: 5) {
                         DashedLine().frame(width: 18, height: 1)
-                        Text("limit: \(limit) a minute")
+                        Text("your limit, \(limit) a minute")
                     }
                     Spacer()
                     Text("now")
@@ -482,6 +491,9 @@ private struct MinuteBars: View {
             line.move(to: CGPoint(x: 0, y: y))
             line.addLine(to: CGPoint(x: size.width, y: y))
             context.stroke(line, with: .color(.secondary.opacity(0.7)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            // The line carries its number: the chart had no scale at all.
+            context.draw(Text("\(Int(limit))").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary),
+                         at: CGPoint(x: size.width - 3, y: y - 6), anchor: .trailing)
         }
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -503,7 +515,9 @@ private struct MinuteBars: View {
                     }
             }
         }
+        .help("One bar per minute. Green: at or above your limit. Orange: under it. A gap: not counted. The pale bar is the minute in progress.")
         .accessibilityLabel("Blink rate, minute by minute, over the last hour")
+        .accessibilityValue(hour.summary(limit: limit))
     }
 }
 
@@ -527,8 +541,11 @@ private struct ActionTiles: View {
                                         : "The camera counts the blinks of a blink break, and it is off now.")
 
                 if model.isPaused {
-                    ActionTile(symbol: "play.fill", title: "Resume", tint: .accentColor) { model.resume() }
-                        .help("Turn the camera back on")
+                    // During a timer, Resume is there but not the thing to press: the
+                    // camera comes back by itself when the timer ends.
+                    let timed = model.routines.session.session != nil
+                    ActionTile(symbol: "play.fill", title: "Resume", tint: timed ? nil : .accentColor) { model.resume() }
+                        .help(timed ? "Turn the camera back on now, before the timer ends" : "Turn the camera back on")
                 } else {
                     ActionTile(symbol: "pause.fill", title: "Pause", tint: state.choosingPause ? .accentColor : nil) {
                         state.choosingPause.toggle()
@@ -553,6 +570,16 @@ private struct ActionTiles: View {
     }
 }
 
+/// "Camera on", with a small green dot like the light it speaks of.
+private struct CameraOnStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.font(.system(size: 6)).foregroundStyle(.green)
+            configuration.title
+        }
+    }
+}
+
 /// The last row of the panel: the version, Quiet, Live View and Quit. Before the setup,
 /// Settings and Quit only.
 private struct FooterRow: View {
@@ -562,8 +589,16 @@ private struct FooterRow: View {
 
     var body: some View {
             HStack(spacing: 14) {
-                Text("Blink Monitor \(AppInfo.version)")
-                    .foregroundStyle(.tertiary)
+                // The green light is explained in the setup, then seen every day: three days
+                // later the panel is where someone looks to learn whose it is.
+                if model.status().isCameraOn && !model.isDemo {
+                    Label("Camera on", systemImage: "circle.fill")
+                        .labelStyle(CameraOnStyle())
+                        .help("The green light beside the camera is Blink Monitor counting your blinks. Pause turns it off.")
+                } else {
+                    Text("Blink Monitor \(AppInfo.version)")
+                        .foregroundStyle(.tertiary)
+                }
                 Spacer()
                 if bare {
                     Button("Settings") { actions.openSettings() }

@@ -89,7 +89,13 @@ extension MonitorStatus {
     }
 
     /// One sentence under the rate, in the panel. `limit`: the limit in force.
-    func explanation(limit: Int) -> String {
+    /// `timer`: the routine whose timer holds the pause (a mask on the eyes), if any.
+    func explanation(limit: Int, timer: String? = nil) -> String {
+        // During a timer the pause is not an ordinary one: the eyes are covered, and
+        // Resume would turn the camera on under the mask.
+        if case .paused(let until?) = self, let timer {
+            return "Paused for \(timer), until \(Format.pauseEnd(until)). The camera comes back by itself when the timer ends."
+        }
         switch self {
         case .starting:
             return "Starting the camera."
