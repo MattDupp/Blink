@@ -13,6 +13,7 @@ final class Preferences: ObservableObject {
     private enum Key {
         static let showRate = "showRateInMenuBar"
         static let orangeWhenLow = "orangeRateWhenLow"
+        static let liveViewSound = "liveViewSound"
         static let blinkBack = "blinkBack"
         static let remindersOn = "remindersOn"
         static let automaticLimit = "automaticLimit"
@@ -41,6 +42,9 @@ final class Preferences: ObservableObject {
 
     /// The menu bar shows the rate next to the eye (off: the eye alone).
     @Published var showRateInMenuBar: Bool { didSet { defaults.set(showRateInMenuBar, forKey: Key.showRate) } }
+    /// A short sound at every counted blink while Live View is open. Off unless chosen,
+    /// and kept: it was on at every opening, and the Mac popped at each blink.
+    @Published var liveViewSound: Bool { didSet { defaults.set(liveViewSound, forKey: Key.liveViewSound) } }
     /// The rate in the menu bar is written in orange while it is low. The badge on the
     /// eye alone was nearly invisible (audit of 22 November 2026, item 2.17).
     @Published var orangeRateWhenLow: Bool { didSet { defaults.set(orangeRateWhenLow, forKey: Key.orangeWhenLow) } }
@@ -173,6 +177,7 @@ final class Preferences: ObservableObject {
         self.defaults = defaults
         showRateInMenuBar = defaults.object(forKey: Key.showRate) as? Bool ?? true
         orangeRateWhenLow = defaults.object(forKey: Key.orangeWhenLow) as? Bool ?? true
+        liveViewSound = defaults.bool(forKey: Key.liveViewSound)
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true

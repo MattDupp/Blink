@@ -84,8 +84,6 @@ final class MonitorModel: ObservableObject {
     /// counted: the poses of a recording are not how you blink.
     @Published private(set) var setupStage: MonitorStatus.SetupStage?
 
-    /// A short sound at every counted blink (while the Live View window is open).
-    @Published var soundOn = true
 
     /// Fires at every counted blink: the menu-bar eye blinks back.
     let blinked = PassthroughSubject<Void, Never>()
@@ -546,7 +544,7 @@ final class MonitorModel: ObservableObject {
         if liveViewOpen {
             curve.add(time: update.time, probability: update.live.probability, blink: counted)
             // Silent during a capture: the ticks are the only sound to follow then.
-            if counted != nil && soundOn && !captures.isCapturing {
+            if counted != nil && preferences.liveViewSound && !captures.isCapturing {
                 // A copy per blink: one NSSound cannot overlap itself.
                 (blinkSound?.copy() as? NSSound)?.play()
             }

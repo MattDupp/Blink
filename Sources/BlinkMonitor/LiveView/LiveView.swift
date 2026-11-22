@@ -37,7 +37,7 @@ struct LiveView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(spacing: 10) {
-                Toggle("Sound at each blink", isOn: $model.soundOn)
+                Toggle("Sound at each blink", isOn: Binding(get: { model.preferences.liveViewSound }, set: { model.preferences.liveViewSound = $0 }))
                 Spacer()
                 if developerTools {
                     Button("Record Cued Blinks (30 s)") { model.startCapture(cued: true) }

@@ -505,7 +505,9 @@ private struct ActionTiles: View {
                     actions.startBlinkBreak()
                 }
                 .disabled(!status.isCameraOn)
-                .help("Ten slow, full blinks, counted by the camera")
+                // A greyed tile says why.
+                .help(status.isCameraOn ? "Ten slow, full blinks, counted by the camera"
+                                        : "The camera counts the blinks of a blink break, and it is off now.")
 
                 if model.isPaused {
                     ActionTile(symbol: "play.fill", title: "Resume", tint: .accentColor) { model.resume() }
@@ -515,7 +517,8 @@ private struct ActionTiles: View {
                         state.choosingPause.toggle()
                     }
                     .disabled(model.lifecycle != .running)
-                    .help("Turn the camera off: its green light goes out")
+                    .help(model.lifecycle == .running ? "Turn the camera off: its green light goes out"
+                                                      : "The camera is not running, so there is nothing to pause.")
                 }
 
                 ActionTile(symbol: "chart.bar.fill", title: "History") { actions.openHistory() }
