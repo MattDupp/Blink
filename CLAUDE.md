@@ -23,7 +23,7 @@ Everything goes through the `Makefile`; `make` alone lists the targets.
 
 | Command | Use |
 |---|---|
-| `make test` | Swift tests, then Python tests. About 75 seconds; some of them train on the graphics processor |
+| `make test` | Swift tests, then Python tests. About 75 seconds; some of them train on the graphics processor. Read all three results: two lines "Test run with N tests ... passed" and the Python count. The Python tests still pass when the Swift ones did not build |
 | `make lint` / `make format` | ruff on `training/` and `scripts/` (check / fix) |
 | `make build` | `swift build -c release` |
 | `make demo` | Build and open the app on made-up eyes: no camera, nothing recorded |
@@ -183,11 +183,23 @@ their numbers, and the file formats, across the two languages.
 - **No medical claim.** The app reminds people of a routine they chose and reports what
   studies found. It does not advise on treatment, and its words must not start to.
 - **One name for each thing a user reads.** "Your usual rate", "limit", "lowest limit",
-  "recording", "reminder", "at the screen", "blinks a minute", "Quiet". `SourceTests`
-  fails when a retired word returns in a quoted string. Names in the code may differ
-  (`reference`, `floor`, `session`).
+  "recording", "reminder", "at the screen", "blinks a minute", "Quiet", "Show in Finder".
+  `SourceTests` fails when a retired word returns in a quoted string. Names in the code
+  may differ (`reference`, `floor`, `session`).
+- **A fact said in several places is one sentence.** The low rate is `LowRateWords`, for
+  the panel, the banner and the tooltip. The camera's sentences are in `CameraNote`, worded
+  by `CameraPlace`: a lid is named only on a portable Mac, for the Mac's own camera.
 - **Numbers and times go through `Format`** (`count`, `duration`, `rate`, `hour`), never
-  through a hand-made plural or `"%d:00"`.
+  through a hand-made plural or `"%d:00"`. A missing number is `Format.none`, a real dash.
+- **A stored choice has its default in `Preferences.Standard`**, read by the first launch
+  and by "Reset to Defaults". A new choice gets a line there, in `resetChoices` and in
+  `hasChoices`. The reset never touches what was measured or lived: the usual rate, the
+  history, the model, the routines and their log.
+- **A window's main button is `.mainButton()`** (BlinkUI), not
+  `.keyboardShortcut(.defaultAction)`: the pictures then draw it tinted. `SourceTests` holds it.
+- **Nothing changes the screen's light while a pose is recorded.** The screen lights the
+  face, and a model can learn the light instead of the eyelid. The sign at the end of a
+  closed-eye pose (`PoseSignal`) starts after the recording stops and ends before the next.
 - **Anything that erases asks through `Confirm`** (BlinkUI), with its words in
   `EraseWords`. `Uninstall.deleteEverything` is "Delete Everything and Quit": a test gives
   it a temporary folder and a settings store of its own. Never run it, or press the
@@ -198,6 +210,8 @@ their numbers, and the file formats, across the two languages.
 - `make snapshots`, then look at the pictures in `build/screens`. A new screen or state
   gets a line in `Snapshots.swift` and is looked at in light and dark.
   The pictures have English numbers and a 24-hour clock, whatever this Mac is set to.
+  `make snapshots` also copies the pictures the docs show into `docs/img`: commit those
+  with the change they show, or put them back with `git checkout -- docs/img`.
   Settings is drawn whole there; in the app its tabs share one height and scroll.
 - Open windows at launch: `--open=setup,live-view,history,settings,blink-break,routine-timer`
   (the demo app accepts it too).
