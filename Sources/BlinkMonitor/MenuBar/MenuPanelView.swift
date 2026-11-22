@@ -55,11 +55,12 @@ struct MenuPanelView: View {
 
     private func panel(now: Date) -> some View {
         let status = model.status(now: now)
+        let bare = status == .needsSetup
         return VStack(alignment: .leading, spacing: 0) {
           // Everything above the buttons scrolls when the screen is too small for it (many
-          // routines, a low screen). The buttons stay put. 250: the buttons, the pause
-          // choices when they are open, and the panel's own arrow.
-          ScrollsWhenTall(reserved: 250) {
+          // routines, a low screen). The last row stays put. 60: that row and the panel's
+          // own arrow.
+          ScrollsWhenTall(reserved: 60) {
            VStack(alignment: .leading, spacing: 0) {
             if onDiskImage { DiskImageBanner() }
             if model.isDemo { DemoBanner(actions: actions) }
@@ -67,20 +68,29 @@ struct MenuPanelView: View {
                 NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed,
                            limit: preferences.limit, offersSetup: model.failure?.offersSetup ?? false,
                            tryAgain: { Task { await model.tryAgain() } }, actions: actions)
-                Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
+                // The four actions sit directly under the rate, at the same place each time
+                // the panel opens: at the bottom they moved with every routine and note.
+                if !bare {
+                    ActionTiles(model: model, state: state, status: status, actions: actions)
+                        .padding(.top, 4)
+                    Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now)
+                }
             }
             .padding(16)
-            Divider()
-            RoutineBlock(routines: model.routines, now: now)
-            TodaySection(history: history, state: state, limit: preferences.limit, now: now)
-                .padding(16)
+            // Before the setup there is nothing to show: dashes, "0 min" and an empty
+            // chart around the one useful button said less than the sentence alone.
+            if !bare {
+                Divider()
+                RoutineBlock(routines: model.routines, now: now)
+                TodaySection(history: history, state: state, limit: preferences.limit, now: now)
+                    .padding(16)
+            }
            }
           }
             Divider()
-            ActionsSection(model: model, state: state, status: status, actions: actions)
+            FooterRow(model: model, bare: bare, actions: actions)
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+                .padding(.vertical, 10)
         }
         .frame(width: 340)
     }
@@ -482,7 +492,7 @@ private struct MinuteBars: View {
 
 // MARK: - Actions
 
-private struct ActionsSection: View {
+private struct ActionTiles: View {
     @ObservedObject var model: MonitorModel
     @ObservedObject var state: PanelState
     let status: MonitorStatus
@@ -519,10 +529,25 @@ private struct ActionsSection: View {
                 }
             }
 
+        }
+    }
+}
+
+/// The last row of the panel: the version, Quiet, Live View and Quit. Before the setup,
+/// Settings and Quit only.
+private struct FooterRow: View {
+    @ObservedObject var model: MonitorModel
+    let bare: Bool
+    let actions: PanelActions
+
+    var body: some View {
             HStack(spacing: 14) {
                 Text("Blink Monitor \(AppInfo.version)")
                     .foregroundStyle(.tertiary)
                 Spacer()
+                if bare {
+                    Button("Settings") { actions.openSettings() }
+                } else {
                 // "Leave me alone for an hour": every banner and sound is held, counting
                 // goes on. Pause is something else: it turns the camera off.
                 Menu {
@@ -539,12 +564,12 @@ private struct ActionsSection: View {
                 .help("No reminder, no look-away break and no sound for a while. Blinks are still counted.")
                 Button("Live View") { actions.openLiveView() }
                     .help("The camera with your eyes framed, and each blink as it is counted")
+                }
                 Button("Quit") { actions.quit() }
             }
             .font(.caption)
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-        }
     }
 }
 
