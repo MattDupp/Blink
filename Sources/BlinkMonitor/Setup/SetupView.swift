@@ -7,6 +7,9 @@ import BlinkUI
 struct SetupActions {
     /// "Try the demo first". Nil where it is not offered (the demo itself).
     var tryDemo: (() -> Void)?
+    /// "Set Up on My Eyes", at the end of the demo. Nil where the demo cannot be left
+    /// (the demo app itself, which is another app).
+    var leaveDemo: (() -> Void)?
     var openCameraSettings: () -> Void = {}
     var showFiles: () -> Void = {}
     var close: () -> Void = {}
@@ -52,6 +55,10 @@ struct SetupView: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.isDemo { DemoStrip() }
+            if model.welcomeBack != nil {
+                WelcomeBackPage(model: model, actions: actions)
+                    .padding(26)
+            } else {
             if model.step != .welcome && model.step != .done {
                 StepsBar(step: model.step)
                     .padding(.horizontal, 26)
@@ -63,13 +70,54 @@ struct SetupView: View {
                 case .camera: CameraPage(model: model, cameraNote: cameraNote, actions: actions)
                 case .record: RecordPage(model: model, cameraNote: cameraNote, actions: actions)
                 case .train: TrainPage(model: model)
-                case .proof: ProofPage(model: model)
+                case .proof: ProofPage(model: model, actions: actions)
                 case .done: DonePage(model: model, actions: actions)
                 }
             }
             .padding(26)
+            }
         }
         .frame(width: 700)
+    }
+}
+
+/// Shown when the app itself reopens a setup left unfinished: what is done, what is
+/// next, and the camera only on Continue.
+private struct WelcomeBackPage: View {
+    @ObservedObject var model: SetupModel
+    let actions: SetupActions
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle("Welcome back", "The setup is not finished yet, so nothing is counted.")
+            VStack(alignment: .leading, spacing: 14) {
+                WelcomePoint(symbol: "checkmark.circle", title: "What is done", text: done)
+                WelcomePoint(symbol: "arrow.right.circle", title: "What is next", text: next)
+                WelcomePoint(symbol: "light.beacon.max", title: "The camera is off",
+                             text: "It turns on when you press Continue, and its green light with it.")
+            }
+            HStack {
+                Spacer()
+                Button("Not Now") { actions.close() }
+                    .controlSize(.large)
+                    .help("Closes this window. Continue Setup is in the menu-bar panel.")
+                Button("Continue") { model.continueSetup() }
+                    .keyboardShortcut(.defaultAction)
+                    .controlSize(.large)
+            }
+        }
+    }
+
+    private var done: String {
+        if model.info != nil { return "Your eyes are recorded and your model is trained." }
+        let count = model.sessions.count
+        return count == 0 ? "Nothing is recorded yet." : "\(Format.count(count, "recording")) of \(model.targetSessions) saved. Nothing was lost."
+    }
+
+    private var next: String {
+        if model.info != nil { return "The test: you blink ten times and it counts. Fifteen seconds." }
+        let left = max(1, model.targetSessions - model.sessions.count)
+        return "A look at the camera, then \(Format.count(left, "recording")) of two minutes, the training and the test. About \(left * 3 + 1) minutes."
     }
 }
 
@@ -251,6 +299,9 @@ private struct CameraPage: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
+                Button("Back") { model.backToWelcome() }
+                    .controlSize(.large)
+                    .help("To the first page, where the demo is offered. The camera turns off.")
                 Button("Continue") { model.cameraLooksRight() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.large)
@@ -401,8 +452,8 @@ private struct SetupCamera: View {
         if model.isDemo { return "Demo: there is no camera picture. The eyes on the right are painted." }
         switch model.camera {
         case .asking: return "macOS is asking for the camera…"
-        case .refused: return "Camera access was refused."
-        case .failed(let reason): return reason
+        case .refused: return "Blink Monitor is not allowed to use the camera."
+        case .failed: return "The camera could not be started."
         case .off, .on: return model.cameraSilent ? "The camera is not sending pictures." : "Starting the camera…"
         }
     }
@@ -820,11 +871,17 @@ private struct Samples: View {
 
 private struct ProofPage: View {
     @ObservedObject var model: SetupModel
+    let actions: SetupActions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PageTitle("Test it: blink, and watch it count",
                       "The real test: blink ten times and see how many it counts.")
+            // The same card as on the camera and recording pages: a grey Start button
+            // with no reason was all this page said.
+            if let trouble = CameraTrouble(model.camera) {
+                CameraTroubleCard(trouble: trouble, model: model, actions: actions)
+            }
             HStack(alignment: .center, spacing: 26) {
                 ProofRing(model: model)
                 VStack(alignment: .leading, spacing: 12) {
@@ -841,10 +898,6 @@ private struct ProofPage: View {
             HStack(spacing: 10) {
                 if model.camera == .on && !model.faceFound && model.proof != .running {
                     Text("No face in view: the test can start once the camera sees you.")
-                        .font(.callout)
-                        .foregroundStyle(.orange)
-                } else if case .refused = model.camera {
-                    Text("Camera access was refused: allow it in System Settings, then open the setup again.")
                         .font(.callout)
                         .foregroundStyle(.orange)
                 }
@@ -1009,7 +1062,7 @@ private struct TickDots: View {
 
 // MARK: - Done
 
-private struct DonePage: View {
+struct DonePage: View {
     @ObservedObject var model: SetupModel
     let actions: SetupActions
 
@@ -1020,7 +1073,7 @@ private struct DonePage: View {
                     .font(.system(size: 44))
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.isDemo ? "That was the whole setup" : "Blink Monitor is counting your blinks")
+                    Text(model.isDemo ? "That was the whole setup" : Self.title(for: model.monitor.status()))
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                     Text(summary)
                         .foregroundStyle(.secondary)
@@ -1070,10 +1123,30 @@ private struct DonePage: View {
                         .controlSize(.large)
                         .help("Opens Live View: the camera's picture, your two eyes, and each blink as it is counted.")
                 }
-                Button("Done") { actions.done() }
-                    .keyboardShortcut(.defaultAction)
-                    .controlSize(.large)
+                if model.isDemo, let leaveDemo = actions.leaveDemo {
+                    // The demo ends where the real thing begins.
+                    Button("Done") { actions.done() }
+                        .controlSize(.large)
+                    Button("Set Up on My Eyes") { leaveDemo() }
+                        .keyboardShortcut(.defaultAction)
+                        .controlSize(.large)
+                } else {
+                    Button("Done") { actions.done() }
+                        .keyboardShortcut(.defaultAction)
+                        .controlSize(.large)
+                }
             }
+        }
+    }
+
+    /// The page reads the app's real state: "counting your blinks" was written there
+    /// whether or not counting had started.
+    static func title(for status: MonitorStatus) -> String {
+        switch status {
+        case .watching, .low, .noFace: return "Blink Monitor is counting your blinks"
+        case .paused: return "Blink Monitor is ready, and paused"
+        case .cameraRefused, .cameraSilent, .failed: return "Your model is ready, but the camera is not"
+        case .starting, .needsSetup, .settingUp: return "Blink Monitor is ready"
         }
     }
 

@@ -246,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SetupView(model: setupModel, actions: SetupActions(
                 // Offered where there is something to leave: not in the demo itself.
                 tryDemo: demo ? nil : { self?.switchTo(demo: true) },
+                leaveDemo: demo && !Options.demo ? { self?.switchTo(demo: false) } : nil,
                 openCameraSettings: Self.openCameraSettings,
                 showFiles: { NSWorkspace.shared.activateFileViewerSelecting([parts.store.base]) },
                 close: { self?.running?.windows["setup"]?.close() },
@@ -312,7 +313,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusItem = StatusItemController(model: model, actions: PanelActions(
             startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
             openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings,
-            openSetup: { [weak self] in self?.showSetup(.resume) }, leaveDemo: leaveDemo, quit: { NSApp.terminate(nil) }))
+            openSetup: { [weak self] in self?.showSetup(.resume) }, leaveDemo: leaveDemo,
+            tryDemo: demo ? nil : { [weak self] in self?.switchTo(demo: true) }, quit: { NSApp.terminate(nil) }))
 
         var running = Running(model: model, statusItem: statusItem, setup: setupModel,
                               windows: ["history": history, "live-view": liveView, "blink-break": blinkBreak,
@@ -337,7 +339,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { [weak self] in
                     // Six minutes of setup in a copy that goes away with its disk: ask first.
                     if Installation.isOnDiskImage, !Self.continueFromDiskImage() { return NSApp.terminate(nil) }
-                    self?.showSetup(.resume)
+                    self?.showSetup(.atLaunch)
                 }
             }
         } else if preferences.welcomed || Options.noCamera {

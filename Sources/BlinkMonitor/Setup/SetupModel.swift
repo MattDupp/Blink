@@ -28,6 +28,9 @@ final class SetupModel: ObservableObject {
     enum Purpose {
         /// Go on where things stand.
         case resume
+        /// The same, opened by the app itself when it starts with a setup left unfinished:
+        /// a page says so first, and the camera only turns on when asked.
+        case atLaunch
         /// Record one more session, then train and test again (from Settings).
         case addSession
         /// Take the test again with the model there is (from Settings).
@@ -106,11 +109,15 @@ final class SetupModel: ObservableObject {
         var hasPrevious = false
         var megabytes: Double?
         var place: String?
+        var welcomeBack: Step?
+        var failedTests = 0
     }
 
     // MARK: Facts
 
     @Published private(set) var step = Step.welcome
+    /// The step that waits behind the welcome-back page. Nil: no such page.
+    @Published private(set) var welcomeBack: Step?
     @Published private(set) var camera = CameraState.off
     /// The complete sessions on disk, oldest first.
     @Published private(set) var sessions: [SessionSummary] = []
@@ -209,6 +216,8 @@ final class SetupModel: ObservableObject {
         pipeline = SessionPipeline(pace: parts.pace)
         if let initial {
             step = initial.step
+            welcomeBack = initial.welcomeBack
+            failedTests = initial.failedTests
             camera = initial.camera
             sessions = initial.sessions
             info = initial.info
@@ -250,18 +259,39 @@ final class SetupModel: ObservableObject {
         return completeSessions > 0 || welcomed ? .camera : .welcome
     }
 
+    /// Opened by the app at launch, the setup does not turn the camera on by itself: the
+    /// day after leaving it, a green light with no click was the first thing seen.
+    static func waitsForContinue(_ step: Step, purpose: Purpose) -> Bool {
+        purpose == .atLaunch && (step == .camera || step == .record || step == .proof)
+    }
+
+    /// "Continue", on the welcome-back page.
+    func continueSetup() {
+        guard let next = welcomeBack else { return }
+        welcomeBack = nil
+        enter(next)
+    }
+
+    /// "Back", on the camera page: to the welcome page, where the demo is offered.
+    func backToWelcome() {
+        guard step == .camera else { return }
+        enter(.welcome)
+    }
+
     /// The window opens.
     func open(_ purpose: Purpose = .resume) {
         guard !isOpen else { return }
         isOpen = true
+        welcomeBack = nil
         rescan()
         problem = nil
         sessionNote = nil
         failedTrainings = 0
         switch purpose {
-        case .resume:
+        case .resume, .atLaunch:
             targetSessions = max(SessionScript.sessionsBeforeTraining, info == nil ? 0 : sessions.count)
-            enter(Self.resumeStep(completeSessions: sessions.count, info: info, welcomed: monitor.preferences.welcomed))
+            let next = Self.resumeStep(completeSessions: sessions.count, info: info, welcomed: monitor.preferences.welcomed)
+            if Self.waitsForContinue(next, purpose: purpose) { welcomeBack = next } else { enter(next) }
         case .addSession:
             targetSessions = max(SessionScript.sessionsBeforeTraining, sessions.count + 1)
             enter(.camera)
@@ -274,6 +304,7 @@ final class SetupModel: ObservableObject {
     func close() {
         guard isOpen else { return }
         isOpen = false
+        welcomeBack = nil
         cameraRequest += 1
         sessionTask?.cancel()
         testTask?.cancel()
@@ -387,7 +418,9 @@ final class SetupModel: ObservableObject {
                 camera = .refused
             } catch {
                 guard request == cameraRequest else { return }
-                camera = .failed("\(error)")
+                // A sentence for a person, with what to do. The error's own text goes to the log.
+                Log.app.error("Setup: the camera could not be started: \(String(describing: error), privacy: .public)")
+                camera = .failed(Self.cameraTrouble(error))
             }
         }
     }
@@ -446,6 +479,14 @@ final class SetupModel: ObservableObject {
         let silent = working && TrainingSilence.isSilent(lastWord: lastTrainingWord, now: now)
         if silent != trainingSilent { trainingSilent = silent }
         return working
+    }
+
+    /// Why the camera did not start, with what to try.
+    static func cameraTrouble(_ error: Error) -> String {
+        if case CameraCapture.CameraError.noCamera = error {
+            return "No camera was found. Plug one in, or open the lid, then press Check Again."
+        }
+        return "Another app may be using the camera. Quit that app, then press Check Again."
     }
 
     private func watchForSilence() {

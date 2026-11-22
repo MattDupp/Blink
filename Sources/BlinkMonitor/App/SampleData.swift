@@ -219,7 +219,7 @@ enum SampleData {
 
     /// The moments of the setup that the screenshots show.
     enum SetupScene {
-        case welcome, demoWelcome
+        case welcome, demoWelcome, welcomeBack
         case camera, cameraNoFace, cameraDark, cameraRefused
         case recordFirst, recordMuted, recording, recordShort, recordNext, recordEnough
         case training, trainingFailed, trainingFailedAgain, trained
@@ -248,6 +248,9 @@ enum SampleData {
         switch scene {
         case .welcome, .demoWelcome:
             state.step = .welcome
+        case .welcomeBack:
+            state.sessions = [first]
+            state.welcomeBack = .camera
         case .camera:
             state.step = .camera
         case .cameraNoFace:
@@ -317,6 +320,7 @@ enum SampleData {
             state.proofTest = proofTest(ticks: 10, missed: [])
             state.proof = .finished(state.proofTest.result)
         case .testFailed:
+            state.failedTests = 1
             state.step = .proof
             state.info = modelInfo(now: now, found: 6)
             state.proofTest = proofTest(ticks: 10, missed: [1, 4, 5, 8])

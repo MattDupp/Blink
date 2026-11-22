@@ -148,6 +148,38 @@ struct SetupTests {
         bench.setup.close()
     }
 
+    @Test("A camera that does not start is said with what to do, never as the error's own text")
+    func cameraTroubleWords() {
+        #expect(SetupModel.cameraTrouble(CameraCapture.CameraError.noCamera).contains("Plug one in"))
+        let other = SetupModel.cameraTrouble(CameraCapture.CameraError.cannotConfigure("AVError -11814"))
+        #expect(other.contains("Another app") && !other.contains("AVError"))
+    }
+
+    @Test("Opened by the app at launch, an unfinished setup waits for Continue before the camera")
+    func welcomeBack() throws {
+        #expect(SetupModel.waitsForContinue(.camera, purpose: .atLaunch) && SetupModel.waitsForContinue(.proof, purpose: .atLaunch))
+        #expect(!SetupModel.waitsForContinue(.welcome, purpose: .atLaunch) && !SetupModel.waitsForContinue(.done, purpose: .atLaunch))
+        #expect(!SetupModel.waitsForContinue(.camera, purpose: .resume), "a click on Continue Setup is already the answer")
+
+        let bench = Bench()
+        try bench.record("20270101-090000", pictures: bench.parts.pace.fullSessionPictures)
+        bench.monitor.preferences.welcomed = true
+        bench.setup.open(.atLaunch)
+        #expect(bench.setup.welcomeBack == .camera && bench.setup.camera == .off)
+        bench.setup.continueSetup()
+        #expect(bench.setup.welcomeBack == nil && bench.setup.step == .camera)
+        bench.setup.backToWelcome()
+        #expect(bench.setup.step == .welcome)
+        bench.setup.close()
+    }
+
+    @Test("The last page says what the app is really doing")
+    func donePageTitle() {
+        #expect(DonePage.title(for: .watching(rate: nil)).contains("counting"))
+        #expect(!DonePage.title(for: .cameraRefused).contains("counting"))
+        #expect(!DonePage.title(for: .paused(until: nil)).contains("counting"))
+    }
+
     // MARK: Recording
 
     @Test("A session that holds too little is not kept, and the window says why")

@@ -114,6 +114,7 @@ enum Snapshots {
             ("panel-setting-up", panel(.settingUp)),
             ("setup-welcome", setup(.welcome)),
             ("setup-welcome-demo", setup(.demoWelcome)),
+            ("setup-welcome-back", setup(.welcomeBack)),
             ("setup-camera", setup(.camera)),
             ("setup-camera-no-face", setup(.cameraNoFace)),
             ("setup-camera-dark", setup(.cameraDark)),

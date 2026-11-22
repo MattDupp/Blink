@@ -15,6 +15,8 @@ struct PanelActions {
     /// Leaves a demo that was entered from the setup window. Nil when there is no way
     /// back: the app that `make demo` builds is a demo for good.
     var leaveDemo: (() -> Void)?
+    /// "Try the Demo", beside the setup button. Nil in the demo itself.
+    var tryDemo: (() -> Void)?
     var quit: () -> Void = {}
 }
 
@@ -196,9 +198,16 @@ private struct NowSection: View {
             }
             // An app that cannot count yet says what to do about it, here where you look.
             if status == .needsSetup {
-                Button(begun ? "Continue Setup…" : "Set Up Blink Monitor…") { actions.openSetup() }
-                    .keyboardShortcut(.defaultAction)
-                    .padding(.top, 2)
+                HStack(spacing: 8) {
+                    Button(begun ? "Continue Setup…" : "Set Up Blink Monitor…") { actions.openSetup() }
+                        .keyboardShortcut(.defaultAction)
+                    // Once the setup was begun, its first page and the demo on it were out of reach.
+                    if let tryDemo = actions.tryDemo {
+                        Button("Try the Demo") { tryDemo() }
+                            .help("The whole app on made-up eyes: no camera, nothing recorded")
+                    }
+                }
+                .padding(.top, 2)
             } else if case .settingUp = status {
                 Button("Show Setup") { actions.openSetup() }
                     .padding(.top, 2)
