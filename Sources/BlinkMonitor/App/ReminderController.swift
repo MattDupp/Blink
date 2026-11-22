@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import BlinkCore
+import UserNotifications
 
 /// Everything that taps you on the shoulder: the "you blink too little" reminder and the
 /// "look away for a moment" nudge.
@@ -96,10 +97,10 @@ final class ReminderController: ObservableObject {
         }
         breaksChanged = breaks.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         // Switching a nudge on in Settings is the moment to ask macOS for notifications.
-        wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn)
+        wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn, preferences.$summaryOn)
             .dropFirst()
-            .sink { [weak self] reminders, nudges in
-                if reminders || nudges { self?.askForNotifications() }
+            .sink { [weak self] reminders, nudges, summary in
+                if reminders || nudges || summary { self?.askForNotifications() }
             }
     }
 
@@ -111,7 +112,7 @@ final class ReminderController: ObservableObject {
     /// The camera runs: ask macOS for the right to show notifications, if any are wanted.
     func prepare() {
         prepared = true
-        if preferences.remindersOn || preferences.breakNudgesOn { askForNotifications() }
+        if preferences.remindersOn || preferences.breakNudgesOn || preferences.summaryOn { askForNotifications() }
     }
 
     private func askForNotifications() {
@@ -213,6 +214,31 @@ final class ReminderController: ObservableObject {
         notifier.show(.lowRate(limit: preferences.limit, sound: due.sound))
         onBlinkReminder(now)
     }
+
+    /// The optional summary of the day: once, at the first minute that ends from the
+    /// chosen hour on, when the gate lets a banner through. It is asked after the blink
+    /// reminder and gives way to it and to a break about to fall due. A day with nothing
+    /// counted says nothing, and is not asked again.
+    func summaryIfDue(minutes: [MinuteRecord], now: Date = Date(), calendar: Calendar = .current) {
+        guard preferences.summaryOn,
+              SummarySchedule.isDue(now: now, hour: preferences.summaryHour, lastShown: preferences.summaryShownDay, calendar: calendar),
+              gate.mayShow(.summary, busy: busy(), soon: soon(now: now), now: now) else { return }
+        let digest = DayDigest(records: minutes, limit: Double(preferences.limit), breaksTaken: breaks.tally(now: now).taken,
+                               now: now, calendar: calendar)
+        preferences.summaryShownDay = SummarySchedule.key(of: now, calendar: calendar)
+        guard let body = SummaryWords.body(digest, limit: preferences.limit) else { return }
+        gate.shown(at: now)
+        let content = UNMutableNotificationContent()
+        content.title = SummaryWords.title
+        content.body = body
+        content.sound = nil      // it reports, it does not call
+        notifier.show(content, identifier: SummaryWords.identifier)
+        onSummary(body)
+        Log.app.notice("Summary of the day shown")
+    }
+
+    /// The summary was shown, with these words (the tests read them).
+    var onSummary: (String) -> Void = { _ in }
 
     /// A blink break was finished: the reminder that asked for it is answered. Its banner
     /// is taken back, and none comes for 20 minutes (`ReminderPolicy.blinkBreakDone`).

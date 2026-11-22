@@ -286,6 +286,21 @@ only when a day has at least an hour at the screen, when the days split at their
 number of breaks leave five days or more on each side, and never with today or with the
 days before the log began, when no break was written down.
 
+### A summary of the day
+
+An optional banner, once a day, at an hour chosen in Settings. Its numbers come from
+`DayDigest`: the time at the screen today, the rate, the share of the time above the
+limit and the look-away breaks taken. With under 30 minutes at the screen it says "too
+little to give a rate" instead of a number that would look like a result, and a day
+with nothing counted gets no banner. On a Monday it adds a line for the seven days that
+ended the day before, when at least two hours were counted in them.
+
+It is due from its hour on, on that day only (`SummarySchedule`): a Mac asleep at five
+shows it when it is back, and the next morning says nothing of yesterday. It is asked
+for when a minute of counting ends, so it comes while someone is at the screen. It
+passes the same gate as every banner. So an hour outside the working hours, with "Quiet
+outside working hours" on, would never show: Settings says so under the hour.
+
 ### One gate for every banner
 
 The app has three kinds of reminder: the blink reminder, the look-away break and the
@@ -301,6 +316,7 @@ facts, and its tests are moments written by hand.
 | A break goes first: the others stay away when one falls due within two minutes | The break has a clock running. The blink reminder comes back by itself |
 | Quiet (30 minutes, an hour, until tomorrow) holds every banner and every sound | "Leave me alone" is one thing to say, not three. Counting goes on, and it is remembered |
 | The same Quiet outside the working hours, when "Quiet outside working hours" is on | Eye drops at nine in the evening are a reminder; "you blink too little" during a film is not wanted. The rule is `WorkingHours`: two times of day and the days of the week. A night shift (22:00 to 06:00) belongs to the day it starts on. The gate reads the hours each time it is asked, and the panel says why it is quiet and when that ends. Counting goes on |
+| The summary of the day goes last, after a break, a routine and the blink reminder | It reports; it does not call. It can wait a few minutes, and it is silent |
 | A click on a banner itself opens the panel, whatever the banner | Many people click a banner only to make it go. Only a named button starts something |
 | A banner that stopped being true is taken back: the blink banner when the rate is back above the limit or the camera is paused, a routine's when nothing of it waits any more | Notification Centre should not hold yesterday's requests |
 

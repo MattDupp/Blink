@@ -284,3 +284,47 @@ enum QuietWords {
     /// Under the two times, when the first is not before the second.
     static let overnight = "These hours pass midnight. Each night belongs to the day it starts on."
 }
+
+/// The words of the optional summary of the day. It reports numbers; it does not judge
+/// them and gives no advice.
+enum SummaryWords {
+    static let identifier = "day-summary"
+    static let title = "Today so far"
+
+    /// The banner's text, or nil for a day with nothing counted (no banner).
+    static func body(_ digest: DayDigest, limit: Int) -> String? {
+        var sentences: [String] = []
+        switch digest.day {
+        case .notAtScreen:
+            return nil
+        case .tooLittle(let seconds):
+            sentences.append("\(Format.duration(seconds)) at the screen: too little to give a rate.")
+        case .counted(let seconds, let rate, let aboveLimit):
+            var sentence = "\(Format.duration(seconds)) at the screen, \(Format.rate(rate)) blinks a minute"
+            if let aboveLimit { sentence += ", \(aboveLimit)% of the time above your limit of \(limit)" }
+            sentences.append(sentence + ".")
+        }
+        if digest.breaksTaken > 0 { sentences.append("\(Format.count(digest.breaksTaken, "look-away break")) taken.") }
+        if let week = digest.lastWeek {
+            sentences.append("The seven days before: \(Format.duration(week.seconds)) at the screen, \(Format.rate(week.rate)) blinks a minute.")
+        }
+        return sentences.joined(separator: " ")
+    }
+
+    /// The rows in Settings.
+    static let row = "A summary of the day"
+    static let detail = "One silent banner a day, at the hour you choose, with the time at the screen and your rate. On Mondays it adds a line for the seven days before. A day with under 30 minutes at the screen gets no rate."
+    static let hourRow = "Hour of the summary"
+
+    /// Under the hour, when Quiet outside working hours would hold the banner back.
+    static func heldBack(hour: Int) -> String {
+        "At \(Format.hour(hour)) your working hours are over, and Quiet holds this banner back. Choose an hour inside them."
+    }
+
+    /// Would the working hours hold back a summary at this hour, on every chosen day?
+    static func isHeldBack(hour: Int, by hours: WorkingHours?) -> Bool {
+        guard let hours else { return false }
+        let time = TimeOfDay(hour: hour)
+        return hours.start < hours.end ? !(time >= hours.start && time < hours.end) : !(time >= hours.start || time < hours.end)
+    }
+}

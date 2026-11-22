@@ -36,7 +36,7 @@ final class RoutineBanners {
         let later = UNNotificationAction(identifier: Identifier.later, title: "Later (\(routines.policy.laterMinutes) min)", options: [])
         // `.foreground`: pressing it brings the app forward, to show the timer's window.
         let start = UNNotificationAction(identifier: Identifier.start, title: "Start Timer", options: [.foreground])
-        notifier.extraCategories = [
+        notifier.extraCategories += [
             UNNotificationCategory(identifier: Identifier.category, actions: [done, later], intentIdentifiers: []),
             UNNotificationCategory(identifier: Identifier.timedCategory, actions: [start, later, done], intentIdentifiers: []),
         ]

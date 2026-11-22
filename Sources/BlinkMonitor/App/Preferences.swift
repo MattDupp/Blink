@@ -20,6 +20,9 @@ final class Preferences: ObservableObject {
         static let quietDuringCalls = "quietDuringCalls"
         static let blinkBreakShortcut = "blinkBreakShortcut"
         static let largerText = "largerText"
+        static let summaryOn = "summaryOn"
+        static let summaryHour = "summaryHour"
+        static let summaryShownDay = "summaryShownDay"
         static let workingHoursOn = "workingHoursOn"
         static let workStart = "workingHoursStart"
         static let workEnd = "workingHoursEnd"
@@ -122,6 +125,16 @@ final class Preferences: ObservableObject {
         Baseline.limit(reference: reference, automatic: automaticLimit, floor: floor)
     }
 
+    /// A banner once a day, at `summaryHour`, with the day's numbers (`DayDigest`). Off
+    /// unless chosen.
+    @Published var summaryOn: Bool { didSet { defaults.set(summaryOn, forKey: Key.summaryOn) } }
+    @Published var summaryHour: Int { didSet { defaults.set(summaryHour, forKey: Key.summaryHour) } }
+    /// The day the summary was last shown on (`SummarySchedule.key`): once a day.
+    var summaryShownDay: String? {
+        get { defaults.string(forKey: Key.summaryShownDay) }
+        set { defaults.set(newValue, forKey: Key.summaryShownDay) }
+    }
+
     // MARK: Breaks
 
     /// Nudge to look away after `breakMinutes` at the screen. Off unless you ask for it.
@@ -217,6 +230,8 @@ final class Preferences: ObservableObject {
         static let quietDuringCalls = false
         static let workingHoursOn = false
         static let largerText = false
+        static let summaryOn = false
+        static let summaryHour = 17
         static var workStart: TimeOfDay { WorkingHours.usual.start }
         static var workEnd: TimeOfDay { WorkingHours.usual.end }
         static var workDays: Set<Int> { WorkingHours.usual.weekdays }
@@ -252,6 +267,8 @@ final class Preferences: ObservableObject {
         quietDuringCalls = Standard.quietDuringCalls
         blinkBreakShortcut = nil
         largerText = Standard.largerText
+        summaryOn = Standard.summaryOn
+        summaryHour = Standard.summaryHour
         workingHoursOn = Standard.workingHoursOn
         workStart = Standard.workStart
         workEnd = Standard.workEnd
@@ -285,6 +302,7 @@ final class Preferences: ObservableObject {
             || longBreakEvery != Standard.longBreakEvery || longBreakMinutes != Standard.longBreakMinutes
             || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
             || cameraID != nil || blinkBreakShortcut != nil || largerText != Standard.largerText
+            || summaryOn != Standard.summaryOn || summaryHour != Standard.summaryHour
             || workingHoursOn != Standard.workingHoursOn || workStart != Standard.workStart
             || workEnd != Standard.workEnd || workDays != Standard.workDays
     }
@@ -302,6 +320,8 @@ final class Preferences: ObservableObject {
         quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
         blinkBreakShortcut = defaults.string(forKey: Key.blinkBreakShortcut).flatMap(ShortcutChoice.init(rawValue:))
         largerText = bool(Key.largerText, Standard.largerText)
+        summaryOn = bool(Key.summaryOn, Standard.summaryOn)
+        summaryHour = min(max(int(Key.summaryHour, Standard.summaryHour), 0), 23)
         workingHoursOn = bool(Key.workingHoursOn, Standard.workingHoursOn)
         func time(_ key: String, _ standard: TimeOfDay) -> TimeOfDay {
             (defaults.object(forKey: key) as? Int).map { TimeOfDay(hour: $0 / 60, minute: $0 % 60) } ?? standard

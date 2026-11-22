@@ -14,7 +14,7 @@ import Foundation
 ///   - at least two minutes between any two banners, whatever their kinds;
 ///   - when two would come together, a break goes first, then a routine, then the blink
 ///     reminder (the break is the one with a clock running; the blink reminder comes back
-///     by itself);
+///     by itself), and last the summary of the day, which can wait;
 ///   - nothing at all while "Quiet" is on (`quiet(until:)`): no banner and no sound.
 ///     Counting goes on;
 ///   - the same outside the working hours, when the user set some (`hours`).
@@ -26,6 +26,8 @@ public struct BannerGate: Equatable {
     /// The kinds of banner, in the order they go first.
     public enum Kind: Int, CaseIterable, Comparable {
         case screenBreak, routine, blink
+        /// The optional summary of the day: it can wait a few minutes, so it goes last.
+        case summary
 
         public static func < (a: Kind, b: Kind) -> Bool { a.rawValue < b.rawValue }
     }

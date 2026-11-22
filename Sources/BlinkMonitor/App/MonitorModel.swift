@@ -680,6 +680,7 @@ final class MonitorModel: ObservableObject {
             history.minuteEnded(finished)
             adoptReference()
             reminders.minuteEnded(minutes: history.minutes)
+            reminders.summaryIfDue(minutes: history.minutes)
         }
     }
 

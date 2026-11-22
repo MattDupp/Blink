@@ -512,6 +512,22 @@ struct SettingsView: View {
                     }
                 }
             }
+            Card {
+                Row(SummaryWords.row, detail: SummaryWords.detail) {
+                    Toggle(SummaryWords.row, isOn: $preferences.summaryOn)
+                }
+                if preferences.summaryOn {
+                    Divider()
+                    let held = SummaryWords.isHeldBack(hour: preferences.summaryHour, by: preferences.workingHours)
+                    Row(SummaryWords.hourRow, detail: held ? SummaryWords.heldBack(hour: preferences.summaryHour)
+                                                           : "The banner comes at the first minute counted from this hour on, on that day only.") {
+                        Picker(SummaryWords.hourRow, selection: $preferences.summaryHour) {
+                            ForEach(0..<24, id: \.self) { Text(Format.hour($0)).tag($0) }
+                        }
+                        .fixedSize()
+                    }
+                }
+            }
             studiesCard
             Text("A reminder is a banner at the top right of the screen. It leaves after a few seconds and then waits in Notification Centre. Its buttons show when the pointer is over it.")
                 .textStyle(.callout)

@@ -171,6 +171,13 @@ enum Snapshots {
                 model.shortcut.state(refused: .controlOptionCommandB)
             }),
             ("settings-reminders", settings(.reminders)),
+            ("settings-reminders-summary", settings(.reminders) { _, model in model.preferences.summaryOn = true }),
+            // The hour chosen is after the working hours: said, not left to be found out.
+            ("settings-reminders-summary-held-back", settings(.reminders) { _, model in
+                model.preferences.summaryOn = true
+                model.preferences.summaryHour = 19
+                model.preferences.workingHoursOn = true
+            }),
             ("settings-reminders-learning", settings(.reminders, scene: .learning)),
             ("settings-reminders-measured", settings(.reminders, scene: .low) { state, model in
                 // "Measure Again" has just been pressed, and the result is lower.

@@ -158,6 +158,9 @@ and shipping it inside a real app.
 - **Quiet** for 30 minutes, an hour or until tomorrow, from the panel. No reminder, no
   look-away break and no sound, of any kind. Blinks are still counted, and the choice
   survives a restart of the app.
+- **A summary of the day** (off by default): one silent banner at the hour you choose,
+  with the time at the screen and your rate, and on Mondays a line for the seven days
+  before. A day with under 30 minutes at the screen gets no rate.
 - **Larger text** (off by default): one switch draws the words of every window about 20%
   larger. Each window still fits a 13-inch screen, and scrolls where it has to.
 - **Quiet outside working hours** (off by default): two times of day and the days of the
