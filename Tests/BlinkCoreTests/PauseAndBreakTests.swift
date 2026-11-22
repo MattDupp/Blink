@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import BlinkCore
 
-@Suite("Pauses, screen time and the blink break")
+@Suite("Pauses and the blink break")
 struct PauseAndBreakTests {
 
     private var calendar: Calendar {
@@ -45,53 +45,6 @@ struct PauseAndBreakTests {
                 == .paused(until: nil))
         #expect(MonitorStatus(lifecycle: .cameraRefused, pause: .paused(until: until), faceFound: false, rate: nil, recentLowRate: nil)
                 == .cameraRefused)
-    }
-
-    // MARK: Time at the screen
-
-    /// Feeds one frame a second from `from` to `to`.
-    private func watch(_ tracker: inout PresenceTracker, from: Int, to: Int, face: Bool) {
-        for second in from...to { tracker.frame(time: Double(second), faceFound: face) }
-    }
-
-    @Test("Time at the screen runs while a face is in view")
-    func presenceCounts() {
-        var tracker = PresenceTracker()
-        #expect(tracker.continuousSeconds(at: 0) == 0)
-        watch(&tracker, from: 100, to: 700, face: true)
-        #expect(tracker.continuousSeconds(at: 700) == 600)
-    }
-
-    @Test("Looking away for a few seconds is not a break; twenty seconds is")
-    func presenceBreaks() {
-        var tracker = PresenceTracker()
-        watch(&tracker, from: 0, to: 600, face: true)
-        watch(&tracker, from: 601, to: 610, face: false)          // ten seconds away
-        watch(&tracker, from: 611, to: 700, face: true)
-        #expect(tracker.continuousSeconds(at: 700) == 700)
-
-        watch(&tracker, from: 701, to: 730, face: false)          // thirty seconds away
-        #expect(tracker.continuousSeconds(at: 730) == 0)          // on a break right now
-        watch(&tracker, from: 731, to: 791, face: true)
-        #expect(tracker.continuousSeconds(at: 791) == 60)         // counted from the return
-    }
-
-    @Test("A nudge restarts the count, and so does a camera that was off")
-    func presenceRestarts() {
-        var tracker = PresenceTracker()
-        watch(&tracker, from: 0, to: 1200, face: true)
-        tracker.restart(at: 1200)
-        #expect(tracker.continuousSeconds(at: 1200) == 0)
-        watch(&tracker, from: 1201, to: 1260, face: true)
-        #expect(tracker.continuousSeconds(at: 1260) == 60)
-
-        // The camera was paused for an hour: no frame at all in between.
-        watch(&tracker, from: 4860, to: 4900, face: true)
-        #expect(tracker.continuousSeconds(at: 4900) == 40)
-
-        // A clock that starts again from zero starts a new stretch, never a negative one.
-        watch(&tracker, from: 5, to: 15, face: true)
-        #expect(tracker.continuousSeconds(at: 15) == 10)
     }
 
     // MARK: Blink break

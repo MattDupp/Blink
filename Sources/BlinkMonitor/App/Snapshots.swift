@@ -98,6 +98,8 @@ enum Snapshots {
             ("setup-done", setup(.done)),
             // Opened in the installer's window, without dragging it to Applications first.
             ("panel-demo-disk-image", panel(.demo, onDiskImage: true)),
+            ("panel-looking-away", panel(.lookingAway)),
+            ("panel-long-break", panel(.longBreak)),
             ("history", history(.watching)),
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
@@ -128,6 +130,8 @@ enum Snapshots {
                 state.confirmingDelete = true
             }),
             ("settings-model-none", settings(.model, scene: .needsSetup)),
+            ("settings-breaks-long", settings(.breaks, scene: .lookingAway)),
+            ("settings-breaks-off", settings(.breaks)),
             ("settings-data", settings(.data)),
             ("settings-sources", settings(.sources)),
             // The list scrolls in the window: here it is whole, to be read.

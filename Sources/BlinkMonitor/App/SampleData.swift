@@ -17,6 +17,10 @@ enum SampleData {
         case paused
         /// The first afternoon: no reference yet, and the look-away nudges switched on.
         case learning
+        /// A look-away break is running, on a day with a few behind it.
+        case lookingAway
+        /// A long break, two minutes into it, with the person away from the screen.
+        case longBreak
         /// In the middle of a blink break, `count` blinks in.
         case blinkBreak(count: Int)
         /// A minute after the very first launch: nothing recorded yet.
@@ -46,6 +50,9 @@ enum SampleData {
         let preferences = Preferences.temporary()
         preferences.reference = Reference(rate: Baseline.medianRate(of: minutes) ?? 13,
                                           measuredOn: now.addingTimeInterval(-17 * 86_400), minutes: 214)
+        // Breaks at the demo's pace: one after a minute, and a long one after two of them.
+        preferences.breakNudgesOn = true
+        preferences.breakPlan = BreakPlan(workMinutes: 1, breakSeconds: 20, longEvery: 2, longMinutes: 1)
         return MonitorModel(preferences: preferences,
                             history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
     }
@@ -122,6 +129,13 @@ enum SampleData {
             minutes.removeAll { $0.start < now.addingTimeInterval(-100 * 60) }      // installed this afternoon
             preferences.breakNudgesOn = true
             initial.screenMinutes = 34
+        case .longBreak:
+            initial.live = live.withCameraOff      // away from the screen: nobody in view
+            fallthrough
+        case .lookingAway:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+            preferences.breakNudgesOn = true
+            preferences.breakPlan = BreakPlan(workMinutes: 25, breakSeconds: 40, longEvery: 3, longMinutes: 5)
         case .blinkBreak(let count):
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             var exercise = BlinkBreak()
@@ -133,9 +147,21 @@ enum SampleData {
                                                   blinks: isLow ? 4 : 8)
         if case .firstMinute = scene { current = nil }
         if initial.lifecycle == .needsSetup { current = nil }
-        return MonitorModel(preferences: preferences,
-                            history: HistoryController(store: scratchHistory(), minutes: minutes, current: current),
-                            initial: initial, demo: isDemo)
+        let model = MonitorModel(preferences: preferences,
+                                 history: HistoryController(store: scratchHistory(), minutes: minutes, current: current),
+                                 initial: initial, demo: isDemo)
+        var tally = BreakTally(day: Calendar.current.startOfDay(for: now))
+        for ending in [BreakOutcome.Ending.onTrust, .away, .onTrust, .skipped, .away, .onTrust] {
+            tally.record(BreakOutcome(kind: .short, ending: ending), dayStart: tally.day)
+        }
+        if case .lookingAway = scene {
+            model.reminders.breaks.show(current: .init(kind: .short, seconds: 40), tally: tally)
+        }
+        if case .longBreak = scene {
+            tally.record(BreakOutcome(kind: .long, ending: .away), dayStart: tally.day)
+            model.reminders.breaks.show(current: .init(kind: .long, seconds: 300, awaySeconds: 130), tally: tally)
+        }
+        return model
     }
 
     // MARK: - The setup

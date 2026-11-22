@@ -62,7 +62,7 @@ Sources/BlinkCore/
     Detection/   EyeFinder and EyeReader (the stages for one frame), FrameSchedule,
                  BlinkDetector, BlinkStats
     Monitoring/  MonitorStatus (what the monitor is doing, decided in one place),
-                 PauseState, PresenceTracker (time at the screen), BlinkBreak,
+                 PauseState, BreakSchedule (look-away breaks), BlinkBreak,
                  ProofTest (the ten-tick test of the setup)
     History/     minute records, the CSV stores, the reminder policy, Baseline (your
                  reference and the limit), Insights (rates by hour), PublishedRates
@@ -241,7 +241,7 @@ window closed in the middle loses nothing that was finished.
 
 - **Swift** (`Tests/BlinkCoreTests`): geometry and cropping on frames painted in memory,
   the counting rules on hand-written streams of answers, history, reminders, file formats,
-  pauses, time at the screen, the blink break, and the baseline, including a month of
+  pauses, look-away breaks on hand-written timelines, the blink break, and the baseline, including a month of
   decline that must move neither the reference nor the limit.
   Whole frames are written to a movie and read back, and a painted capture is replayed
   with stand-ins for Vision and for the model: its one blink must be counted once.

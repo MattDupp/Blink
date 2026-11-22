@@ -74,6 +74,8 @@ make demo
 
 An eye marked "demo" appears in the menu bar and its panel opens. Every window works, the
 blink break counts, and the made-up eyes are counted by the same code that counts real ones.
+After a minute a look-away break starts: the made-up person looks away, and a sound says
+when the 20 seconds are over. The third break is a long one, of one minute.
 It never opens the camera and keeps its settings and history apart from the real app's.
 *See the Setup*, in its panel, goes through the setup on painted eyes: they are recorded,
 a model is really trained on them, and it is really tested.
@@ -106,8 +108,11 @@ and shipping it inside a real app.
 - **Shows what studies report**, next to your own rate and limit: how often healthy adults
   blink at a screen, at rest and in conversation, with the papers one click away.
   See [what studies say](#what-studies-say-about-blink-rate).
-- **Look-away nudges** (off by default): after 20 minutes at the screen, look at something
-  far away for 20 seconds.
+- **Look-away breaks** (off by default), with every number yours to set: the time between
+  breaks, the length of a break, and a long break away from the screen after every few
+  short ones. It starts from the classic 20-20-20. A break starts by itself and a sound
+  says when it is over, so there is nothing to watch. The panel counts the day's breaks,
+  and says which ones the camera saw you take away from the screen.
 - **Pause** for 15 minutes, an hour, until tomorrow or until you resume. It switches the
   camera off for real and ends by itself; the camera also goes off when the screen sleeps
   or locks.
@@ -445,7 +450,7 @@ Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
 Tests/BlinkCoreTests     117 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its choices, its words, its clock, the demo, where it is installed
+Tests/BlinkMonitorTests  22 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 26 tests
 scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, the research on blink rates, lessons, development notes
@@ -459,7 +464,7 @@ docs/                    how it works, the research on blink rates, lessons, dev
 - **Training in the app was measured on one Mac** (M5 Pro, macOS 27). The app shows the time left as it measures it; how long an older Mac takes is not known.
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.
 - **Processor use.** About 32% of one core while it watches you (see Results).
-- **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look.
+- **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look. A break with your face in view is taken on trust. How far a head must turn before the camera loses the face has not been measured.
 - **The Mac's own camera has to face you.** If you work on an external display with the MacBook to one side, it sees you in profile or not at all, and the panel says "No face". There is no camera picker yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.
 - **Looking down** at the keyboard looks like closed eyes from the camera's angle. A closure longer than 0.6 s is not counted as a blink, which covers most of it.

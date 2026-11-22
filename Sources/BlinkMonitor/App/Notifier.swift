@@ -10,14 +10,17 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     enum Notice {
         /// You blink too little: `recent` is the rate over the last three minutes.
         case lowRate(recent: Double)
-        /// You have been at the screen for this many minutes without a break.
-        case screenBreak(minutes: Int)
+        /// A look-away break starts (the words come from `BreakWords`). `canPostpone`:
+        /// the banner still offers "In 5 Minutes".
+        case screenBreak(title: String, body: String, canPostpone: Bool)
     }
 
     /// What a banner's buttons ask for.
     enum Action {
         case blinkBreak
         case snooze
+        case postponeBreak
+        case skipBreak
     }
 
     private enum Identifier {
@@ -25,6 +28,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let screenBreak = "screen-break"
         static let blinkBreak = "start-blink-break"
         static let snooze = "snooze-one-hour"
+        /// A break that was already put off once: the same banner without that button.
+        static let screenBreakLast = "screen-break-last"
+        static let postponeBreak = "break-in-five-minutes"
+        static let skipBreak = "skip-break"
     }
 
     /// Called on the main thread when a button of a banner is pressed.
@@ -51,7 +58,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationAction(identifier: Identifier.blinkBreak, title: "Start Blink Break", options: [.foreground]),
             UNNotificationAction(identifier: Identifier.snooze, title: "Snooze 1 Hour", options: []),
         ], intentIdentifiers: [])
-        center.setNotificationCategories([lowRate])
+        // Neither button brings the app forward: you are about to look away.
+        let later = UNNotificationAction(identifier: Identifier.postponeBreak, title: "In 5 Minutes", options: [])
+        let skip = UNNotificationAction(identifier: Identifier.skipBreak, title: "Skip", options: [])
+        let screenBreak = UNNotificationCategory(identifier: Identifier.screenBreak, actions: [later, skip], intentIdentifiers: [])
+        let screenBreakLast = UNNotificationCategory(identifier: Identifier.screenBreakLast, actions: [skip], intentIdentifiers: [])
+        center.setNotificationCategories([lowRate, screenBreak, screenBreakLast])
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             if let error { Log.app.error("Notifications: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
@@ -63,8 +75,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func show(_ notice: Notice) {
         guard allowed, let center else {
-            // No right to show a banner: a soft sound is better than silence.
-            NSSound(named: "Glass")?.play()
+            // No right to show a banner: a soft sound is better than silence. A break has
+            // a sound of its own for its start: "Glass" is the one that says it is over.
+            if case .screenBreak = notice { NSSound(named: "Ping")?.play() } else { NSSound(named: "Glass")?.play() }
             return
         }
         let content = UNMutableNotificationContent()
@@ -77,14 +90,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             content.title = "Time to blink"
             content.body = String(format: "About %.0f blinks a minute over the last 3 minutes. "
                                   + "Ten slow, full blinks help.", recent)
-        case .screenBreak(let minutes):
+        case .screenBreak(let title, let body, let canPostpone):
             identifier = Identifier.screenBreak
-            content.title = "Look far away for 20 seconds"
-            content.body = "You have been at the screen for \(minutes) minutes. Pick something across the room, or out of the window."
+            content.categoryIdentifier = canPostpone ? Identifier.screenBreak : Identifier.screenBreakLast
+            content.title = title
+            content.body = body
         }
         // One fixed identifier per kind: a new banner replaces the previous one instead of
         // piling up in Notification Centre.
         center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
+    /// The break is over: its banner, if it is still on screen or in Notification Centre,
+    /// would now ask for something that is done.
+    func withdrawScreenBreak() {
+        center?.removeDeliveredNotifications(withIdentifiers: [Identifier.screenBreak])
     }
 
     // Without this, macOS hides the banner of an app it considers "in front".
@@ -101,6 +121,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         switch response.actionIdentifier {
         case Identifier.blinkBreak: action = .blinkBreak
         case Identifier.snooze: action = .snooze
+        case Identifier.postponeBreak: action = .postponeBreak
+        case Identifier.skipBreak: action = .skipBreak
         // A click on the "time to blink" banner itself is taken as "yes, let us do it".
         case UNNotificationDefaultActionIdentifier: action = aboutLowRate ? .blinkBreak : nil
         default: action = nil

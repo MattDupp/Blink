@@ -103,7 +103,8 @@ struct SettingsView: View {
             switch state.tab {
             case .general: general
             case .reminders: remindersTab
-            case .breaks: breaks
+            case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
+                                    startBlinkBreak: actions.startBlinkBreak)
             case .model: modelTab
             case .data: data
             case .sources: sources
@@ -316,37 +317,6 @@ struct SettingsView: View {
         state.measurement = proposal.map { .proposed($0) } ?? .tooLittle
     }
 
-    // MARK: Breaks
-
-    private var breaks: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Card {
-                Row("Blink break", detail: "Ten slow, full blinks, counted by the camera. Also offered when your rate is low.") {
-                    Button("Start") { actions.startBlinkBreak() }
-                        .disabled(!model.status(now: moment.now).isCameraOn)
-                }
-            }
-            Card {
-                Row("Remind me to look away",
-                    detail: "Looking at something far away rests the eyes: 20 seconds is enough.") {
-                    Toggle("Remind me to look away", isOn: $preferences.breakNudgesOn)
-                }
-                Divider()
-                Row("After", detail: "Time at the screen without a break.") {
-                    Picker("After", selection: $preferences.breakMinutes) {
-                        ForEach(Preferences.breakChoices, id: \.self) { Text("\($0) minutes").tag($0) }
-                    }
-                    .fixedSize()
-                    .disabled(!preferences.breakNudgesOn)
-                }
-            }
-            Text("A break is 20 seconds with no face in view. The camera cannot tell where you look, so the count also starts again once a nudge has been shown.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     // MARK: Your data
 
     private var data: some View {
@@ -548,8 +518,9 @@ struct SettingsView: View {
 
 // MARK: - Pieces
 
-/// A group of rows on one background.
-private struct Card<Content: View>: View {
+/// A group of rows on one background. (The Breaks tab, in its own file, uses it too.)
+private typealias Card = SettingsCard
+struct SettingsCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -560,7 +531,8 @@ private struct Card<Content: View>: View {
 }
 
 /// One setting: what it is, what it means, and its control on the right.
-private struct Row<Control: View>: View {
+private typealias Row = SettingsRow
+struct SettingsRow<Control: View>: View {
     private let title: String
     private let detail: String
     private let control: Control

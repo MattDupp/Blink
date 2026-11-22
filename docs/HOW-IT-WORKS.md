@@ -230,13 +230,41 @@ and how each was read.
 
 ## 7. Breaks and pauses
 
-Three small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
+Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 
 | Type | What it decides |
 |---|---|
 | `BlinkBreak` | The exercise counts every completed closure up to 3 s. Its blinks are slow on purpose and often last longer than the 0.6 s the counter accepts, so it has its own rule; the monitor's counting is not changed by it. |
-| `PresenceTracker` | Time at the screen since the last break, where a break is 20 s with no face in view. The camera cannot see where you look, so the count also restarts once a nudge has been shown. |
+| `BreakSchedule` | The look-away breaks: which one is due, short or long, and what counts as taken. See below. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
+
+### Look-away breaks
+
+You choose four numbers (`BreakPlan`): the minutes between breaks, the seconds of a break,
+how many short breaks come before a long one, and the minutes of the long one. The long
+break can be switched off. The default is the classic rule: every 20 minutes, 20 seconds.
+
+`BreakSchedule` has no clock and no window. It is told "at this time a face was in view" or
+"was not", and answers with events. That is why it can be tested on timelines written by
+hand.
+
+| Rule | Why |
+|---|---|
+| Time at the screen runs while a face is in view. Losing the face for less than a short break changes nothing. | People look down, and the camera misses frames. |
+| A due break starts by itself. A sound says when it is over. | A countdown on the screen would keep the eyes on the screen. |
+| A short break lasts its seconds plus five. | Time to read the banner and turn away. |
+| With no face in view for 60% of it, the break is recorded as **away**. Otherwise it is **on trust**. | The camera cannot tell where you look. The app does not claim what it did not see. |
+| An absence as long as a break is a break, whenever it happens. | A break you take on your own counts. |
+| In a long break only seconds with no face count. Back early, the count waits. After twice its length it is recorded as **cut short** and the cycle goes on. | A long break means leaving the screen. Asking again and again would teach you to switch it off. |
+| A break can be put off for five minutes, once. It can be skipped, and that is counted. | Putting off should not become the habit. |
+| Time when nothing was observed (a sleeping screen, a pause) is absence. | Nobody was at the screen, as far as the app knows. |
+
+The day's breaks are counted by `BreakTally` and shown in the panel. The count to the next
+long break does not stop at midnight; the tally does.
+
+The app feeds the schedule the wall clock, not the camera's clock, so a night is a long
+absence and not a jump. During a break a timer calls it once a second, because the camera
+sends few updates while nobody is in view.
 
 ## 8. Keeping it cheap
 
