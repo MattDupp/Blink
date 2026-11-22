@@ -228,6 +228,7 @@ struct SettingsView: View {
     @ObservedObject var history: HistoryController
     @ObservedObject var reminders: ReminderController
     @ObservedObject var loginItem: LoginItem
+    @ObservedObject var shortcut: ShortcutController
     @ObservedObject var state: SettingsState
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
@@ -416,6 +417,17 @@ struct SettingsView: View {
             Divider()
             Row("The menu-bar eye blinks with you", detail: "It closes for a moment at each blink the camera counts.") {
                 Toggle("The menu-bar eye blinks with you", isOn: $preferences.blinkBack)
+            }
+            Divider()
+            Row(ShortcutWords.title, detail: ShortcutWords.detail(chosen: preferences.blinkBreakShortcut, refused: shortcut.refused)) {
+                // "" stands for Off: a picker's tag cannot be nil.
+                Picker(ShortcutWords.title, selection: Binding(get: { preferences.blinkBreakShortcut?.rawValue ?? "" },
+                                                              set: { preferences.blinkBreakShortcut = ShortcutChoice(rawValue: $0) })) {
+                    Text(ShortcutWords.off).tag("")
+                    Divider()
+                    ForEach(ShortcutChoice.allCases) { Text($0.symbols).accessibilityLabel($0.spoken).tag($0.rawValue) }
+                }
+                .fixedSize()
             }
             Divider()
             Row("Live View", detail: "The camera with your eyes framed, and each blink as it is counted.") {

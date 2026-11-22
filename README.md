@@ -117,6 +117,9 @@ and shipping it inside a real app.
   once and offers to follow your own rate.
 - **Blink break**: ten slow, full blinks, counted by the camera, with a sound at each one
   because your eyes are closed.
+- **A shortcut for the blink break** (off by default): one of four key combinations, such
+  as ⌃⌥⌘B, starts it from any app. It needs no permission from macOS, and Settings says
+  so when macOS refuses a combination.
 - **A limit that fits you, and does not follow you down.** The app measures your usual rate
   once and sets the limit at 70% of it. See [your usual rate](#a-usual-rate-that-does-not-follow-you-down).
 - **Shows what studies report**, next to your own rate and limit: how often healthy adults

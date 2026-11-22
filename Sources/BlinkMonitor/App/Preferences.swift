@@ -18,6 +18,7 @@ final class Preferences: ObservableObject {
         static let pauseOnBattery = "pauseOnBattery"
         static let pauseInLowPower = "pauseInLowPowerMode"
         static let quietDuringCalls = "quietDuringCalls"
+        static let blinkBreakShortcut = "blinkBreakShortcut"
         static let workingHoursOn = "workingHoursOn"
         static let workStart = "workingHoursStart"
         static let workEnd = "workingHoursEnd"
@@ -69,6 +70,9 @@ final class Preferences: ObservableObject {
     var workingHours: WorkingHours? {
         workingHoursOn ? WorkingHours(start: workStart, end: workEnd, weekdays: workDays) : nil
     }
+    /// The key combination that starts a blink break from any app. Nil: none, which is
+    /// how it starts (`ShortcutController`).
+    @Published var blinkBreakShortcut: ShortcutChoice? { didSet { defaults.set(blinkBreakShortcut?.rawValue, forKey: Key.blinkBreakShortcut) } }
     /// The camera the user chose, as macOS knows it. Nil: Automatic (`CameraChoice`).
     @Published var cameraID: String? { didSet { defaults.set(cameraID, forKey: Key.cameraID) } }
     /// The rate in the menu bar is written in orange while it is low. The badge on the
@@ -242,6 +246,7 @@ final class Preferences: ObservableObject {
         pauseOnBattery = Standard.pauseOnBattery
         pauseInLowPower = Standard.pauseInLowPower
         quietDuringCalls = Standard.quietDuringCalls
+        blinkBreakShortcut = nil
         workingHoursOn = Standard.workingHoursOn
         workStart = Standard.workStart
         workEnd = Standard.workEnd
@@ -274,7 +279,7 @@ final class Preferences: ObservableObject {
             || breakSeconds != Standard.breakSeconds || longBreakOn != Standard.longBreakOn
             || longBreakEvery != Standard.longBreakEvery || longBreakMinutes != Standard.longBreakMinutes
             || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
-            || cameraID != nil
+            || cameraID != nil || blinkBreakShortcut != nil
             || workingHoursOn != Standard.workingHoursOn || workStart != Standard.workStart
             || workEnd != Standard.workEnd || workDays != Standard.workDays
     }
@@ -290,6 +295,7 @@ final class Preferences: ObservableObject {
         pauseOnBattery = bool(Key.pauseOnBattery, Standard.pauseOnBattery)
         pauseInLowPower = bool(Key.pauseInLowPower, Standard.pauseInLowPower)
         quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
+        blinkBreakShortcut = defaults.string(forKey: Key.blinkBreakShortcut).flatMap(ShortcutChoice.init(rawValue:))
         workingHoursOn = bool(Key.workingHoursOn, Standard.workingHoursOn)
         func time(_ key: String, _ standard: TimeOfDay) -> TimeOfDay {
             (defaults.object(forKey: key) as? Int).map { TimeOfDay(hour: $0 / 60, minute: $0 % 60) } ?? standard

@@ -297,7 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                        capturesRoot: demo ? nil : Options.ownCaptureRoot)
         let settings = WindowController(title: "Blink Monitor Settings") { [weak self] in
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
-                         loginItem: model.loginItem, state: settingsState, files: recordings,
+                         loginItem: model.loginItem, shortcut: model.shortcut, state: settingsState, files: recordings,
                          actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
                                                   openLiveView: { liveView.show() },
                                                   openSetup: { self?.showSetup($0) },
@@ -328,6 +328,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings,
             openSetup: { [weak self] in self?.showSetup(.resume) }, leaveDemo: leaveDemo,
             tryDemo: demo ? nil : { [weak self] in self?.switchTo(demo: true) }, quit: { NSApp.terminate(nil) }))
+
+        // The optional shortcut: a blink break when the camera can count it, the panel
+        // (which says why not) otherwise.
+        model.shortcut.start { [weak self] in
+            if model.status().isCameraOn { blinkBreak.show() } else { self?.running?.statusItem.showPanel() }
+        }
 
         var running = Running(model: model, statusItem: statusItem, setup: setupModel,
                               windows: ["history": history, "live-view": liveView, "blink-break": blinkBreak,
@@ -397,6 +403,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             running.welcome?.onVisibilityChange = nil
             running.welcome?.close()
             running.statusItem.remove()
+            running.model.shortcut.stop()
             running.model.shutDown()
             // The setup window was closed without its handler: its Dock icon goes with it.
             NSApp.setActivationPolicy(.accessory)

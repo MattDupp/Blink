@@ -41,7 +41,7 @@ enum Snapshots {
             // A folder that does not exist: the screenshots state what is on disk instead.
             let nowhere = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-setup", isDirectory: true)
             return AnyView(SettingsView(model: model, preferences: model.preferences, history: model.history,
-                                        reminders: model.reminders, loginItem: model.loginItem, state: state,
+                                        reminders: model.reminders, loginItem: model.loginItem, shortcut: model.shortcut, state: state,
                                         moment: Moment(frozen: now),
                                         files: SettingsFiles(store: ModelStore(base: nowhere), sessionsRoot: nowhere),
                                         // (A closure that does nothing: the card is drawn, and a picture cannot press it.)
@@ -150,6 +150,11 @@ enum Snapshots {
             ("history-day", history(.low, daysBack: 1)),
             ("settings-general", settings(.general)),
             ("settings-general-working-hours", settings(.general, scene: .outsideHours)),
+            // A shortcut was chosen, and macOS refused it: said on the row, not swallowed.
+            ("settings-general-shortcut-refused", settings(.general) { _, model in
+                model.preferences.blinkBreakShortcut = .controlOptionCommandB
+                model.shortcut.state(refused: .controlOptionCommandB)
+            }),
             ("settings-reminders", settings(.reminders)),
             ("settings-reminders-learning", settings(.reminders, scene: .learning)),
             ("settings-reminders-measured", settings(.reminders, scene: .low) { state, model in

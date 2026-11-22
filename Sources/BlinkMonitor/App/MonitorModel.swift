@@ -114,6 +114,9 @@ final class MonitorModel: ObservableObject {
     @Published private(set) var failure: StartFailure?
     let routines: RoutineController
     let captures = CaptureController()
+    /// The optional shortcut for a blink break. It registers nothing until the app
+    /// delegate starts it.
+    private(set) lazy var shortcut = ShortcutController(preferences: preferences)
     /// Where the model trained in this app is kept.
     let modelStore: ModelStore
 

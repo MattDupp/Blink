@@ -283,6 +283,17 @@ Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 | `BreakSchedule` | The look-away breaks: which one is due, short or long, and what counts as taken. See below. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
 
+### A shortcut that needs no permission
+
+The blink break can be started from any app with a key combination, chosen in Settings
+from a list of four (off by default). The app registers it with macOS's own hot-key call
+(`RegisterEventHotKey`). That call does not let an app watch the keyboard: macOS tells
+the app that its one combination was pressed, and nothing else. So it needs neither
+Accessibility nor Input Monitoring. When another app already holds the combination, macOS
+refuses it (measured on 22 November 2026: the second registration of the same keys
+returns an error), and the row in Settings says so instead of leaving a shortcut that
+does nothing. With the camera off, the shortcut opens the panel, which says why.
+
 ### One meaning for each sound
 
 | Sound | Means |

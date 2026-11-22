@@ -422,6 +422,58 @@ struct PreferencesTests {
         }
     }
 
+    @Test("The shortcut for a blink break: none until chosen, registered when the app starts it, a refusal said")
+    func shortcut() {
+        /// Stands for macOS: it refuses one combination, as when another app holds it.
+        @MainActor final class StatedKeys: HotKeys {
+            var held: ShortcutChoice?
+            var press: () -> Void = {}
+            var asked = 0
+            func register(_ choice: ShortcutChoice, pressed: @escaping () -> Void) -> Bool {
+                asked += 1
+                guard choice != .controlShiftCommandB else { return false }
+                (held, press) = (choice, pressed)
+                return true
+            }
+            func unregister() { (held, press) = (nil, {}) }
+        }
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            #expect(preferences.blinkBreakShortcut == nil && !preferences.hasChoices, "off by default")
+            let keys = StatedKeys()
+            let controller = ShortcutController(preferences: preferences, keys: keys)
+            preferences.blinkBreakShortcut = .controlOptionCommandB
+            #expect(keys.asked == 0, "nothing is taken from this Mac before the app starts it")
+            var presses = 0
+            controller.start { presses += 1 }
+            #expect(keys.held == .controlOptionCommandB && controller.refused == nil)
+            keys.press()
+            #expect(presses == 1)
+            // Kept across a relaunch.
+            #expect(Preferences(defaults: store).blinkBreakShortcut == .controlOptionCommandB)
+            // macOS refuses the next one: nothing is held, and the row says so by name.
+            preferences.blinkBreakShortcut = .controlShiftCommandB
+            #expect(keys.held == nil && controller.refused == .controlShiftCommandB)
+            let said = ShortcutWords.detail(chosen: preferences.blinkBreakShortcut, refused: controller.refused)
+            #expect(said.contains("⌃⇧⌘B") && said.contains("Choose another"))
+            // Another choice is accepted, and the refusal is forgotten.
+            preferences.blinkBreakShortcut = .optionShiftCommandB
+            #expect(keys.held == .optionShiftCommandB && controller.refused == nil)
+            // Off, and Reset to Defaults, give the key back.
+            preferences.blinkBreakShortcut = .controlOptionShiftB
+            preferences.resetChoices()
+            #expect(keys.held == nil && preferences.blinkBreakShortcut == nil)
+            controller.stop()
+            preferences.blinkBreakShortcut = .controlOptionCommandB
+            #expect(keys.held == nil, "a stopped controller takes nothing")
+        }
+        // Four different combinations, each with three modifier keys and B.
+        #expect(Set(ShortcutChoice.allCases.map(\.modifiers)).count == ShortcutChoice.allCases.count)
+        for choice in ShortcutChoice.allCases {
+            #expect(choice.modifiers.nonzeroBitCount == 3 && choice.symbols.hasSuffix("B") && choice.symbols.count == 4)
+        }
+    }
+
     @Test("A floor somebody chose is never replaced")
     func chosenFloor() {
         withStore { store in
