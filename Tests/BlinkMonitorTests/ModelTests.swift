@@ -378,11 +378,11 @@ struct SourceTests {
         }
         // The first day: time is missing, and so is a second day.
         #expect(line(hours: 1 + 20.0 / 60, days: 1)
-                == "Learning your usual rate: 1 h 20 of 3 h 00, over 2 days. It can finish tomorrow. Until then the limit is 10 a minute.")
+                == "Learning your usual rate: 1 h 20 min of 3 h, over 2 days. It can finish tomorrow. Until then the limit is 10 a minute.")
         // The first day, a long one: only the second day is missing. It no longer stops at "50%".
         #expect(line(hours: 5, days: 1).contains("all on one day") && line(hours: 5, days: 1).contains("finishes tomorrow"))
         // The second day: only time is missing.
-        #expect(line(hours: 2.5, days: 2).contains("2 h 30 of 3 h 00. 30 min to go."))
+        #expect(line(hours: 2.5, days: 2).contains("2 h 30 min of 3 h. 30 min to go."))
     }
 
     @Test("A failure to start is a sentence for a person: no error text, no command")

@@ -205,7 +205,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 Row("Remind me when I blink too little",
-                    detail: "When your rate stays under the limit for three minutes. Left unanswered it backs off: the next after 5, 15, 30, then 60 minutes, with a sound for the first two only. A blink break answers it.") {
+                    detail: "When your rate stays under the limit for 3 minutes. Left unanswered it backs off: the next after 5, 15, 30, then 60 minutes, with a sound for the first two only. A blink break answers it.") {
                     Toggle("Remind me when I blink too little", isOn: $preferences.remindersOn)
                 }
                 Divider()
@@ -274,7 +274,7 @@ struct SettingsView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(format: "Your usual rate: %.1f blinks a minute", reference.rate))
-                        Text("Measured on \(Format.day(reference.measuredOn)) over \(reference.minutes) minutes. \(limitSentence(reference))")
+                        Text("Measured on \(Format.day(reference.measuredOn)) over \(Format.count(reference.minutes, "minute")). \(limitSentence(reference))")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -355,7 +355,7 @@ struct SettingsView: View {
             .padding(10)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         case .tooLittle:
-            Text("Too little was recorded in the last week to measure: three hours over two days are needed.")
+            Text("Too little was recorded in the last week to measure: 3 hours over 2 days are needed.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         case nil:
@@ -377,7 +377,7 @@ struct SettingsView: View {
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
                     DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them in Your Model.")
                     if state.onDisk.captures > 0 {
-                        DataPoint(symbol: "record.circle", text: "Kept from Live View: \(state.onDisk.captures) capture\(state.onDisk.captures == 1 ? "" : "s") of your eyes"
+                        DataPoint(symbol: "record.circle", text: "Kept from Live View: \(Format.count(state.onDisk.captures, "capture")) of your eyes"
                                   + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
                                   + "recorded with its record buttons. Your Model deletes them with the recordings.")
                     }
@@ -388,7 +388,7 @@ struct SettingsView: View {
                 .padding(.vertical, 12)
             }
             Card {
-                Row("History file", detail: "\(history.minutes.count.formatted()) minutes over the last \(HistoryController.daysKept) days. It opens in any spreadsheet.") {
+                Row("History file", detail: "\(Format.count(history.minutes.count, "minute")) over the last \(HistoryController.daysKept) days. It opens in any spreadsheet.") {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
                 }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
@@ -435,7 +435,7 @@ struct SettingsView: View {
                         Button("Add a Recording…") { actions.openSetup(.addSession) }
                     }
                     Divider()
-                    Row("Test it again", detail: "Ten ticks, a blink at each: how many does it count where you sit now?") {
+                    Row("Test it again", detail: "10 ticks, a blink at each: how many does it count where you sit now?") {
                         Button("Test Again") { actions.openSetup(.test) }
                             .disabled(!isTrainedHere)
                     }
@@ -482,7 +482,7 @@ struct SettingsView: View {
         if model.isDemo { return "Its blinks are made up. See the Setup, in the panel, trains a real model on painted eyes." }
         switch model.modelSource {
         case .trainedHere(let info):
-            var text = "On \(Format.day(info.trainedOn)), from \(info.sessions.count) recording\(info.sessions.count == 1 ? "" : "s") "
+            var text = "On \(Format.day(info.trainedOn)), from \(Format.count(info.sessions.count, "recording")) "
                 + "(\(info.pictures.formatted()) pictures)."
             if let proof = info.proof {
                 text += " Its test: \(proof.found) of \(proof.of) blinks counted"
@@ -503,10 +503,10 @@ struct SettingsView: View {
 
     private var onDiskDetail: String {
         let disk = state.onDisk
-        let captures = disk.captures == 0 ? "" : " Also \(disk.captures) capture\(disk.captures == 1 ? "" : "s") from Live View"
+        let captures = disk.captures == 0 ? "" : " Also \(Format.count(disk.captures, "capture")) from Live View"
             + String(format: ", %.0f MB.", disk.captureMegabytes)
         guard disk.sessions > 0 else { return disk.captures == 0 ? "No recording on this Mac." : "No recording on this Mac.\(captures)" }
-        return "\(disk.sessions) recording\(disk.sessions == 1 ? "" : "s"), \(disk.pictures.formatted()) small pictures of your eyes, "
+        return "\(Format.count(disk.sessions, "recording")), \(disk.pictures.formatted()) small pictures of your eyes, "
             + String(format: "%.0f MB.", disk.megabytes) + captures + " "
             + (files.ownSessions ? "In a folder only your account can read." : "In \(files.sessionsRoot.path), named at launch.")
     }

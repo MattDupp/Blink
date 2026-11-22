@@ -78,7 +78,7 @@ final class RoutineBanners {
             let time = Format.time(slot.due)
             if let minutes = banner.routine.screenMinutes {
                 // "At the screen": it has no time of its own to name.
-                content.body = "\(minutes) minutes at the screen."
+                content.body = "\(Format.count(minutes, "minute")) at the screen."
             } else {
                 content.body = banner.kept ? "Your \(time) reminder, kept until you were back."
                                            : "Your \(time) reminder."
@@ -86,7 +86,7 @@ final class RoutineBanners {
             if let week = banner.week { content.body += " \(week.done) of \(week.target) done this week." }
             content.userInfo = ["routine": slot.routine, "slot": slot.key]
         } else {
-            content.body = "This is a test. A real reminder looks like this, and its buttons mark it done or put it off \(minutes) minutes."
+            content.body = "A test. Real reminders look like this."
             content.userInfo = ["routine": banner.routine.id, "slot": ""]
         }
         return content

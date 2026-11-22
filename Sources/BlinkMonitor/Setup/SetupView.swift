@@ -711,8 +711,8 @@ private struct TrainPage: View {
     /// What the training produced, in numbers a person can check.
     private var result: String {
         guard let info = model.info else { return "Done." }
-        return "Trained on \(info.pictures.formatted()) pictures from \(info.sessions.count) "
-            + "recording\(info.sessions.count == 1 ? "" : "s") in \(Self.duration(info.seconds)). "
+        return "Trained on \(info.pictures.formatted()) pictures from \(Format.count(info.sessions.count, "recording")) "
+            + "in \(Self.duration(info.seconds)). "
             + "Shown the same pictures again, unaltered, it calls \(info.rightOnOwnPictures.formatted()) of them right. "
             + "That is the easy test, since it has seen them. The real one is next."
     }
@@ -838,7 +838,7 @@ private struct ProofPage: View {
 
     private var headline: String {
         switch model.proof {
-        case .ready: return "Ten ticks. Blink once at each."
+        case .ready: return "10 ticks. Blink once at each."
         case .running: return model.proofTest.answered.isEmpty ? "Get ready" : "Blink at each tick"
         case .finished(let result):
             return result.passed ? "\(result.found) of \(result.of) blinks counted" : "Only \(result.found) of \(result.of) blinks counted"
@@ -863,7 +863,7 @@ private struct ProofPage: View {
                     + "the model then learns from eyes in this light."
             }
             if result.extra > 0 {
-                text += " It also counted \(result.extra) blink\(result.extra == 1 ? "" : "s") between the ticks, which may well be yours."
+                text += " It also counted \(Format.count(result.extra, "blink")) between the ticks, which may well be yours."
             }
             return text
         }

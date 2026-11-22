@@ -645,10 +645,17 @@ struct StatTile: View {
 
 /// How the app writes durations, times and days: once, so every window says them alike.
 enum Format {
-    /// "42 min", "2 h 05".
+    /// "42 min", "2 h 5 min", "3 h".
     static func duration(_ seconds: Double) -> String {
         let minutes = Int(seconds / 60)
-        return minutes >= 60 ? "\(minutes / 60) h \(String(format: "%02d", minutes % 60))" : "\(minutes) min"
+        guard minutes >= 60 else { return "\(minutes) min" }
+        // "5 h 10" is not an English duration, and "3 h 00" says nothing more than "3 h".
+        return minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes / 60) h \(minutes % 60) min"
+    }
+
+    /// "1 minute", "3 minutes": a number with its noun, so that no sentence says "1 minutes".
+    static func count(_ number: Int, _ noun: String) -> String {
+        number == 1 ? "1 \(noun)" : "\(number.formatted()) \(noun)s"
     }
 
     /// "16:30".

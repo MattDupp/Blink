@@ -12,7 +12,7 @@ enum BreakWords {
     static func length(seconds: Int) -> String {
         if seconds < 60 { return "\(seconds) seconds" }
         let minutes = seconds / 60, rest = seconds % 60
-        if rest == 0 { return minutes == 1 ? "1 minute" : "\(minutes) minutes" }
+        if rest == 0 { return Format.count(minutes, "minute") }
         return "\(minutes) min \(rest) s"
     }
 
@@ -33,7 +33,7 @@ enum BreakWords {
     }
 
     static func bannerBody(_ kind: BreakKind, screenMinutes: Int) -> String {
-        let atTheScreen = "You have been at the screen for \(screenMinutes == 1 ? "1 minute" : "\(screenMinutes) minutes")."
+        let atTheScreen = "You have been at the screen for \(Format.count(screenMinutes, "minute"))."
         switch kind {
         case .short:
             return "\(atTheScreen) Pick something across the room, or out of the window. A sound says when it is over."

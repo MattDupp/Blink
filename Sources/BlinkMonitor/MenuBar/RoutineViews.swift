@@ -168,11 +168,11 @@ private struct WeekRow: View {
                     } else {
                         if let slot = day.due {
                             Button("Later") { actions.later(slot) }
-                                .help("Remind me again in \(laterMinutes) minutes")
+                                .help("Remind me again in \(Format.count(laterMinutes, "minute"))")
                         }
                         if let minutes = day.routine.sessionMinutes {
                             Button("Start Timer") { actions.start() }
-                                .help("\(minutes) minutes. The camera is paused meanwhile, a sound marks the end, and it is marked done.")
+                                .help("\(Format.count(minutes, "minute")). The camera is paused meanwhile, a sound marks the end, and it is marked done.")
                         }
                         Button("I Did It") { actions.didIt() }
                             .help("Counts for this week, whatever the day or the hour")
@@ -323,11 +323,11 @@ private struct RoutineRow: View {
             Spacer(minLength: 6)
             if offerLater {
                 Button("Later") { later(slot) }
-                    .help("Remind me again in \(laterMinutes) minutes")
+                    .help("Remind me again in \(Format.count(laterMinutes, "minute"))")
             }
             if let minutes = day.routine.sessionMinutes {
                 Button("Start Timer") { start() }
-                    .help("\(minutes) minutes. The camera is paused meanwhile, a sound marks the end, and it is marked done.")
+                    .help("\(Format.count(minutes, "minute")). The camera is paused meanwhile, a sound marks the end, and it is marked done.")
             }
             Button("Done") { done(slot) }
         }
