@@ -43,6 +43,10 @@ public enum ScreenRenderer {
             .background(Color(nsColor: .windowBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(18)
+            // A picture shows the whole window, on whatever Mac it is rendered: the room
+            // of this Mac's screen must not cut it (`ScrollsWhenTall`). A screen that
+            // wants to show the scrolling states a room of its own, further in.
+            .environment(\.screenRoom, 100_000)
 
         let hosting = NSHostingView(rootView: framed)
         hosting.appearance = appearance

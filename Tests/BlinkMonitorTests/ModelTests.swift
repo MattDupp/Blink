@@ -392,4 +392,36 @@ struct SourceTests {
         // The record buttons belong to whoever started the app with a folder for captures.
         #expect(!Options.developerTools)
     }
+
+    @Test("A blink break is left out of the count: no watched time and no blink, but its blinks are still reported")
+    func exerciseLeftOut() throws {
+        var eyes = DemoEyes()
+        let pipeline = MonitorPipeline()
+        pipeline.setLiveView(true)                 // report every frame
+        var updates: [MonitorUpdate] = []
+        pipeline.onUpdate = { updates.append($0) }
+        func run(from start: Double, seconds: Double) {
+            for frame in 0..<Int(seconds * 30) {
+                let time = start + Double(frame) / 30
+                pipeline.process(eyes.reading(at: time), time: time)
+            }
+        }
+        run(from: 1000, seconds: 60)
+        let before = try #require(updates.last?.live.counters)
+        #expect(before.observedSeconds > 55 && before.totalBlinks > 5)
+
+        eyes.pace = .exercise                      // slow, full blinks
+        pipeline.setExercise(true)
+        updates = []
+        run(from: 1060, seconds: 40)
+        let during = try #require(updates.last?.live.counters)
+        #expect(during.observedSeconds == before.observedSeconds && during.totalBlinks == before.totalBlinks)
+        #expect(updates.compactMap(\.event).count >= 5)          // the exercise still hears them
+        #expect(updates.compactMap(\.completedMinute).allSatisfy { $0.observedSeconds <= 60 })
+
+        eyes.pace = .usual
+        pipeline.setExercise(false)
+        run(from: 1100, seconds: 10)
+        #expect(try #require(updates.last?.live.counters).observedSeconds > before.observedSeconds + 9)
+    }
 }

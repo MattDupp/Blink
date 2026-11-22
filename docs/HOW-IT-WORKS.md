@@ -254,7 +254,7 @@ Small pieces of logic, each a tested type in `BlinkCore/Monitoring`:
 
 | Type | What it decides |
 |---|---|
-| `BlinkBreak` | The exercise counts every completed closure up to 3 s. Its blinks are slow on purpose and often last longer than the 0.6 s the counter accepts, so it has its own rule; the monitor's counting is not changed by it. |
+| `BlinkBreak` | The exercise counts every completed closure up to 3 s. Its blinks are slow on purpose and often last longer than the 0.6 s the counter accepts, so it has its own rule; the monitor's counting is not changed by it. While the exercise runs, nothing goes into the count: no watched time and no blink, or the exercise would be recorded as half a minute of barely blinking. |
 | `BreakSchedule` | The look-away breaks: which one is due, short or long, and what counts as taken. See below. |
 | `PauseState` | A pause knows when it ends, ends by itself, and survives a relaunch. |
 

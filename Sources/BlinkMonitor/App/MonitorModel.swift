@@ -129,6 +129,7 @@ final class MonitorModel: ObservableObject {
     private var watchdog: Timer?
     private var paceOfDemo: AnyCancellable?
     private var lookOfDemo: AnyCancellable?
+    private var exerciseWatch: AnyCancellable?
     private let performanceLog = PerformanceLog()
     private let blinkSound = NSSound(named: "Pop")
     private var liveViewOpen = false
@@ -163,6 +164,10 @@ final class MonitorModel: ObservableObject {
         }
         routines.connect(to: self)
         blinkBreak.onDone = { [weak self] in self?.reminders.blinkBreakDone() }
+        // The exercise is left out of the count for as long as it runs (`MonitorPipeline.setExercise`).
+        exerciseWatch = blinkBreak.$exercise.sink { [weak self] exercise in
+            self?.pipeline?.setExercise(exercise.map { !$0.isDone } ?? false)
+        }
         reminders.busy = { [weak self] in
             guard let self else { return .free }
             return BannerGate.Busy(lookAwayBreak: self.reminders.breaks.current != nil, blinkBreak: self.blinkBreak.exercise != nil,

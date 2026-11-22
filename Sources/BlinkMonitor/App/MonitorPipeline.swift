@@ -77,6 +77,8 @@ final class MonitorPipeline: @unchecked Sendable {
         var tick = false
         /// Another model to read the eyes with, from the next frame on.
         var newJudge: EyeJudging?
+        /// A blink break is running: see `setExercise`.
+        var exercise = false
     }
 
     private let requests = Locked(Requests())
@@ -138,6 +140,15 @@ final class MonitorPipeline: @unchecked Sendable {
     /// The counters and the minute in progress are kept; a closure in progress is dropped.
     func setJudge(_ judge: EyeJudging) {
         requests.withLock { $0.newJudge = judge }
+    }
+
+    /// A blink break starts (true) or ends (false). WHILE IT RUNS, NOTHING GOES INTO THE
+    /// COUNT: no watched time, no blink. Its blinks are slow on purpose and most last
+    /// longer than the 0.6 s the counter accepts, so the exercise used to be recorded as
+    /// half a minute of barely blinking: the low rate it was meant to mend. The events
+    /// still go out, since the exercise counts them by its own rule (`BlinkBreak`).
+    func setExercise(_ on: Bool) {
+        requests.withLock { $0.exercise = on }
     }
 
     /// A cue sound was just played: the next frame is marked in the capture.
@@ -229,12 +240,15 @@ final class MonitorPipeline: @unchecked Sendable {
         update.live.headTurned = reading.headTurned
         for eye in reading.eyes { update.live.eyeAnswers[eye.side] = eye.closed }
 
-        let watched = stats.frame(time: time, eyesRead: reading.closed != nil)
+        // During a blink break the frame is "not read" as far as the count goes.
+        let watched = stats.frame(time: time, eyesRead: reading.closed != nil && !asked.exercise)
         var newBlinks = 0
         if let event = detector.update(time: time, closed: reading.closed) {
-            stats.record(event)
             update.event = event
-            if case .blink = event { newBlinks = 1 }
+            if !asked.exercise {
+                stats.record(event)
+                if case .blink = event { newBlinks = 1 }
+            }
         }
         if case .closed = detector.state { update.live.eyesClosed = true }
         update.live.counters = stats.snapshot(now: time)
