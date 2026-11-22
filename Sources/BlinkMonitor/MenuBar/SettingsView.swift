@@ -303,6 +303,7 @@ struct SettingsView: View {
     private var general: some View {
         VStack(alignment: .leading, spacing: 12) {
             generalCard
+            workingHoursCard
             if !model.isDemo { energyCard }
             HStack(spacing: 12) {
                 Button("Reset to Defaults…") {
@@ -338,6 +339,57 @@ struct SettingsView: View {
                 Toggle("Quiet during calls", isOn: $preferences.quietDuringCalls)
             }
         }
+    }
+
+    /// "Quiet outside working hours": the two times and the days show only while it is on.
+    private var workingHoursCard: some View {
+        Card {
+            Row(QuietWords.title, detail: QuietWords.detail) {
+                Toggle(QuietWords.title, isOn: $preferences.workingHoursOn)
+            }
+            if preferences.workingHoursOn {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text("Working hours")
+                        Spacer(minLength: 12)
+                        Text("from")
+                            .foregroundStyle(.secondary)
+                        timePicker("Start of the working hours", $preferences.workStart)
+                        Text("to")
+                            .foregroundStyle(.secondary)
+                        timePicker("End of the working hours", $preferences.workEnd)
+                    }
+                    DayChips(calendar: .current, chosen: preferences.workDays,
+                             lastDay: "The last day stays: working hours keep at least one") { weekday, on in
+                        // The last day stays: with none, the app would be quiet for ever.
+                        if on { preferences.workDays.insert(weekday) } else if preferences.workDays.count > 1 { preferences.workDays.remove(weekday) }
+                    }
+                    if preferences.workStart >= preferences.workEnd {
+                        Text(QuietWords.overnight)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+        }
+    }
+
+    /// A date picker edits a date: the time is placed on today, and read back from it.
+    private func timePicker(_ label: String, _ time: Binding<TimeOfDay>) -> some View {
+        let calendar = Calendar.current
+        return DatePicker(label, selection: Binding(
+            get: {
+                calendar.date(bySettingHour: time.wrappedValue.hour, minute: time.wrappedValue.minute, second: 0,
+                              of: calendar.startOfDay(for: moment.now)) ?? moment.now
+            },
+            set: { time.wrappedValue = TimeOfDay(hour: calendar.component(.hour, from: $0), minute: calendar.component(.minute, from: $0)) }),
+                          displayedComponents: .hourAndMinute)
+            .labelsHidden()
+            .fixedSize()
     }
 
     private var generalCard: some View {

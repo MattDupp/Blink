@@ -287,7 +287,7 @@ private struct Notes: View {
 
     var body: some View {
         let lines = self.lines
-        if !lines.isEmpty || showsNextBreak || reminders.snoozedUntil != nil || reminders.breaks.current != nil || preferences.offersOwnRate {
+        if !lines.isEmpty || showsNextBreak || reminders.quietReason(now: now) != nil || reminders.breaks.current != nil || preferences.offersOwnRate {
             VStack(alignment: .leading, spacing: 6) {
                 if preferences.offersOwnRate, let reference = preferences.reference { ownRateOffer(reference) }
                 if let current = reminders.breaks.current {
@@ -304,13 +304,16 @@ private struct Notes: View {
                             .controlSize(.small)
                     }
                 }
-                if let until = reminders.snoozedUntil {
+                if let quiet = reminders.quietReason(now: now) {
                     HStack(spacing: 6) {
-                        NoteLine(symbol: "bell.slash",
-                                 text: "Quiet until \(Format.pauseEnd(until)): no reminder, no break and no sound. Counting goes on.")
+                        NoteLine(symbol: "bell.slash", text: QuietWords.line(quiet, now: now))
                         Spacer(minLength: 4)
-                        Button("End Quiet") { reminders.setQuiet(until: nil) }
-                            .controlSize(.small)
+                        // Only the Quiet somebody chose can be ended here. The working
+                        // hours are a setting: the sentence says where.
+                        if case .chosen = quiet {
+                            Button("End Quiet") { reminders.setQuiet(until: nil) }
+                                .controlSize(.small)
+                        }
                     }
                 }
                 if showsNextBreak {
@@ -845,6 +848,12 @@ enum Format {
     /// "18 Nov".
     static func day(_ date: Date) -> String {
         date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    /// A moment ahead, as short as it can be said without doubt: "09:00" within the next
+    /// 24 hours, "Mon 09:00" further away.
+    static func ahead(_ date: Date, from now: Date) -> String {
+        date.timeIntervalSince(now) < 86_400 ? time(date) : "\(date.formatted(.dateTime.weekday(.abbreviated))) \(time(date))"
     }
 
     /// When a pause ends: "16:30", or "tomorrow" for the pause that lasts until midnight.

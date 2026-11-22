@@ -132,7 +132,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let withRate = model.preferences.showRateInMenuBar
         let marks = MenuBarMarks(waiting: model.routines.due().map { .init(title: $0.routine.title, symbol: $0.routine.symbol) },
                                  onBreak: model.reminders.breaks.current != nil,
-                                 quietUntil: model.reminders.isQuiet() ? model.reminders.snoozedUntil : nil,
+                                 quietUntil: model.reminders.quietReason()?.until,
                                  timerUntil: model.routines.session.session?.end)
         let drawn = Drawn(status: status, withRate: withRate, orange: model.preferences.orangeRateWhenLow && status.isLow, marks: marks)
         guard drawn != shown, let button = item.button else { return }
@@ -196,7 +196,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             } else {
                 add("Pause for 1 Hour", #selector(menuPause), enabled: model.lifecycle == .running)
             }
-            if model.reminders.isQuiet() {
+            if case .chosen = model.reminders.quietReason() {
                 add("End Quiet", #selector(menuEndQuiet))
             } else {
                 add("Quiet for 1 Hour", #selector(menuQuiet))

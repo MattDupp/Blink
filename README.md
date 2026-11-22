@@ -151,6 +151,9 @@ and shipping it inside a real app.
 - **Quiet** for 30 minutes, an hour or until tomorrow, from the panel. No reminder, no
   look-away break and no sound, of any kind. Blinks are still counted, and the choice
   survives a restart of the app.
+- **Quiet outside working hours** (off by default): two times of day and the days of the
+  week, in Settings. Outside them the app is quiet in the same way, and the panel says
+  until when.
 - **Reminders that know each other.** Nothing arrives during a look-away break, a blink
   break, a routine's timer or the setup. Two banners are at least two minutes apart.
   When two would come together, a break goes first.

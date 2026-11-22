@@ -262,3 +262,25 @@ enum StartFailure: Equatable {
         return false
     }
 }
+
+/// What the panel says while no banner may show, whatever the reason: one sentence, so
+/// that the Quiet chosen in the panel and the time outside the working hours read alike.
+enum QuietWords {
+    static let effect = "no reminder, no break and no sound. Counting goes on."
+
+    static func line(_ reason: BannerGate.QuietReason, now: Date) -> String {
+        switch reason {
+        case .chosen(let until):
+            return "Quiet until \(Format.pauseEnd(until)): \(effect)"
+        case .outsideHours(let until):
+            let end = until.map { " until \(Format.ahead($0, from: now))" } ?? ""
+            return "Quiet\(end), outside your working hours: \(effect) Set in Settings, General."
+        }
+    }
+
+    /// The row in Settings.
+    static let title = "Quiet outside working hours"
+    static let detail = "No reminder, no look-away break, no routine and no sound outside these hours. Counting goes on, and the panel says when Quiet ends."
+    /// Under the two times, when the first is not before the second.
+    static let overnight = "These hours pass midnight. Each night belongs to the day it starts on."
+}

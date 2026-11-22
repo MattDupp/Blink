@@ -16,7 +16,8 @@ import Foundation
 ///     reminder (the break is the one with a clock running; the blink reminder comes back
 ///     by itself);
 ///   - nothing at all while "Quiet" is on (`quiet(until:)`): no banner and no sound.
-///     Counting goes on.
+///     Counting goes on;
+///   - the same outside the working hours, when the user set some (`hours`).
 ///
 /// Like `BreakSchedule` and `RoutineDay`, it is handed the clock and the facts, and is
 /// tested on timelines written by hand. It shows nothing itself.
@@ -62,9 +63,36 @@ public struct BannerGate: Equatable {
 
     public private(set) var lastShown: Date?
     public private(set) var quietUntil: Date?
+    /// "Quiet outside working hours" (nil: not asked for), and the calendar that reads them.
+    public var hours: WorkingHours?
+    public var calendar = Calendar.current
 
-    public init(quietUntil: Date? = nil) {
+    public init(quietUntil: Date? = nil, hours: WorkingHours? = nil) {
         self.quietUntil = quietUntil
+        self.hours = hours
+    }
+
+    /// Why the gate is quiet, and until when. The Quiet somebody chose is said first: it
+    /// is the one they can end.
+    public enum QuietReason: Equatable {
+        case chosen(until: Date)
+        /// `until`: when the working hours begin again.
+        case outsideHours(until: Date?)
+
+        public var until: Date? {
+            switch self {
+            case .chosen(let until): return until
+            case .outsideHours(let until): return until
+            }
+        }
+    }
+
+    public func quietReason(at now: Date) -> QuietReason? {
+        if let quietUntil, now < quietUntil { return .chosen(until: quietUntil) }
+        if let hours, !hours.contains(now, calendar: calendar) {
+            return .outsideHours(until: hours.nextStart(after: now, calendar: calendar))
+        }
+        return nil
     }
 
     /// "Quiet" until `date` (nil: over now).
@@ -73,7 +101,7 @@ public struct BannerGate: Equatable {
     }
 
     public func isQuiet(at now: Date) -> Bool {
-        quietUntil.map { now < $0 } ?? false
+        quietReason(at: now) != nil
     }
 
     /// May a banner of this kind show now? `soon`: the other kinds that have a banner to

@@ -815,32 +815,9 @@ struct RoutineSettings: View {
         .padding(.vertical, 10)
     }
 
-    /// Seven days to choose from, in the order of this Mac's week: Monday first, or Sunday.
+    /// Seven days to choose from (`DayChips`).
     private func dayChips(chosen: Set<Int>, set: @escaping (Int, Bool) -> Void) -> some View {
-        let calendar = routines.calendar
-        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
-        return HStack(spacing: 6) {
-            ForEach(ordered, id: \.self) { weekday in
-                let isChosen = chosen.contains(weekday)
-                // A plain button drawn by hand: a system toggle button barely
-                // shows which days are chosen when the window is not in front.
-                Button { set(weekday, !isChosen) } label: {
-                    Text(calendar.shortWeekdaySymbols[weekday - 1])
-                        .font(.callout.weight(isChosen ? .semibold : .regular))
-                        .foregroundStyle(isChosen ? Color.white : Color.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(isChosen ? Color.accentColor : Color.primary.opacity(0.08),
-                                    in: RoundedRectangle(cornerRadius: 6))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(isChosen && chosen.count == 1 ? "The last day stays: a routine keeps at least one" : "")
-                .accessibilityLabel(calendar.weekdaySymbols[weekday - 1])
-                .accessibilityValue(isChosen ? "chosen" : "not chosen")
-                .accessibilityAddTraits(isChosen ? .isSelected : [])
-            }
-        }
+        DayChips(calendar: routines.calendar, chosen: chosen, lastDay: "The last day stays: a routine keeps at least one", set: set)
     }
 
     private func timeRow(_ routine: Routine, index: Int, time: TimeOfDay) -> some View {
@@ -933,5 +910,41 @@ private struct Row<Control: View>: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+}
+
+/// Seven days to choose from, in the order of this Mac's week: Monday first, or Sunday.
+/// The routines and the working hours share it.
+struct DayChips: View {
+    let calendar: Calendar
+    let chosen: Set<Int>
+    /// Said over the last chosen day, which a click does not take away.
+    let lastDay: String
+    let set: (Int, Bool) -> Void
+
+    var body: some View {
+        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
+        HStack(spacing: 6) {
+            ForEach(ordered, id: \.self) { weekday in
+                let isChosen = chosen.contains(weekday)
+                // A plain button drawn by hand: a system toggle button barely
+                // shows which days are chosen when the window is not in front.
+                Button { set(weekday, !isChosen) } label: {
+                    Text(calendar.shortWeekdaySymbols[weekday - 1])
+                        .font(.callout.weight(isChosen ? .semibold : .regular))
+                        .foregroundStyle(isChosen ? Color.white : Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(isChosen ? Color.accentColor : Color.primary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isChosen && chosen.count == 1 ? lastDay : "")
+                .accessibilityLabel(calendar.weekdaySymbols[weekday - 1])
+                .accessibilityValue(isChosen ? "chosen" : "not chosen")
+                .accessibilityAddTraits(isChosen ? .isSelected : [])
+            }
+        }
     }
 }

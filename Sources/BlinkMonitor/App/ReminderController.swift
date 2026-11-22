@@ -41,7 +41,18 @@ final class ReminderController: ObservableObject {
     private var policy = ReminderPolicy()
     /// The one gate every banner asks (`BannerGate`): the breaks and the blink reminder
     /// here, the routines through `mayShow`.
-    private var gate = BannerGate()
+    ///
+    /// The working hours are read from the preferences each time the gate is asked, so a
+    /// change in Settings holds from the next question on, with nothing to keep in step.
+    private var gate: BannerGate {
+        get {
+            var gate = storedGate
+            gate.hours = preferences.workingHours
+            return gate
+        }
+        set { storedGate = newValue }
+    }
+    private var storedGate = BannerGate()
     /// The app's one `Notifier`: the routines show their banners through it too.
     let notifier = Notifier()
     private var wanted: AnyCancellable?
@@ -163,6 +174,10 @@ final class ReminderController: ObservableObject {
     }
 
     func isQuiet(now: Date = Date()) -> Bool { gate.isQuiet(at: now) }
+
+    /// Why it is quiet now, and until when: the Quiet chosen in the panel, or the time
+    /// outside the working hours set in Settings. Nil: banners may show.
+    func quietReason(now: Date = Date()) -> BannerGate.QuietReason? { gate.quietReason(at: now) }
 
     /// A routine asks whether its banner may show now, and says when it did.
     func mayShowRoutineBanner(now: Date = Date()) -> Bool {

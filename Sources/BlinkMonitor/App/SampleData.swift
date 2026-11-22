@@ -37,6 +37,8 @@ enum SampleData {
         case ownRate
         /// "Quiet" was chosen in the panel, for an hour.
         case quiet
+        /// "Quiet outside working hours" is on, and the working day ended at 16:00.
+        case outsideHours
         /// macOS does not allow the app's notifications.
         case notificationsOff
         /// The demo: `watching`, on made-up eyes.
@@ -134,6 +136,10 @@ enum SampleData {
             preferences.reference = Reference(rate: 7.2, measuredOn: now.addingTimeInterval(-3600), minutes: 214)
         case .quiet, .notificationsOff:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+        case .outsideHours:
+            preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
+            preferences.workingHoursOn = true
+            preferences.workEnd = TimeOfDay(hour: 16)
         case .noFace:
             preferences.reference = Reference(rate: usual, measuredOn: aWhileAgo, minutes: 214)
             initial.live.faceFound = false

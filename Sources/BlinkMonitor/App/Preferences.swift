@@ -18,6 +18,10 @@ final class Preferences: ObservableObject {
         static let pauseOnBattery = "pauseOnBattery"
         static let pauseInLowPower = "pauseInLowPowerMode"
         static let quietDuringCalls = "quietDuringCalls"
+        static let workingHoursOn = "workingHoursOn"
+        static let workStart = "workingHoursStart"
+        static let workEnd = "workingHoursEnd"
+        static let workDays = "workingHoursDays"
         static let blinkBack = "blinkBack"
         static let remindersOn = "remindersOn"
         static let automaticLimit = "automaticLimit"
@@ -55,6 +59,16 @@ final class Preferences: ObservableObject {
     @Published var pauseInLowPower: Bool { didSet { defaults.set(pauseInLowPower, forKey: Key.pauseInLowPower) } }
     /// No banner and no sound while the microphone is in use, which is most likely a call.
     @Published var quietDuringCalls: Bool { didSet { defaults.set(quietDuringCalls, forKey: Key.quietDuringCalls) } }
+    /// "Quiet outside working hours": off unless chosen. The two times are minutes since
+    /// midnight, the days are 1 = Sunday ... 7 = Saturday (`WorkingHours`).
+    @Published var workingHoursOn: Bool { didSet { defaults.set(workingHoursOn, forKey: Key.workingHoursOn) } }
+    @Published var workStart: TimeOfDay { didSet { defaults.set(workStart.hour * 60 + workStart.minute, forKey: Key.workStart) } }
+    @Published var workEnd: TimeOfDay { didSet { defaults.set(workEnd.hour * 60 + workEnd.minute, forKey: Key.workEnd) } }
+    @Published var workDays: Set<Int> { didSet { defaults.set(workDays.sorted(), forKey: Key.workDays) } }
+    /// The hours as the gate reads them; nil while the switch is off.
+    var workingHours: WorkingHours? {
+        workingHoursOn ? WorkingHours(start: workStart, end: workEnd, weekdays: workDays) : nil
+    }
     /// The camera the user chose, as macOS knows it. Nil: Automatic (`CameraChoice`).
     @Published var cameraID: String? { didSet { defaults.set(cameraID, forKey: Key.cameraID) } }
     /// The rate in the menu bar is written in orange while it is low. The badge on the
@@ -194,6 +208,10 @@ final class Preferences: ObservableObject {
         static let pauseOnBattery = false
         static let pauseInLowPower = false
         static let quietDuringCalls = false
+        static let workingHoursOn = false
+        static var workStart: TimeOfDay { WorkingHours.usual.start }
+        static var workEnd: TimeOfDay { WorkingHours.usual.end }
+        static var workDays: Set<Int> { WorkingHours.usual.weekdays }
         static let blinkBack = true
         static let remindersOn = true
         static let automaticLimit = true
@@ -224,6 +242,10 @@ final class Preferences: ObservableObject {
         pauseOnBattery = Standard.pauseOnBattery
         pauseInLowPower = Standard.pauseInLowPower
         quietDuringCalls = Standard.quietDuringCalls
+        workingHoursOn = Standard.workingHoursOn
+        workStart = Standard.workStart
+        workEnd = Standard.workEnd
+        workDays = Standard.workDays
         blinkBack = Standard.blinkBack
         remindersOn = Standard.remindersOn
         automaticLimit = Standard.automaticLimit
@@ -253,6 +275,8 @@ final class Preferences: ObservableObject {
             || longBreakEvery != Standard.longBreakEvery || longBreakMinutes != Standard.longBreakMinutes
             || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
             || cameraID != nil
+            || workingHoursOn != Standard.workingHoursOn || workStart != Standard.workStart
+            || workEnd != Standard.workEnd || workDays != Standard.workDays
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -266,6 +290,13 @@ final class Preferences: ObservableObject {
         pauseOnBattery = bool(Key.pauseOnBattery, Standard.pauseOnBattery)
         pauseInLowPower = bool(Key.pauseInLowPower, Standard.pauseInLowPower)
         quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
+        workingHoursOn = bool(Key.workingHoursOn, Standard.workingHoursOn)
+        func time(_ key: String, _ standard: TimeOfDay) -> TimeOfDay {
+            (defaults.object(forKey: key) as? Int).map { TimeOfDay(hour: $0 / 60, minute: $0 % 60) } ?? standard
+        }
+        workStart = time(Key.workStart, Standard.workStart)
+        workEnd = time(Key.workEnd, Standard.workEnd)
+        workDays = (defaults.array(forKey: Key.workDays) as? [Int]).map { Set($0.filter((1...7).contains)) } ?? Standard.workDays
         blinkBack = bool(Key.blinkBack, Standard.blinkBack)
         remindersOn = bool(Key.remindersOn, Standard.remindersOn)
         automaticLimit = bool(Key.automaticLimit, Standard.automaticLimit)

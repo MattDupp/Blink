@@ -264,6 +264,7 @@ facts, and its tests are moments written by hand.
 | At least two minutes between two banners | Three gentle reminders in one minute are not gentle |
 | A break goes first: the others stay away when one falls due within two minutes | The break has a clock running. The blink reminder comes back by itself |
 | Quiet (30 minutes, an hour, until tomorrow) holds every banner and every sound | "Leave me alone" is one thing to say, not three. Counting goes on, and it is remembered |
+| The same Quiet outside the working hours, when "Quiet outside working hours" is on | Eye drops at nine in the evening are a reminder; "you blink too little" during a film is not wanted. The rule is `WorkingHours`: two times of day and the days of the week. A night shift (22:00 to 06:00) belongs to the day it starts on. The gate reads the hours each time it is asked, and the panel says why it is quiet and when that ends. Counting goes on |
 | A click on a banner itself opens the panel, whatever the banner | Many people click a banner only to make it go. Only a named button starts something |
 | A banner that stopped being true is taken back: the blink banner when the rate is back above the limit or the camera is paused, a routine's when nothing of it waits any more | Notification Centre should not hold yesterday's requests |
 

@@ -110,6 +110,8 @@ enum Snapshots {
             ("panel-no-picture", panel(.noPicture)),
             ("panel-own-rate", panel(.ownRate)),
             ("panel-quiet", panel(.quiet)),
+            // Friday at 16:42, with working hours that end at 16:00: quiet until Monday.
+            ("panel-quiet-hours", panel(.outsideHours)),
             ("panel-no-face", panel(.noFace)),
             ("panel-camera-refused", panel(.cameraRefused)),
             ("panel-problem", panel(.problem)),
@@ -147,6 +149,7 @@ enum Snapshots {
             ("history-empty", history(.firstMinute)),
             ("history-day", history(.low, daysBack: 1)),
             ("settings-general", settings(.general)),
+            ("settings-general-working-hours", settings(.general, scene: .outsideHours)),
             ("settings-reminders", settings(.reminders)),
             ("settings-reminders-learning", settings(.reminders, scene: .learning)),
             ("settings-reminders-measured", settings(.reminders, scene: .low) { state, model in

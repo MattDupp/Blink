@@ -381,6 +381,47 @@ struct PreferencesTests {
         }
     }
 
+    @Test("Quiet outside working hours is off until chosen, is kept, and Reset takes it back")
+    func workingHours() {
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            #expect(!preferences.workingHoursOn && preferences.workingHours == nil, "quiet by default: nothing changes untouched")
+            preferences.workingHoursOn = true
+            preferences.workStart = TimeOfDay(hour: 8, minute: 30)
+            preferences.workDays = [2, 3]
+            let read = Preferences(defaults: store)
+            #expect(read.workingHours == WorkingHours(start: TimeOfDay(hour: 8, minute: 30), end: TimeOfDay(hour: 18), weekdays: [2, 3]))
+            #expect(read.hasChoices)
+            read.resetChoices()
+            #expect(!read.hasChoices && Preferences(defaults: store).workingHours == nil)
+            #expect(Preferences(defaults: store).workStart == WorkingHours.usual.start)
+        }
+    }
+
+    @Test("Outside the working hours the reminders are quiet, and the panel says why and until when")
+    func quietOutsideHours() {
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            let reminders = ReminderController(preferences: preferences)
+            let calendar = Calendar.current
+            // Saturday 21 November 2026 at 11:00, on this Mac's clock.
+            let saturday = calendar.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: 11)) ?? Date()
+            let monday = calendar.date(from: DateComponents(year: 2026, month: 11, day: 23, hour: 9)) ?? Date()
+            #expect(reminders.quietReason(now: saturday) == nil && reminders.mayShowRoutineBanner(now: saturday))
+            preferences.workingHoursOn = true        // read at the next question, nothing to keep in step
+            #expect(reminders.quietReason(now: saturday) == .outsideHours(until: monday))
+            #expect(reminders.isQuiet(now: saturday) && !reminders.mayShowRoutineBanner(now: saturday))
+            let line = QuietWords.line(.outsideHours(until: monday), now: saturday)
+            #expect(line.hasPrefix("Quiet until ") && line.contains("outside your working hours") && line.contains(QuietWords.effect))
+            #expect(line.contains(Format.ahead(monday, from: saturday)) && Format.ahead(monday, from: saturday) != Format.time(monday),
+                    "two days ahead, the day is named")
+            // The Quiet chosen in the panel keeps its own sentence, with the same effect.
+            #expect(QuietWords.line(.chosen(until: monday), now: saturday).contains(QuietWords.effect))
+            preferences.workingHoursOn = false
+            #expect(reminders.quietReason(now: saturday) == nil)
+        }
+    }
+
     @Test("A floor somebody chose is never replaced")
     func chosenFloor() {
         withStore { store in
