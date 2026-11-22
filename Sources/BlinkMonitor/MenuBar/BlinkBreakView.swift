@@ -62,7 +62,10 @@ struct BlinkBreakView: View {
 
             VStack(spacing: 6) {
                 Text(exercise.isDone ? "Done" : "Close gently, hold for a second, open")
-                    .textStyle(.title2, weight: .semibold) .multilineTextAlignment(.center)
+                    .textStyle(.title2, weight: .semibold)
+                    // On two lines when it has to be: it was cut with three dots.
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(note(done: exercise.isDone))
                     .textStyle(.callout)
                     .foregroundStyle(.secondary)

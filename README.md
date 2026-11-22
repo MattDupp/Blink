@@ -528,8 +528,8 @@ Sources/BlinkUI          the SwiftUI views and the voice that are not tied to on
 Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
-Tests/BlinkCoreTests     237 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  125 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
+Tests/BlinkCoreTests     258 tests of the rules and of the trainer (Swift Testing)
+Tests/BlinkMonitorTests  141 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 27 tests
 scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, the research on blink rates, lessons, development notes

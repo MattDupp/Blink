@@ -56,7 +56,10 @@ struct RoutineSessionView: View {
 
             VStack(spacing: 6) {
                 Text(running != nil ? (routine?.title ?? "Timer") : shown != nil ? "Done" : "No timer is running")
-                    .textStyle(.title2, weight: .semibold) .multilineTextAlignment(.center)
+                    .textStyle(.title2, weight: .semibold)
+                    // On two lines when it has to be: it was cut with three dots.
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(note(running: running != nil, finished: shown != nil, week: week))
                     .textStyle(.callout)
                     .foregroundStyle(.secondary)
