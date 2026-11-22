@@ -230,7 +230,7 @@ struct ScreenCountTests {
         #expect(Routine.typedName(String(repeating: "x", count: 500)).count == Routine.nameLimit)
         var routine = water
         routine.name = "   "
-        #expect(routine.title == "Reminder")
+        #expect(routine.title == "Routine")
         routine.name = "Tea\r\n,now "
         #expect(routine.title == "Tea  ,now")
     }

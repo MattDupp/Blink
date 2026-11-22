@@ -335,7 +335,8 @@ well a routine was kept, both come from that file.
 - The app looks at the clock every 20 seconds. A reminder is shown only while somebody is
   at the screen: one that falls due while you are away is kept until you are back. While
   the camera is paused the app cannot see you, so an awake screen counts as somebody there.
-- The banner makes no sound. It has two buttons, Done and Later (15 minutes).
+- The banner makes no sound, unless the routine was given one: a switch on its card in
+  Settings, off at first. It has two buttons, Done and Later (15 minutes).
   A routine with a timer has a third, Start Timer.
 - If you touch nothing, it comes back once, ten minutes later. After that there are no
   more banners: a dot in the menu bar and a line in the panel wait until the time is done
@@ -387,7 +388,10 @@ counts as you.
 
 The Routines tab of Settings adds a routine from a few starting points, each described by
 what it does. Its name, symbol, kind of schedule and timer can be changed afterwards, and
-it can be deleted. The two built-in routines can be switched off, not deleted.
+it can be deleted. The two built-in routines can be switched off, or removed from the list
+and brought back from Add a Routine with their times: they are never deleted. In the list
+each routine is one line that says when it comes; a click opens its settings. A routine at
+times of day can keep to some days of the week.
 
 | Rule | Why |
 |---|---|

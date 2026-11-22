@@ -461,6 +461,44 @@ private struct TimeChip: View {
 
 // MARK: - In Settings
 
+/// What Settings says about a routine, in one place.
+enum RoutineWords {
+
+    /// Under the list. Two sentences: the long footnote carried rules nobody read, and
+    /// each routine's line now says how its own reminders come.
+    static let footnote = "Blink Monitor reminds you of routines that you, or your eye-care professional, chose. "
+        + "It does not say what to use or how often."
+
+    /// A time of day as this Mac writes it: "08:00", or "8:00 AM".
+    static func time(_ time: TimeOfDay, calendar: Calendar = .current) -> String {
+        calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: Date(timeIntervalSinceReferenceDate: 0))
+            .map(Format.time) ?? time.text
+    }
+
+    /// One line that says when a routine comes: "08:00, 13:00 and 17:00, every day".
+    static func summary(_ routine: Routine, calendar: Calendar = .current, policy: RoutinePolicy = RoutinePolicy()) -> String {
+        switch routine.schedule {
+        case .timesOfDay(_, let weekdays):
+            let times = routine.times.map { time($0, calendar: calendar) }
+            let listed = times.count > 1 ? times.dropLast().joined(separator: ", ") + " and " + (times.last ?? "") : times.first ?? "No time"
+            return "\(listed), \(days(weekdays, calendar: calendar))"
+        case .timesPerWeek(let count, _, let at):
+            return "\(count == 1 ? "Once" : "\(count) times") a week, at \(time(at, calendar: calendar))"
+                + (routine.sessionMinutes.map { ", with a timer of \(Format.count($0, "minute"))" } ?? "")
+        case .everyMinutesAtScreen(let minutes):
+            return "Every \(Format.count(minutes, "minute")) at the screen"
+        }
+    }
+
+    /// "every day", "on Mon, Wed and Fri".
+    static func days(_ weekdays: Set<Int>?, calendar: Calendar = .current) -> String {
+        guard let weekdays, weekdays.count < 7 else { return "every day" }
+        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }.filter(weekdays.contains)
+        let names = ordered.map { calendar.shortWeekdaySymbols[$0 - 1] }
+        return "on " + (names.count > 1 ? names.dropLast().joined(separator: ", ") + " and " + (names.last ?? "") : names.first ?? "")
+    }
+}
+
 /// The Routines tab: each routine with its switch and its times, and a test reminder.
 /// A routine of your own has four more things on its card: its name, its symbol, its
 /// kind of schedule, and Delete. "Add a Routine" offers a few starting points.
@@ -473,27 +511,23 @@ struct RoutineSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // With routines of your own the cards no longer fit a screen: they scroll, at
-            // a fixed height, and what is under them stays in view. (The two built-in
-            // ones alone are drawn as before, the window as tall as they are.)
-            if routines.routines.count > Routine.builtIn.count {
-                ScrollView {
-                    cards.padding(.trailing, 14)        // room for the scroll bar beside the switches
-                }
-                .frame(height: Self.listHeight)
-                .padding(.trailing, -14)
-            } else {
-                cards
-            }
+            cards
             HStack(spacing: 12) {
                 Menu("Add a Routine") {
                     ForEach(RoutineTemplate.all) { template in
                         Button(template.summary) { routines.add(template) }
                     }
+                    // The built-in ones that were removed can come back.
+                    if !routines.hiddenBuiltIn.isEmpty {
+                        Divider()
+                        ForEach(routines.hiddenBuiltIn) { routine in
+                            Button(routine.title) { routines.unhide(routine.id) }
+                        }
+                    }
                 }
                 .fixedSize()
-                .disabled(!routines.canAdd)
-                Text(routines.canAdd ? "A reminder of your own. Everything about it can be changed afterwards."
+                .disabled(!routines.canAdd && routines.hiddenBuiltIn.isEmpty)
+                Text(routines.canAdd ? "A routine of your own. You can change everything afterwards. It is switched on at once."
                                      : "That is the most routines of your own (\(RoutineController.mostOwn)).")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -504,99 +538,140 @@ struct RoutineSettings: View {
                     Button("Show in Finder") { showRecord() }
                 }
             }
-            Text("Blink Monitor reminds you of a routine that you, or your eye-care professional, chose. It does not say what to use or how often. "
-                 + "A reminder is silent and waits until you are at the screen. It comes once more after \(routines.policy.repeatAfterMinutes) minutes, "
-                 + "then a dot in the menu bar waits with it until its next time. "
-                 + "A routine at the screen is not repeated: it comes back by itself. "
-                 + "Reminders come one at a time: at least \(routines.policy.gapMinutes) minutes apart, "
-                 + "and at most \(routines.policy.bannersPerHour) in an hour.")
+            Text(RoutineWords.footnote)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// The height of the list of cards once it scrolls.
-    private static let listHeight: CGFloat = 560
-
+    /// One line per routine. A click opens its editor, one at a time: every card used to
+    /// be a full editor, always open, and two of them filled the screen.
     private var cards: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Your own routines first, the newest on top: a routine just added appears
             // where you are looking, not under the fold of the list.
-            ForEach(routines.routines.filter { !$0.isBuiltIn }.reversed() + routines.routines.filter(\.isBuiltIn)) { routine in
-                // One card per kind of schedule.
-                switch routine.schedule {
-                case .timesOfDay: card(for: routine)
-                case .timesPerWeek(let count, let weekdays, let time):
-                    weekCard(for: routine, count: count, weekdays: weekdays, time: time)
-                case .everyMinutesAtScreen(let minutes): screenCard(for: routine, minutes: minutes)
+            ForEach(routines.routines.filter { !$0.isBuiltIn }.reversed() + routines.routines.filter { $0.isBuiltIn && !$0.isHidden }) { routine in
+                Card {
+                    header(routine)
+                    if routines.openCard == routine.id { editor(routine) }
                 }
             }
         }
     }
 
-    private func card(for routine: Routine) -> some View {
-        Card {
-            Row(routine.title, detail: "A reminder at each of the times below, with Done and Later.") {
-                Toggle(routine.title, isOn: Binding(get: { routine.isOn }, set: { routines.setOn(routine.id, $0) }))
+    /// The line of a routine: its name, when it comes, its switch.
+    private func header(_ routine: Routine) -> some View {
+        let open = routines.openCard == routine.id
+        return HStack(spacing: 10) {
+            Button { routines.openCard = open ? nil : routine.id } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                        .frame(width: 10)
+                    Image(systemName: routine.symbol)
+                        .foregroundStyle(.tint)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(routine.title)
+                        Text(RoutineWords.summary(routine, calendar: routines.calendar, policy: routines.policy))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 12)
+                }
+                .contentShape(Rectangle())
             }
-            own(routine)
-            // By position, not by time: a row keeps its place (and the keyboard) while its time is typed.
-            // And in the order entered while the window is open (`RoutineController.shownTimes`).
-            ForEach(Array(routines.shownTimes(of: routine).enumerated()), id: \.offset) { index, time in
-                Divider()
-                timeRow(routine, index: index, time: time)
-            }
-            timer(routine)
-            Divider()
-            HStack(spacing: 12) {
+            .buttonStyle(.plain)
+            .help(open ? "Show less" : "Change its times and its settings")
+            .accessibilityLabel("\(routine.title), settings")
+            .accessibilityValue(open ? "open" : "closed")
+            Toggle(routine.title, isOn: Binding(get: { routine.isOn }, set: { routines.setOn(routine.id, $0) }))
+                .labelsHidden()
+                .toggleStyle(.switch)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    /// What opens under the line: the rows of this kind of schedule, the timer, the sound.
+    @ViewBuilder
+    private func editor(_ routine: Routine) -> some View {
+        own(routine)
+        switch routine.schedule {
+        case .timesOfDay(_, let weekdays): timeRows(for: routine, weekdays: weekdays)
+        case .timesPerWeek(let count, let weekdays, let time): weekRows(for: routine, count: count, weekdays: weekdays, time: time)
+        case .everyMinutesAtScreen(let minutes): screenRows(for: routine, minutes: minutes)
+        }
+        timer(routine)
+        Divider()
+        Row("A sound with its reminder", detail: "Off: its banner comes in silence, like every routine at first.") {
+            Toggle("A sound with its reminder", isOn: Binding(get: { routine.playsSound }, set: { routines.setSound(routine.id, $0) }))
+        }
+        Divider()
+        HStack(spacing: 12) {
+            if case .timesOfDay = routine.schedule {
+                let full = routines.shownTimes(of: routine).count >= 12
                 Button("Add a Time") { routines.addTimeRow(routine.id) }
-                    .disabled(routines.shownTimes(of: routine).count >= 12)
-                Spacer(minLength: 12)
-                foot(routine)
+                    .disabled(full)
+                    .help(full ? "Twelve times at most" : "One more time of day for this routine")
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            Spacer(minLength: 12)
+            foot(routine)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
-    /// A routine "at the screen": its switch and its minutes.
-    private func screenCard(for routine: Routine, minutes: Int) -> some View {
-        let range = RoutineSchedule.screenMinutes
-        return Card {
-            Row(routine.title, detail: "A reminder each time you have been at the screen this long, with Done and Later.") {
-                Toggle(routine.title, isOn: Binding(get: { routine.isOn }, set: { routines.setOn(routine.id, $0) }))
-            }
-            own(routine)
+    /// A routine at times of day: its times, and the days of the week it asks on.
+    @ViewBuilder
+    private func timeRows(for routine: Routine, weekdays: Set<Int>?) -> some View {
+        // By position, not by time: a row keeps its place (and the keyboard) while its time is typed.
+        // And in the order entered while the window is open (`RoutineController.shownTimes`).
+        ForEach(Array(routines.shownTimes(of: routine).enumerated()), id: \.offset) { index, time in
             Divider()
-            Row("Every", detail: "Minutes at the screen, not on the clock. Done starts the count again. "
-                + "So do \(Int(ScreenCount.awaySeconds / 60)) minutes away, and a new day.") {
-                HStack(spacing: 6) {
-                    Text("\(minutes) min").monospacedDigit().fixedSize()
-                    Stepper("Minutes at the screen", value: Binding(get: { minutes }, set: { routines.setScreenMinutes(routine.id, $0) }),
-                            in: range, step: 5)
-                        .accessibilityValue("\(minutes)")
-                }
+            timeRow(routine, index: index, time: time)
+        }
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
+            Text("On these days")
+            dayChips(chosen: weekdays ?? Set(1...7)) { weekday, on in routines.setDay(routine.id, weekday, on: on) }
+            Text("All seven: every day. Choose at least one.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    /// A routine "at the screen": its minutes.
+    @ViewBuilder
+    private func screenRows(for routine: Routine, minutes: Int) -> some View {
+        Divider()
+        Row("Every", detail: "Counted while you are at the screen. The count restarts when you press Done, "
+            + "after \(Format.count(Int(ScreenCount.awaySeconds / 60), "minute")) away, and each day.") {
+            HStack(spacing: 6) {
+                Text(Format.count(minutes, "minute")).monospacedDigit().fixedSize()
+                Stepper("Minutes at the screen", value: Binding(get: { minutes }, set: { routines.setScreenMinutes(routine.id, $0) }),
+                        in: RoutineSchedule.screenMinutes, step: 5)
+                    .accessibilityValue("\(minutes)")
             }
-            timer(routine)
-            Divider()
-            HStack(spacing: 12) {
-                Spacer(minLength: 12)
-                foot(routine)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
         }
     }
 
     // MARK: What every card shares
 
-    /// For a routine of your own: its name, its symbol and its kind. Nothing for a built-in one.
+    /// For a routine of your own: its name with its symbol, and when it comes. Nothing for
+    /// a built-in one. Each is a labelled row, like every other setting: there were three
+    /// controls in a line with no word beside them.
     @ViewBuilder
     private func own(_ routine: Routine) -> some View {
         if !routine.isBuiltIn {
             Divider()
-            HStack(spacing: 10) {
+            Row("Name", detail: "Shown on its reminder and in the panel.") {
                 Picker("Symbol", selection: Binding(get: { routine.symbol }, set: { routines.setSymbol(routine.id, $0) })) {
                     ForEach(Routine.symbols, id: \.self) { symbol in
                         Image(systemName: symbol).tag(symbol)
@@ -608,7 +683,11 @@ struct RoutineSettings: View {
                 // short line whatever is typed or pasted.
                 TextField("Name", text: Binding(get: { routine.name }, set: { routines.rename(routine.id, $0) }))
                     .textFieldStyle(.roundedBorder)
+                    .frame(width: 170)
                     .accessibilityLabel("Name of the routine")
+            }
+            Divider()
+            Row("When", detail: "Changing this keeps what you set for the other kinds while the window is open.") {
                 Picker("Kind of schedule", selection: Binding(get: { routine.schedule.kind },
                                                               set: { routines.setKind(routine.id, $0) })) {
                     Text("At times of day").tag(RoutineSchedule.Kind.timesOfDay)
@@ -618,8 +697,6 @@ struct RoutineSettings: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
         }
     }
 
@@ -627,14 +704,14 @@ struct RoutineSettings: View {
     /// your own can be given one, or have it taken away.
     @ViewBuilder
     private func timer(_ routine: Routine) -> some View {
-        let detail = "Set this to the length its own instructions give. While it runs the camera is paused, "
+        let detail = "Set the length given in your product's instructions. While it runs the camera is paused, "
             + "the Mac stays awake, and a sound marks the end. Then it is marked done."
         if !routine.isBuiltIn {
             Divider()
             Row("Timer", detail: routine.sessionMinutes == nil ? "For something that takes a while: Start Timer is added to its reminder." : detail) {
                 HStack(spacing: 6) {
                     if let minutes = routine.sessionMinutes {
-                        Text("\(minutes) min").monospacedDigit().fixedSize()
+                        Text(Format.count(minutes, "minute")).monospacedDigit().fixedSize()
                         Stepper("Length of the timer, in minutes",
                                 value: Binding(get: { minutes }, set: { routines.setSessionMinutes(routine.id, $0) }), in: 1...60)
                             .accessibilityValue("\(minutes)")
@@ -646,7 +723,7 @@ struct RoutineSettings: View {
             Divider()
             Row("Timer", detail: detail) {
                 HStack(spacing: 6) {
-                    Text("\(minutes) min").monospacedDigit().fixedSize()
+                    Text(Format.count(minutes, "minute")).monospacedDigit().fixedSize()
                     Stepper("Length of the timer, in minutes",
                             value: Binding(get: { minutes }, set: { routines.setSessionMinutes(routine.id, $0) }), in: 1...60)
                         .accessibilityValue("\(minutes)")
@@ -655,10 +732,14 @@ struct RoutineSettings: View {
         }
     }
 
-    /// The end of a card: Delete for a routine of your own, and the test reminder.
+    /// The end of a card: Delete for a routine of your own, Remove for a built-in one,
+    /// and the test reminder.
     @ViewBuilder
     private func foot(_ routine: Routine) -> some View {
-        if !routine.isBuiltIn {
+        if routine.isBuiltIn {
+            Button("Remove") { routines.hide(routine.id) }
+                .help("Takes it out of this list and switches it off. Add a Routine brings it back, with its times.")
+        } else {
             Button("Delete…", role: .destructive) { confirmDelete(routine) }
         }
         Button("Send a Test Reminder") { routines.sendTest(routine.id) }
@@ -674,88 +755,80 @@ struct RoutineSettings: View {
         if Confirm.destructive(question) { routines.remove(routine.id) }
     }
 
-    /// A routine counted by the week: its count, the days it asks first, its time, and
-    /// the length of its timer when it has one.
-    private func weekCard(for routine: Routine, count: Int, weekdays: Set<Int>, time: TimeOfDay) -> some View {
-        let calendar = routines.calendar
-        // The days in the order of this Mac's week: Monday first, or Sunday.
-        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
-        return Card {
-            Row(routine.title, detail: "A reminder on your days, until the week's count is reached. Mark it done at any time from the menu-bar panel.") {
-                Toggle(routine.title, isOn: Binding(get: { routine.isOn }, set: { routines.setOn(routine.id, $0) }))
+    /// A routine counted by the week: its count, the days it asks first and its time.
+    @ViewBuilder
+    private func weekRows(for routine: Routine, count: Int, weekdays: Set<Int>, time: TimeOfDay) -> some View {
+        Divider()
+        Row("Times a week", detail: "A weekly count, not fixed days. If you miss a day, it reminds you the next day. Mark it done at any time from the panel.") {
+            HStack(spacing: 6) {
+                Text("\(count)").monospacedDigit()
+                Stepper("Times a week", value: Binding(get: { count }, set: { routines.setWeekCount(routine.id, $0) }),
+                        in: 1...7)
+                    .accessibilityValue("\(count)")
             }
-            own(routine)
-            Divider()
-            Row("Times a week", detail: "A count to reach, not appointments. Miss a day, and the next day asks instead.") {
-                HStack(spacing: 6) {
-                    Text("\(count)").monospacedDigit()
-                    Stepper("Times a week", value: Binding(get: { count }, set: { routines.setWeekCount(routine.id, $0) }),
-                            in: 1...7)
-                        .accessibilityValue("\(count)")
-                }
-            }
-            Divider()
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    Text("Days and time")
-                    Spacer(minLength: 12)
-                    DatePicker("Time of the reminder", selection: Binding(
-                        get: { Self.date(of: time, on: moment.now) },
-                        set: { routines.setWeekTime(routine.id, Self.time(of: $0)) }),
-                               displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .fixedSize()
-                }
-                HStack(spacing: 6) {
-                    ForEach(ordered, id: \.self) { weekday in
-                        let chosen = weekdays.contains(weekday)
-                        // A plain button drawn by hand: a system toggle button barely
-                        // shows which days are chosen when the window is not in front.
-                        Button { routines.setWeekday(routine.id, weekday, preferred: !chosen) } label: {
-                            Text(calendar.shortWeekdaySymbols[weekday - 1])
-                                .font(.callout.weight(chosen ? .semibold : .regular))
-                                .foregroundStyle(chosen ? Color.white : Color.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 5)
-                                .background(chosen ? Color.accentColor : Color.primary.opacity(0.08),
-                                            in: RoundedRectangle(cornerRadius: 6))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(calendar.weekdaySymbols[weekday - 1])
-                        .accessibilityValue(chosen ? "chosen" : "not chosen")
-                        .accessibilityAddTraits(chosen ? .isSelected : [])
-                    }
-                }
-                Text("The days it asks first. One day at least.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            timer(routine)
-            Divider()
+        }
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
+                Text("Days and time")
                 Spacer(minLength: 12)
-                foot(routine)
+                DatePicker("Time of the reminder", selection: Binding(
+                    get: { Self.date(of: time, on: moment.now) },
+                    set: { routines.setWeekTime(routine.id, Self.time(of: $0)) }),
+                           displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .fixedSize()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            dayChips(chosen: weekdays) { weekday, on in routines.setWeekday(routine.id, weekday, preferred: on) }
+            Text("The days it reminds you first. Choose at least one.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    /// Seven days to choose from, in the order of this Mac's week: Monday first, or Sunday.
+    private func dayChips(chosen: Set<Int>, set: @escaping (Int, Bool) -> Void) -> some View {
+        let calendar = routines.calendar
+        let ordered = (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
+        return HStack(spacing: 6) {
+            ForEach(ordered, id: \.self) { weekday in
+                let isChosen = chosen.contains(weekday)
+                // A plain button drawn by hand: a system toggle button barely
+                // shows which days are chosen when the window is not in front.
+                Button { set(weekday, !isChosen) } label: {
+                    Text(calendar.shortWeekdaySymbols[weekday - 1])
+                        .font(.callout.weight(isChosen ? .semibold : .regular))
+                        .foregroundStyle(isChosen ? Color.white : Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(isChosen ? Color.accentColor : Color.primary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isChosen && chosen.count == 1 ? "A routine keeps at least one day" : "")
+                .accessibilityLabel(calendar.weekdaySymbols[weekday - 1])
+                .accessibilityValue(isChosen ? "chosen" : "not chosen")
+                .accessibilityAddTraits(isChosen ? .isSelected : [])
+            }
         }
     }
 
     private func timeRow(_ routine: Routine, index: Int, time: TimeOfDay) -> some View {
-        HStack(spacing: 12) {
-            Text("Reminder \(index + 1)")
+        let only = routines.shownTimes(of: routine).count <= 1
+        return HStack(spacing: 12) {
+            Text("Time \(index + 1)")
                 .foregroundStyle(routine.isOn ? .primary : .secondary)
             if let other = routines.double(of: index, in: routine) {
                 // Two rows at one time are one reminder. Said, not silently merged.
-                Text("Same time as Reminder \(other + 1): one reminder")
+                Text("Same as time \(other + 1): one reminder")
                     .font(.callout)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
-            DatePicker("Time of reminder \(index + 1)", selection: Binding(
+            DatePicker("Time \(index + 1)", selection: Binding(
                 get: { Self.date(of: time, on: moment.now) },
                 set: { routines.setTime(routine.id, at: index, to: Self.time(of: $0)) }),
                        displayedComponents: .hourAndMinute)
@@ -765,9 +838,9 @@ struct RoutineSettings: View {
                 Image(systemName: "minus.circle")
             }
             .buttonStyle(.borderless)
-            .disabled(routines.shownTimes(of: routine).count <= 1)
-            .help("Remove this time")
-            .accessibilityLabel("Remove reminder \(index + 1)")
+            .disabled(only)
+            .help(only ? "A routine keeps at least one time" : "Remove this time")
+            .accessibilityLabel("Remove time \(index + 1)")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)

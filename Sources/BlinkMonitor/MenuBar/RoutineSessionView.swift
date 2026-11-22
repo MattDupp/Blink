@@ -80,7 +80,7 @@ struct RoutineSessionView: View {
     private func note(running: Bool, finished: Bool, week: RoutineWeek?) -> String {
         if running {
             return "A sound marks the end: no need to look. The camera is paused meanwhile. "
-                + "Follow the instructions of what you use."
+                + "Follow your product's instructions."
         }
         guard finished else { return "Start one from the menu-bar panel." }
         let count = week.map { "\($0.done) of \($0.target) this week. " } ?? ""

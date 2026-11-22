@@ -271,6 +271,77 @@ struct RoutineControllerTests {
         model.resume()
     }
 
+    // MARK: Days, sound, and the built-in ones
+
+    @Test("A routine at times of day can keep to some days; all seven is every day, and one day always stays")
+    func daysOfTheWeek() throws {
+        let desk = Desk()
+        let controller = switchedOn(desk)
+        // (1 = Sunday.) Not at the weekend:
+        controller.setDay(id, 1, on: false)
+        controller.setDay(id, 7, on: false)
+        var routine = try #require(controller.routines.first { $0.id == id })
+        #expect(routine.schedule == .timesOfDay(times: Routine.eyeDrops.times, weekdays: [2, 3, 4, 5, 6]))
+        #expect(RoutineWords.days([2, 3, 4, 5, 6], calendar: calendar).hasPrefix("on ") && RoutineWords.days(nil) == "every day")
+        controller.setDay(id, 1, on: true)
+        controller.setDay(id, 7, on: true)
+        routine = try #require(controller.routines.first { $0.id == id })
+        #expect(routine.schedule == .timesOfDay(times: Routine.eyeDrops.times, weekdays: nil), "all seven days is every day again")
+        for weekday in 1...7 { controller.setDay(id, weekday, on: false) }
+        routine = try #require(controller.routines.first { $0.id == id })
+        if case .timesOfDay(_, let days) = routine.schedule { #expect(days?.count == 1) } else { Issue.record("not at times of day") }
+    }
+
+    @Test("A routine is silent until it is given a sound, and routines stored before the switch existed are still read")
+    func soundSwitch() throws {
+        let desk = Desk()
+        let controller = switchedOn(desk)
+        controller.tick(now: at(8))
+        #expect(RoutineBanners.content(for: try #require(desk.banners.first)).sound == nil)
+        controller.setSound(id, true)
+        let loud = RoutineBanner(routine: try #require(controller.routines.first { $0.id == id }), slot: nil)
+        #expect(RoutineBanners.content(for: loud).sound != nil)
+
+        // As stored by an earlier version: no "soundOn", no "hidden".
+        let old = #"{"id":"eye-drops","name":"Eye drops","symbol":"drop","isOn":true,"schedule":{"timesOfDay":{"times":[{"hour":8,"minute":0}]}}}"#
+        let read = try JSONDecoder().decode(Routine.self, from: Data(old.utf8))
+        #expect(!read.playsSound && !read.isHidden && read.isOn)
+    }
+
+    @Test("A built-in routine can be taken out of Settings and brought back with its times")
+    func hidingBuiltIn() throws {
+        let desk = Desk()
+        let controller = switchedOn(desk)
+        controller.setTime(id, from: TimeOfDay(hour: 13), to: TimeOfDay(hour: 14))
+        controller.hide(id)
+        var routine = try #require(controller.routines.first { $0.id == id })
+        #expect(routine.isHidden && !routine.isOn && controller.hiddenBuiltIn.map(\.id) == [id])
+        #expect(controller.days(now: at(9)).allSatisfy { $0.routine.id != id }, "nothing of it is asked while it is hidden")
+        controller.unhide(id)
+        routine = try #require(controller.routines.first { $0.id == id })
+        #expect(!routine.isHidden && controller.hiddenBuiltIn.isEmpty && controller.openCard == id)
+        #expect(routine.times.contains(TimeOfDay(hour: 14)), "its times were kept")
+        // A routine of your own is deleted, not hidden.
+        let own = try #require(controller.add(RoutineTemplate.all[0], now: at(9)))
+        controller.hide(own)
+        #expect(controller.routines.first { $0.id == own }?.isHidden == false && controller.openCard == own)
+    }
+
+    @Test("Each routine's line says when it comes")
+    func summaries() {
+        let fixed = Calendar(identifier: .gregorian)
+        #expect(RoutineWords.summary(.eyeDrops, calendar: fixed).hasSuffix(", every day"))
+        #expect(RoutineWords.summary(.eyeDrops, calendar: fixed).contains(" and "))
+        #expect(RoutineWords.summary(.heatedMask, calendar: fixed).hasPrefix("3 times a week, at "))
+        #expect(RoutineWords.summary(.heatedMask, calendar: fixed).hasSuffix("with a timer of 10 minutes"))
+        let water = Routine.made(from: RoutineTemplate.all[0], now: at(0))
+        #expect(RoutineWords.summary(water) == "Every 60 minutes at the screen")
+        // The two routines the app comes with no longer start at the same time.
+        if case .timesPerWeek(_, _, let time) = Routine.heatedMask.schedule {
+            #expect(!Routine.eyeDrops.times.contains(time))
+        }
+    }
+
     // MARK: The words
 
     @Test("The banner is silent, names the time, and gives no advice")

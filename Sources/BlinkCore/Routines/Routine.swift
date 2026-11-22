@@ -87,6 +87,16 @@ public struct Routine: Codable, Equatable, Identifiable {
     /// Set for a routine that takes a while and is timed: the length of its timer, in
     /// minutes. Nil: no timer. The length is the user's own setting, never advice.
     public var sessionMinutes: Int?
+    /// Its reminder comes with the Mac's notification sound. Nil or false: in silence,
+    /// which is how every routine starts. (Optional, so that routines stored before this
+    /// existed are still read.)
+    public var soundOn: Bool?
+    /// A built-in routine the user asked not to see in Settings any more. It can be
+    /// brought back from "Add a Routine". Nil or false: shown.
+    public var hidden: Bool?
+
+    public var playsSound: Bool { soundOn ?? false }
+    public var isHidden: Bool { hidden ?? false }
 
     public init(id: String, name: String, symbol: String, schedule: RoutineSchedule, isOn: Bool = false,
                 onSince: Date? = nil, sessionMinutes: Int? = nil) {
@@ -131,7 +141,7 @@ public struct Routine: Codable, Equatable, Identifiable {
     /// The name as it is shown: trimmed, and never empty.
     public var title: String {
         let shown = Self.typedName(name).trimmingCharacters(in: .whitespaces)
-        return shown.isEmpty ? "Reminder" : shown
+        return shown.isEmpty ? "Routine" : shown
     }
 
     /// One of the routines the app comes with: it can be switched off, not deleted.
@@ -160,11 +170,12 @@ public struct Routine: Codable, Equatable, Identifiable {
         schedule: .timesOfDay(times: [TimeOfDay(hour: 8), TimeOfDay(hour: 13), TimeOfDay(hour: 17)], weekdays: nil))
 
     /// Off until switched on. Three times a week, asked on Monday, Wednesday and Friday at
-    /// 17:00, with a ten-minute timer: all four are a starting point to edit, not advice.
+    /// 18:00 (an hour after the last eye drops: both started at 17:00, and came as two
+    /// banners five minutes apart), with a ten-minute timer: all four are a starting point to edit, not advice.
     /// The timer's length is to be set to what the mask's own instructions say.
     public static let heatedMask = Routine(
         id: "heated-mask", name: "Heated eye mask", symbol: "eye",
-        schedule: .timesPerWeek(count: 3, weekdays: [2, 4, 6], time: TimeOfDay(hour: 17)), sessionMinutes: 10)
+        schedule: .timesPerWeek(count: 3, weekdays: [2, 4, 6], time: TimeOfDay(hour: 18)), sessionMinutes: 10)
 
     /// Every routine the app comes with. A new one is added here, and nowhere else.
     public static let builtIn: [Routine] = [.eyeDrops, .heatedMask]
@@ -192,9 +203,9 @@ public struct RoutineTemplate: Identifiable, Equatable {
                         schedule: .everyMinutesAtScreen(minutes: 60), summary: "Drink water: every 60 minutes at the screen"),
         RoutineTemplate(id: "stand", name: "Stand up", symbol: "figure.walk",
                         schedule: .everyMinutesAtScreen(minutes: 45), summary: "Stand up: every 45 minutes at the screen"),
-        RoutineTemplate(id: "times", name: "Reminder", symbol: "bell",
-                        schedule: RoutineSchedule.starting(.timesOfDay), summary: "A reminder at set times of day"),
-        RoutineTemplate(id: "week", name: "Reminder", symbol: "bell",
-                        schedule: RoutineSchedule.starting(.timesPerWeek), summary: "A reminder a few times a week"),
+        RoutineTemplate(id: "times", name: "My routine", symbol: "bell",
+                        schedule: RoutineSchedule.starting(.timesOfDay), summary: "A routine at set times of day"),
+        RoutineTemplate(id: "week", name: "My routine", symbol: "bell",
+                        schedule: RoutineSchedule.starting(.timesPerWeek), summary: "A routine a few times a week"),
     ]
 }

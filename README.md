@@ -129,7 +129,8 @@ and shipping it inside a real app.
   and at the end, has a switch. The panel counts the day's breaks,
   and says which ones the camera saw you take away from the screen.
 - **Routines** (off by default): a reminder to put in eye drops at the times you set, for
-  example 08:00, 13:00 and 17:00. It is silent, waits until you are at the screen, and has
+  example 08:00, 13:00 and 17:00, every day or on the days you choose. It is silent unless
+  you give it a sound, waits until you are at the screen, and has
   two buttons: Done, or Later. The panel shows today's times and which are done. The app
   reminds you of a routine you chose; it gives no advice on what to use or how often.
 - **Routines of your own**: add a reminder in Settings, name it, and choose how it comes:

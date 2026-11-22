@@ -76,6 +76,9 @@ final class RoutineController: ObservableObject {
     /// The weekly routines whose days and buttons are open in the panel. With nothing
     /// due, a weekly routine is one line; a click opens it.
     @Published var openWeeks: Set<String> = []
+    /// The routine whose editor is open in Settings: one at a time. Every card was a full
+    /// editor, always open, and two routines filled the screen.
+    @Published var openCard: String?
     /// Keeps `RoutineBanners` alive for as long as this is.
     private var banners: AnyObject?
 
@@ -341,6 +344,7 @@ final class RoutineController: ObservableObject {
         routine.name = Routine.typedName(routine.name)
         routines.append(routine)
         save()
+        openCard = routine.id       // a new routine opens, ready to be named and timed
         return true
     }
 
@@ -363,6 +367,39 @@ final class RoutineController: ObservableObject {
         routines.removeAll { $0.id == id }
         counts[id] = nil
         save()
+    }
+
+    /// A sound with this routine's reminder, or silence (how every routine starts).
+    func setSound(_ id: String, _ on: Bool) {
+        change(id) { $0.soundOn = on ? true : nil }
+    }
+
+    /// Takes a built-in routine out of Settings: switched off, and no longer listed. It
+    /// keeps its times, and "Add a Routine" brings it back.
+    func hide(_ id: String) {
+        guard routines.contains(where: { $0.id == id && $0.isBuiltIn }) else { return }
+        setOn(id, false)
+        change(id) { $0.hidden = true }
+        if openCard == id { openCard = nil }
+    }
+
+    func unhide(_ id: String) {
+        change(id) { $0.hidden = nil }
+        openCard = id
+    }
+
+    /// The built-in routines that were taken out of Settings.
+    var hiddenBuiltIn: [Routine] { routines.filter { $0.isBuiltIn && $0.isHidden } }
+
+    /// A routine at times of day asks on these days of the week only (1 = Sunday).
+    /// All seven is "every day"; the last day cannot be taken away.
+    func setDay(_ id: String, _ weekday: Int, on: Bool) {
+        change(id) { routine in
+            guard case .timesOfDay(let times, let weekdays) = routine.schedule else { return }
+            var days = weekdays ?? Set(1...7)
+            if on { days.insert(weekday) } else if days.count > 1 { days.remove(weekday) }
+            routine.schedule = .timesOfDay(times: times, weekdays: days.count == 7 ? nil : days)
+        }
     }
 
     /// Renames a routine of your own. Only the name changes: the record knows it by its id.

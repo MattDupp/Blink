@@ -8,9 +8,10 @@ import BlinkCore
 /// It goes through the app's one `Notifier`: macOS allows one delegate and one set of
 /// banner kinds per app, so a second, separate object would silently undo the first.
 ///
-/// The banner is SILENT on purpose. A routine is not an alarm: it is shown when you are
-/// at the screen, once more ten minutes later, and after that the mark in the menu bar
-/// waits without a sound.
+/// The banner is SILENT unless the routine was given a sound. A routine is not an alarm:
+/// it is shown when you are at the screen, once more ten minutes later, and after that
+/// the mark in the menu bar waits without a sound. But eye drops at a set time may well
+/// deserve one, and that is the user's choice, routine by routine.
 @MainActor
 final class RoutineBanners {
 
@@ -71,7 +72,8 @@ final class RoutineBanners {
     static func content(for banner: RoutineBanner, later minutes: Int = RoutinePolicy().laterMinutes) -> UNNotificationContent {
         let content = UNMutableNotificationContent()
         content.categoryIdentifier = banner.routine.sessionMinutes == nil ? Identifier.category : Identifier.timedCategory
-        content.sound = nil
+        // Silent unless this routine was given a sound (a switch on its card, off at first).
+        content.sound = banner.routine.playsSound ? .default : nil
         // `title`, not `name`: the name is typed by the user, and is cleaned once more here.
         content.title = banner.routine.title
         if let slot = banner.slot {

@@ -191,6 +191,7 @@ enum Snapshots {
             ("settings-routines", settings(.routines)),
             ("settings-routines-on", settings(.routines) { _, model in
                 SampleData.routines(in: model, now: now, scene: .kept)
+                model.routines.openCard = Routine.eyeDrops.id
             }),
             ("panel-week", weekPanel(.toCome)),
             ("panel-week-open", weekPanel(.toCome, open: true)),
@@ -200,6 +201,7 @@ enum Snapshots {
             ("panel-week-with-times", weekPanel(.toCome, withDrops: true)),
             ("settings-routines-week", settings(.routines) { _, model in
                 SampleData.week(in: model, now: now, scene: .toCome)
+                model.routines.openCard = Routine.heatedMask.id
             }),
             ("panel-own", ownPanel(.counting)),
             ("panel-own-waiting", ownPanel(.waiting)),
@@ -208,6 +210,7 @@ enum Snapshots {
             ("panel-many-quiet", ownPanel(.quiet)),
             ("settings-routines-own", settings(.routines) { _, model in
                 SampleData.own(in: model, now: now, scene: .counting)
+                model.routines.openCard = model.routines.routines.last { !$0.isBuiltIn }?.id
             }),
             ("settings-routines-many", settings(.routines) { _, model in
                 SampleData.own(in: model, now: now, scene: .many)
