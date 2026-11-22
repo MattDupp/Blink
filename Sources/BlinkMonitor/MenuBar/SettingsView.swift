@@ -117,6 +117,11 @@ enum EraseWords {
             + "History no longer counts them. Your history of blinks stays. This cannot be undone.",
         button: "Erase")
 
+    static let eyeNotes = Confirm.Question(
+        title: "Erase your eye notes?",
+        text: "Every answer you gave to the evening question is erased, and its row in History is empty again. This cannot be undone.",
+        button: "Erase")
+
     static func captures(_ count: Int) -> Confirm.Question {
         Confirm.Question(title: "Erase the captures from Live View?",
                          text: "\(Format.count(count, "capture")) of your eyes, saved with Live View's record buttons. This cannot be undone.",
@@ -142,7 +147,7 @@ enum EraseWords {
 
     static let everything = Confirm.Question(
         title: "Delete everything and quit?",
-        text: "The recordings of your eyes, your model, the history, the routine log, the break log and every setting are removed from this Mac, "
+        text: "The recordings of your eyes, your model, the history, the routine log, the break log, your eye notes and every setting are removed from this Mac, "
             + "and Blink Monitor quits. Afterwards, move Blink Monitor itself to the Trash. This cannot be undone.",
         button: "Delete Everything and Quit")
 }
@@ -260,8 +265,12 @@ struct SettingsView: View {
                     case .reminders: remindersTab
                     case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
                                             openNotificationSettings: actions.openNotificationSettings)
-                    case .routines: RoutineSettings(routines: model.routines, moment: moment, notifications: reminders.notifications,
-                                                    openNotificationSettings: actions.openNotificationSettings)
+                    case .routines:
+                        VStack(alignment: .leading, spacing: 12) {
+                            RoutineSettings(routines: model.routines, moment: moment, notifications: reminders.notifications,
+                                            openNotificationSettings: actions.openNotificationSettings)
+                            eveningQuestionCard
+                        }
                     case .model: modelTab
                     case .data: data
                     case .sources: sources
@@ -344,6 +353,26 @@ struct SettingsView: View {
             Divider()
             Row("Quiet during calls", detail: "No reminder, no look-away break and no sound while an app uses the microphone. Blink Monitor only asks macOS whether it is in use: it never listens.") {
                 Toggle("Quiet during calls", isOn: $preferences.quietDuringCalls)
+            }
+        }
+    }
+
+    /// The evening question: a reminder on a schedule that the person chose, so it lives
+    /// with the routines.
+    private var eveningQuestionCard: some View {
+        Card {
+            Row(EyeNoteWords.row, detail: EyeNoteWords.detail) {
+                Toggle(EyeNoteWords.row, isOn: $preferences.eyeNoteOn)
+            }
+            if preferences.eyeNoteOn {
+                Divider()
+                let held = SummaryWords.isHeldBack(hour: preferences.eyeNoteHour, by: preferences.workingHours)
+                Row(EyeNoteWords.hourRow, detail: held ? SummaryWords.heldBack(hour: preferences.eyeNoteHour) : EyeNoteWords.hourDetail) {
+                    Picker(EyeNoteWords.hourRow, selection: $preferences.eyeNoteHour) {
+                        ForEach(0..<24, id: \.self) { Text(Format.hour($0)).tag($0) }
+                    }
+                    .fixedSize()
+                }
             }
         }
     }
@@ -679,6 +708,7 @@ struct SettingsView: View {
                                   + String(format: ", %.0f MB, ", state.onDisk.captureMegabytes)
                                   + "recorded with its record buttons.")
                     }
+                    DataPoint(symbol: "square.and.pencil", text: "Kept with the evening question switched on: your answer, one line a day.")
                     DataPoint(symbol: "photo", text: "Never kept: what the camera sees while it counts. Each picture is read and discarded at once.")
                     DataPoint(symbol: "wifi.slash", text: "Nothing leaves this Mac. The app makes no network connection.")
                 }
@@ -715,6 +745,16 @@ struct SettingsView: View {
                     }
                     .disabled(!FileManager.default.fileExists(atPath: breakLog.path))
                 }
+                Divider()
+                let eyeNotes = model.eyeNotes.store.file
+                Row(EyeNoteWords.fileTitle, detail: "\(EyeNoteWords.fileDetail) \(Self.size(of: eyeNotes))") {
+                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([eyeNotes]) }
+                        .disabled(!FileManager.default.fileExists(atPath: eyeNotes.path))
+                    Button("Erase…") {
+                        if Confirm.destructive(EraseWords.eyeNotes) { model.eyeNotes.erase() }
+                    }
+                    .disabled(!FileManager.default.fileExists(atPath: eyeNotes.path))
+                }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
                     Divider()
                     Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View."
@@ -732,7 +772,7 @@ struct SettingsView: View {
             if let deleteEverything = actions.deleteEverythingAndQuit {
                 Card {
                     Row("Remove Blink Monitor from this Mac",
-                        detail: "Deletes the recordings, the model, the history, the routine log, the break log and every setting, then quits. Afterwards, move the app itself to the Trash.") {
+                        detail: "Deletes the recordings, the model, the history, the routine log, the break log, your eye notes and every setting, then quits. Afterwards, move the app itself to the Trash.") {
                         Button("Delete Everything and Quit…") {
                             if Confirm.destructive(EraseWords.everything) { deleteEverything() }
                         }

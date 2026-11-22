@@ -31,6 +31,8 @@ struct HistoryView: View {
     /// where the window is drawn without them.
     var care: CareController?
     var routines: RoutineController?
+    /// The answers to the evening question: one row under the week.
+    var eyeNotes: EyeNoteController?
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
     /// "Export…": copies the history and the routine log where the user chooses.
@@ -96,6 +98,9 @@ struct HistoryView: View {
                     ChartCaption(state.hoveredDay.flatMap { days.indices.contains($0) ? days[$0] : nil }.map { day in
                         Self.said(day.day.formatted(.dateTime.weekday(.wide)), day.summary)
                     } ?? (weekRecords.isEmpty ? HistoryWords.emptyWeek : "Click a day to see its hours."))
+                    if let eyeNotes {
+                        EyeNoteRow(notes: eyeNotes, week: shown, asks: preferences.eyeNoteOn, now: now, calendar: calendar)
+                    }
                 }
 
                 if !weekRecords.isEmpty {
@@ -297,6 +302,55 @@ private struct KeptBlock: View {
                 }
             }
             .textStyle(.callout)
+        }
+    }
+}
+
+/// One row under the week: what the person noted about their eyes on each day, in their
+/// own four words. Nothing is drawn from it: no colour that judges, no average, no link
+/// to the bars above. It shows when the question is on, or when the week holds a note.
+private struct EyeNoteRow: View {
+    @ObservedObject var notes: EyeNoteController
+    let week: HistoryWeek
+    let asks: Bool
+    let now: Date
+    let calendar: Calendar
+
+    var body: some View {
+        let row = EyeNotes.row(for: week, notes: notes.notes, calendar: calendar)
+        if asks || row.contains(where: { $0 != nil }) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(EyeNoteWords.rowTitle)
+                        .textStyle(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    // Today's note can be given, or changed, here: a banner is not the only way.
+                    if week.isInProgress {
+                        Menu(EyeNoteWords.todayMenu) {
+                            ForEach(EyeFeeling.allCases) { feeling in
+                                Button(EyeNoteWords.name(feeling)) { notes.note(feeling) }
+                            }
+                        }
+                        .fixedSize()
+                        .smallControl()
+                        .accessibilityLabel(EyeNoteWords.question)
+                    }
+                }
+                HStack(spacing: 0) {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, feeling in
+                        Text(feeling.map(EyeNoteWords.name) ?? Format.none)
+                            .textStyle(.caption)
+                            .foregroundStyle(feeling == nil ? .tertiary : .primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(EyeNoteWords.rowTitle)
+                .accessibilityValue(zip(week.days, row).map { "\($0.formatted(.dateTime.weekday(.wide))) \(EyeNoteWords.spoken($1))" }.joined(separator: ", "))
+            }
         }
     }
 }

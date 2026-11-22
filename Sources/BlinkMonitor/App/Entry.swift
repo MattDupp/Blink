@@ -221,9 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let historyState = HistoryState()
         let history = WindowController(title: "History", text: preferences) {
             HistoryView(history: model.history, preferences: preferences, state: historyState,
-                        care: model.care, routines: model.routines,
+                        care: model.care, routines: model.routines, eyeNotes: model.eyeNotes,
                         export: { ExportPanel.run(history: model.history.store.file, routineLog: model.routines.store.file,
-                                                  breakLog: model.care.store.file) })
+                                                  breakLog: model.care.store.file, eyeNotes: model.eyeNotes.store.file) })
         }
         // It opens on today, in the last seven days. The earlier weeks are read from the
         // file while the window is open, and let go when it closes. The demo's are made up.

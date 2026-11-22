@@ -7,10 +7,10 @@ import BlinkCore
 @MainActor
 enum ExportPanel {
 
-    static let message = "Copies your history, your routine log and your break log into the folder you choose: files any spreadsheet opens. "
+    static let message = "Copies your history, your routine log, your break log and your eye notes into the folder you choose: files any spreadsheet opens. "
         + "They hold numbers and times, no picture. Nothing is sent anywhere."
 
-    static func run(history: URL, routineLog: URL, breakLog: URL) {
+    static func run(history: URL, routineLog: URL, breakLog: URL, eyeNotes: URL) {
         let panel = NSOpenPanel()
         panel.title = "Export"
         panel.message = message
@@ -22,7 +22,7 @@ enum ExportPanel {
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let folder = panel.url else { return }
         do {
-            let copies = try DataExport.copy(DataExport.items(history: history, routineLog: routineLog, breakLog: breakLog), to: folder)
+            let copies = try DataExport.copy(DataExport.items(history: history, routineLog: routineLog, breakLog: breakLog, eyeNotes: eyeNotes), to: folder)
             if !copies.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(copies) }
         } catch {
             let alert = NSAlert()

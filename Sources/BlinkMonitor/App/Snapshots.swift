@@ -61,13 +61,15 @@ enum Snapshots {
             if weeks {
                 model.history.state(earlier: SampleData.earlierMinutes(now: now), readAt: now)
                 model.care.state(events: SampleData.care(now: now))
+                model.preferences.eyeNoteOn = true
+                model.eyeNotes.state(notes: SampleData.eyeNotes(now: now))
             }
             state.week = week
             if daysBack > 0 {
                 state.selectedDay = Calendar.current.date(byAdding: .day, value: -daysBack, to: Calendar.current.startOfDay(for: now))
             }
             return AnyView(HistoryView(history: model.history, preferences: model.preferences, state: state,
-                                       care: model.care, routines: model.routines, moment: Moment(frozen: now)))
+                                       care: model.care, routines: model.routines, eyeNotes: model.eyeNotes, moment: Moment(frozen: now)))
         }
         func blinkBreak(_ scene: SampleData.Scene) -> AnyView {
             let model = SampleData.model(now: now, scene: scene)
@@ -226,6 +228,7 @@ enum Snapshots {
             ("panel-routine-waiting", routinePanel(.waiting)),
             ("panel-routine-later", routinePanel(.putOff)),
             ("settings-routines", settings(.routines)),
+            ("settings-routines-question", settings(.routines) { _, model in model.preferences.eyeNoteOn = true }),
             ("settings-routines-on", settings(.routines) { _, model in
                 SampleData.routines(in: model, now: now, scene: .kept)
                 model.routines.openCard = Routine.eyeDrops.id

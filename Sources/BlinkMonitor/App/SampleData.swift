@@ -72,6 +72,7 @@ enum SampleData {
         // The demo has a past: the History window can go back ten weeks.
         model.history.state(earlier: earlierMinutes(now: now), readAt: now)
         model.care.state(events: care(now: now))
+        model.eyeNotes.state(notes: eyeNotes(now: now))
         demoRoutine(in: model, now: now)
         demoWeek(in: model, now: now)
         demoOwn(in: model, now: now)
@@ -487,6 +488,17 @@ enum SampleData {
             }
         }
         return events.filter { $0.at < now }
+    }
+
+    /// Answers to the evening question on most working days of the last ten weeks.
+    static func eyeNotes(now: Date, calendar: Calendar = .current) -> [EyeNote] {
+        let feelings: [EyeFeeling] = [.fine, .aLittleTired, .fine, .tired, .aLittleTired, .fine, .fine, .veryTired, .aLittleTired]
+        let today = calendar.startOfDay(for: now)
+        return (1..<70).reversed().compactMap { back in
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today), !calendar.isDateInWeekend(day),
+                  back / 7 != 6, back % 5 != 0 else { return nil }      // a day without an answer now and then
+            return EyeNote(feeling: feelings[back % feelings.count], at: day.addingTimeInterval(17.1 * 3600), calendar: calendar)
+        }
     }
 
     // MARK: Routines

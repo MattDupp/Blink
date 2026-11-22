@@ -301,6 +301,22 @@ for when a minute of counting ends, so it comes while someone is at the screen. 
 passes the same gate as every banner. So an hour outside the working hours, with "Quiet
 outside working hours" on, would never show: Settings says so under the hour.
 
+### How the eyes feel
+
+An optional question, once a day from an hour chosen in Settings: "How do your eyes
+feel?", with four buttons on the banner: Fine, A little tired, Tired, Very tired. The
+answer can also be given, or changed, in the History window.
+
+It is the person's own note, and the app treats it as that. It is kept in a file of its
+own, `eye-notes.csv`, and shown as a row of words under the week. Nothing is worked out
+from it: no colour, no average, no comparison with the blink rate, no sentence about
+what it means. A test reads every word around the question and fails on "better",
+"because", "symptom" and their like. The app is not a medical device, and a note about
+how eyes feel is the place where it would be easiest to start sounding like one.
+
+The banner is silent, goes through the same gate as every other, last in order, and is
+not shown on a day already answered.
+
 ### One gate for every banner
 
 The app has three kinds of reminder: the blink reminder, the look-away break and the

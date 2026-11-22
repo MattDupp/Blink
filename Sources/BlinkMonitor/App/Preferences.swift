@@ -23,6 +23,9 @@ final class Preferences: ObservableObject {
         static let summaryOn = "summaryOn"
         static let summaryHour = "summaryHour"
         static let summaryShownDay = "summaryShownDay"
+        static let eyeNoteOn = "eyeNoteOn"
+        static let eyeNoteHour = "eyeNoteHour"
+        static let eyeNoteAskedDay = "eyeNoteAskedDay"
         static let workingHoursOn = "workingHoursOn"
         static let workStart = "workingHoursStart"
         static let workEnd = "workingHoursEnd"
@@ -135,6 +138,15 @@ final class Preferences: ObservableObject {
         set { defaults.set(newValue, forKey: Key.summaryShownDay) }
     }
 
+    /// The evening question, "How do your eyes feel?" (`EyeNoteController`). Off unless chosen.
+    @Published var eyeNoteOn: Bool { didSet { defaults.set(eyeNoteOn, forKey: Key.eyeNoteOn) } }
+    @Published var eyeNoteHour: Int { didSet { defaults.set(eyeNoteHour, forKey: Key.eyeNoteHour) } }
+    /// The day the question was last asked on: once a day.
+    var eyeNoteAskedDay: String? {
+        get { defaults.string(forKey: Key.eyeNoteAskedDay) }
+        set { defaults.set(newValue, forKey: Key.eyeNoteAskedDay) }
+    }
+
     // MARK: Breaks
 
     /// Nudge to look away after `breakMinutes` at the screen. Off unless you ask for it.
@@ -232,6 +244,8 @@ final class Preferences: ObservableObject {
         static let largerText = false
         static let summaryOn = false
         static let summaryHour = 17
+        static let eyeNoteOn = false
+        static let eyeNoteHour = 17
         static var workStart: TimeOfDay { WorkingHours.usual.start }
         static var workEnd: TimeOfDay { WorkingHours.usual.end }
         static var workDays: Set<Int> { WorkingHours.usual.weekdays }
@@ -269,6 +283,8 @@ final class Preferences: ObservableObject {
         largerText = Standard.largerText
         summaryOn = Standard.summaryOn
         summaryHour = Standard.summaryHour
+        eyeNoteOn = Standard.eyeNoteOn
+        eyeNoteHour = Standard.eyeNoteHour
         workingHoursOn = Standard.workingHoursOn
         workStart = Standard.workStart
         workEnd = Standard.workEnd
@@ -303,6 +319,7 @@ final class Preferences: ObservableObject {
             || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
             || cameraID != nil || blinkBreakShortcut != nil || largerText != Standard.largerText
             || summaryOn != Standard.summaryOn || summaryHour != Standard.summaryHour
+            || eyeNoteOn != Standard.eyeNoteOn || eyeNoteHour != Standard.eyeNoteHour
             || workingHoursOn != Standard.workingHoursOn || workStart != Standard.workStart
             || workEnd != Standard.workEnd || workDays != Standard.workDays
     }
@@ -322,6 +339,8 @@ final class Preferences: ObservableObject {
         largerText = bool(Key.largerText, Standard.largerText)
         summaryOn = bool(Key.summaryOn, Standard.summaryOn)
         summaryHour = min(max(int(Key.summaryHour, Standard.summaryHour), 0), 23)
+        eyeNoteOn = bool(Key.eyeNoteOn, Standard.eyeNoteOn)
+        eyeNoteHour = min(max(int(Key.eyeNoteHour, Standard.eyeNoteHour), 0), 23)
         workingHoursOn = bool(Key.workingHoursOn, Standard.workingHoursOn)
         func time(_ key: String, _ standard: TimeOfDay) -> TimeOfDay {
             (defaults.object(forKey: key) as? Int).map { TimeOfDay(hour: $0 / 60, minute: $0 % 60) } ?? standard

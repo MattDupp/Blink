@@ -97,10 +97,10 @@ final class ReminderController: ObservableObject {
         }
         breaksChanged = breaks.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         // Switching a nudge on in Settings is the moment to ask macOS for notifications.
-        wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn, preferences.$summaryOn)
+        wanted = preferences.$remindersOn.combineLatest(preferences.$breakNudgesOn, preferences.$summaryOn, preferences.$eyeNoteOn)
             .dropFirst()
-            .sink { [weak self] reminders, nudges, summary in
-                if reminders || nudges || summary { self?.askForNotifications() }
+            .sink { [weak self] reminders, nudges, summary, note in
+                if reminders || nudges || summary || note { self?.askForNotifications() }
             }
     }
 
@@ -112,7 +112,7 @@ final class ReminderController: ObservableObject {
     /// The camera runs: ask macOS for the right to show notifications, if any are wanted.
     func prepare() {
         prepared = true
-        if preferences.remindersOn || preferences.breakNudgesOn || preferences.summaryOn { askForNotifications() }
+        if preferences.remindersOn || preferences.breakNudgesOn || preferences.summaryOn || preferences.eyeNoteOn { askForNotifications() }
     }
 
     private func askForNotifications() {
@@ -189,6 +189,12 @@ final class ReminderController: ObservableObject {
 
     func routineBannerShown(now: Date = Date()) {
         gate.shown(at: now)
+    }
+
+    /// The banners that can wait (the evening question; the summary asks the gate itself):
+    /// last in order, and through the same gate.
+    func mayShowLastBanner(now: Date = Date()) -> Bool {
+        gate.mayShow(.summary, busy: busy(), soon: soon(now: now), now: now)
     }
 
     /// A look-away break is about to fall due: it goes first.

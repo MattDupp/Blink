@@ -62,6 +62,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     var extraCategories: [UNNotificationCategory] = []
     /// Called on the main thread for a press that is not one of `Action`.
     var onOtherResponse: (@MainActor (OtherResponse) -> Void)?
+    /// More kinds of banner that answer for themselves (the evening question): each is
+    /// handed every response that is not the notifier's own, and takes its own.
+    var responders: [@MainActor (OtherResponse) -> Void] = []
 
     /// macOS only gives notifications to a real app (a bundle with an identifier).
     /// Run as a bare program there is none, and asking would crash.
@@ -264,7 +267,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             let content = response.notification.request.content
             let other = OtherResponse(category: content.categoryIdentifier, action: response.actionIdentifier,
                                       info: content.userInfo as? [String: String] ?? [:])
-            Task { @MainActor [weak self] in self?.onOtherResponse?(other) }
+            Task { @MainActor [weak self] in
+                self?.onOtherResponse?(other)
+                self?.responders.forEach { $0(other) }
+            }
         }
         completionHandler()
     }

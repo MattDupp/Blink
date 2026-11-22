@@ -64,7 +64,8 @@ Apple has not scanned it. All of its code is in this repository.
 - **Update:** quit Blink Monitor (click the eye, then *Quit*). Open the new disk image, drag
   again, and choose *Replace*.
 - **Remove:** Settings > Privacy > *Delete Everything and Quit…* removes the recordings, the
-  model, the history, the routine log, the break log and every setting, after one question. Then drag the
+  model, the history, the routine log, the break log, your eye notes and every setting, after
+  one question. Then drag the
   app from Applications to the Trash. Dragging alone leaves those files in
   `~/Library/Application Support/BlinkMonitor`.
 
@@ -161,6 +162,10 @@ and shipping it inside a real app.
 - **A summary of the day** (off by default): one silent banner at the hour you choose,
   with the time at the screen and your rate, and on Mondays a line for the seven days
   before. A day with under 30 minutes at the screen gets no rate.
+- **An evening question** (off by default): once a day a silent banner asks how your eyes
+  feel, and one tap answers: Fine, A little tired, Tired or Very tired. It is your own
+  note. The app keeps it on this Mac and shows it under the week in History. It does not
+  interpret it.
 - **Larger text** (off by default): one switch draws the words of every window about 20%
   larger. Each window still fits a 13-inch screen, and scrolls where it has to.
 - **Quiet outside working hours** (off by default): two times of day and the days of the
@@ -395,6 +400,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a recording) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Model shows them and deletes them, for good.
 - **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it. History > *Export…* copies it, with the routine log, to a folder you choose.
 - One line each time a look-away break is taken or skipped, a blink break is finished or a blink reminder is shown, in `breaks.csv` in the same folder. Settings > Privacy shows the file and can erase it, and *Export…* copies it too.
+- With the evening question switched on, your answer, one line a day, in `eye-notes.csv` in the same folder. Settings > Privacy shows the file and can erase it, and *Export…* copies it too.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.

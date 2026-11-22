@@ -23,10 +23,11 @@ public enum DataExport {
         }
     }
 
-    public static func items(history: URL, routineLog: URL, breakLog: URL) -> [Item] {
+    public static func items(history: URL, routineLog: URL, breakLog: URL, eyeNotes: URL) -> [Item] {
         [Item(file: history, name: "Blink Monitor history.csv"),
          Item(file: routineLog, name: "Blink Monitor routine log.csv"),
-         Item(file: breakLog, name: "Blink Monitor break log.csv")]
+         Item(file: breakLog, name: "Blink Monitor break log.csv"),
+         Item(file: eyeNotes, name: "Blink Monitor eye notes.csv")]
     }
 
     /// Copies each file that exists into `folder`, and answers the copies made. A file
