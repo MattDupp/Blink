@@ -74,6 +74,8 @@ struct MenuPanelView: View {
                 NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed,
                            limit: preferences.limit, offersSetup: model.failure?.offersSetup ?? false,
                            timer: timerRoutine, energy: model.energyHold,
+                           // Asked only when it is said: finding the cameras is not free.
+                           camera: status == .cameraSilent ? model.cameraPlace : .lid,
                            tryAgain: { Task { await model.tryAgain() } }, actions: actions)
                 // The four actions sit directly under the rate, at the same place each time
                 // the panel opens: at the bottom they moved with every routine and note.
@@ -123,7 +125,7 @@ private struct DemoBanner: View {
                     ? "Demo: the blinks are made up and the camera is off. To use it on your own eyes, open Blink Monitor itself."
                     : "Demo: the blinks are made up and the camera is off.",
                   systemImage: "sparkles")
-                .font(.caption)
+                .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Button("See the Setup") { actions.openSetup() }
@@ -145,10 +147,17 @@ private struct DemoBanner: View {
 /// without being dragged to Applications first (see `Installation.isOnDiskImage`).
 private struct DiskImageBanner: View {
     var body: some View {
-        Label("Running from the disk image. To keep Blink Monitor: quit it, drag it onto Applications, and open it from there.",
-              systemImage: "externaldrive")
-            .font(.caption)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 7) {
+            // At the size of the panel's other sentences: it was the smallest text on it,
+            // and it is the one a new user most needs to read.
+            Label("Running from the disk image. To keep Blink Monitor: quit it, drag it onto Applications, and open it from there.",
+                  systemImage: "externaldrive")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) }
+                .controlSize(.small)
+                .help("Shows Blink Monitor in the disk image's window, beside the Applications folder to drag it onto")
+        }
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -170,6 +179,8 @@ private struct NowSection: View {
     var timer: String?
     /// Counting rests to save energy.
     var energy: EnergyPause.Reason?
+    /// Where the camera in use sits: said when it sends no picture.
+    var camera = CameraPlace.lid
     var tryAgain: () -> Void = {}
     let actions: PanelActions
 
@@ -194,7 +205,7 @@ private struct NowSection: View {
                     StatusPill(text: status.label, color: status.tint, pulse: blinks)
                 }
             }
-            Text(status.explanation(limit: limit, timer: timer, energy: energy))
+            Text(status.explanation(limit: limit, timer: timer, energy: energy, camera: camera))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -222,7 +233,7 @@ private struct NowSection: View {
             if status == .needsSetup {
                 HStack(spacing: 8) {
                     Button(begun ? "Continue Setup…" : "Set Up Blink Monitor…") { actions.openSetup() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                     // Once the setup was begun, its first page and the demo on it were out of reach.
                     if let tryDemo = actions.tryDemo {
                         Button("Try the Demo") { tryDemo() }
@@ -411,11 +422,13 @@ private struct TodaySection: View {
             SectionTitle("Today")
             HStack(spacing: 8) {
                 StatTile(value: Format.duration(today.observedSeconds), caption: "at the screen")
-                StatTile(value: today.ratePerMinute.map(Format.rate) ?? "--", caption: "blinks a minute")
+                StatTile(value: today.ratePerMinute.map(Format.rate) ?? Format.none, caption: "blinks a minute")
                     .help("Today's average. \(today.blinks.formatted()) blinks counted today.")
-                StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--", caption: "above your limit")
+                StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? Format.none, caption: "above your limit")
                     .help("The share of today's minutes at or above your limit of \(limit) blinks a minute")
             }
+            // One height for the three, the tallest's: a caption may take two lines.
+            .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
                     Text("Last hour").font(.caption).foregroundStyle(.secondary)
@@ -589,6 +602,7 @@ private struct ActionTiles: View {
                     .help("Every choice the app remembers (S, or Command-comma)")
                     .keyboardShortcut("s", modifiers: [])
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             if state.choosingPause && !model.showsResume {
                 PauseChoices { duration in
@@ -629,9 +643,13 @@ private struct FooterRow: View {
                         .labelStyle(CameraOnStyle())
                         .help("The green light beside the camera is Blink Monitor counting your blinks. Pause turns it off.")
                 } else {
-                    Text("Blink Monitor \(AppInfo.version)")
+                    // The app's name is on the Quit button's tooltip and in Settings:
+                    // here it took the room that sets Quit apart.
+                    Text("Version \(AppInfo.version)")
+                        .lineLimit(1)
+                        .fixedSize()
                 }
-                Spacer()
+                Spacer(minLength: 0)
                 if bare {
                     Button("Settings") { actions.openSettings() }
                 } else {
@@ -651,7 +669,12 @@ private struct FooterRow: View {
                 Button("Live View") { actions.openLiveView() }
                     .help("The camera with your eyes framed, and each blink as it is counted")
                 }
-                Button("Quit") { actions.quit() }
+                // Quit sat 14 points from Live View: twice the room now sets it apart. Its
+                // whole name is said where there is room for it, and in its tooltip.
+                Button(bare ? "Quit Blink Monitor" : "Quit") { actions.quit() }
+                    .help("Quit Blink Monitor: counting and every reminder stop until you open it again")
+                    .accessibilityLabel("Quit Blink Monitor")
+                    .padding(.leading, bare ? 0 : 14)
             }
             // Drawn as buttons, at a size one can read: they were three grey words.
             .font(.callout)
@@ -703,13 +726,16 @@ private struct ActionTile: View {
                     .font(.system(size: 15, weight: .medium))
                     .frame(height: 18)
                 // The word of an orange tile is written in the orange made for text.
+                // A word too long for its tile goes onto a second line. It was shrunk to
+                // fit, and small text was made smaller for the people who enlarge it.
                 Text(title)
                     .font(.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(tint == .orange ? Color.warningText : (tint ?? .primary))
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, 9)
         }
         .buttonStyle(TileStyle(tint: tint))
@@ -761,13 +787,15 @@ struct StatTile: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+            // The caption wraps instead of shrinking; the number above is a display
+            // figure, and may still be drawn smaller to stay on its line.
             Text(caption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
@@ -777,6 +805,9 @@ struct StatTile: View {
 
 /// How the app writes durations, times and days: once, so every window says them alike.
 enum Format {
+    /// Where a number is missing: one dash, the same everywhere (`RateReadout.none`).
+    static let none = RateReadout.none
+
     /// "42 min", "2 h 5 min", "3 h".
     static func duration(_ seconds: Double) -> String {
         let minutes = Int(seconds / 60)

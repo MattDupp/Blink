@@ -185,7 +185,13 @@ enum SampleData {
             tally.record(BreakOutcome(kind: .short, ending: ending), dayStart: tally.day)
         }
         if case .quiet = scene { model.reminders.setQuiet(.oneHour, now: now) }
-        if case .notificationsOff = scene { model.reminders.state(notifications: .refused) }
+        // The pictures state macOS's answer: left unknown, every test button would
+        // warn that macOS is about to ask. The demo keeps the real answer.
+        if case .notificationsOff = scene {
+            model.reminders.state(notifications: .refused)
+        } else if !isDemo {
+            model.reminders.state(notifications: .allowed)
+        }
         if case .lookingAway = scene {
             model.reminders.breaks.show(current: .init(kind: .short, seconds: 40), tally: tally)
         }
@@ -221,7 +227,7 @@ enum SampleData {
     enum SetupScene {
         case welcome, demoWelcome, welcomeBack
         case camera, cameraNoFace, cameraDark, cameraRefused
-        case recordFirst, recordMuted, recording, recordShort, recordNext, recordEnough
+        case recordFirst, recordMuted, recording, poseEnded, recordShort, recordNext, recordEnough
         case training, trainingFailed, trainingFailedAgain, trained
         case testReady, testRunning, testPassed, testFailed
         case done
@@ -270,6 +276,12 @@ enum SampleData {
             state.sessions = [first]
             (state.sessionRunning, state.phaseIndex, state.phaseState, state.recordProgress) = (true, 5, .recording, 0.6)
             (state.sessionOpen, state.sessionClosed, state.crops) = (178, 148, closedEyes)
+        case .poseEnded:
+            // A closed-eye pose has just ended: the window is at its brightest.
+            state.step = .record
+            state.sessions = [first]
+            (state.sessionRunning, state.phaseIndex, state.phaseState, state.glow) = (true, 6, .listening, PoseSignal.pulse(rise: 0, hold: 0, fall: 0).strength)
+            (state.sessionOpen, state.sessionClosed, state.crops) = (178, 178, closedEyes)
         case .recordShort:
             state.step = .record
             state.sessions = [first]

@@ -188,13 +188,12 @@ final class ReminderController: ObservableObject {
         // came back above the limit, which ends its back-off.
         let rate = policy.recentRate(records: minutes, now: now)
         let allowed = preferences.remindersOn && gate.mayShow(.blink, busy: busy(), soon: soon(now: now), now: now)
-        // A banner that stopped being true is taken back: "About 6 blinks a minute" sat
+        // A banner that stopped being true is taken back: "Under your limit" sat
         // in Notification Centre for hours after the rate had come back.
         if let rate, rate >= Double(preferences.limit) { notifier.withdrawLowRate() }
-        guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now, allowed: allowed),
-              let rate else { return }
+        guard let due = policy.reminder(rate: rate, threshold: Double(preferences.limit), now: now, allowed: allowed) else { return }
         gate.shown(at: now)
-        notifier.show(.lowRate(recent: rate, sound: due.sound))
+        notifier.show(.lowRate(limit: preferences.limit, sound: due.sound))
     }
 
     /// A blink break was finished: the reminder that asked for it is answered. Its banner

@@ -11,6 +11,17 @@ public enum MacState {
         return type == kIOPMBatteryPowerKey
     }
 
+    /// A portable Mac: it has a battery of its own, so it has a lid, with the camera in it.
+    /// (A desktop Mac on an uninterruptible supply has a power source too, of another type.)
+    public static var hasLid: Bool {
+        guard let blob = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(blob)?.takeRetainedValue() as? [CFTypeRef] else { return false }
+        return sources.contains { source in
+            let facts = IOPSGetPowerSourceDescription(blob, source)?.takeUnretainedValue() as? [String: Any]
+            return facts?[kIOPSTypeKey] as? String == kIOPSInternalBatteryType
+        }
+    }
+
     public static var lowPowerMode: Bool { ProcessInfo.processInfo.isLowPowerModeEnabled }
 
     /// Some app is using the microphone: most likely a call.

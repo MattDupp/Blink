@@ -185,30 +185,102 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// What each choice is before anyone chose: read by `init` for a key that was never
+    /// stored, and by `resetChoices`. Written once, so that the two cannot drift apart.
+    enum Standard {
+        static let showRateInMenuBar = true
+        static let orangeRateWhenLow = true
+        static let liveViewSound = false
+        static let pauseOnBattery = false
+        static let pauseInLowPower = false
+        static let quietDuringCalls = false
+        static let blinkBack = true
+        static let remindersOn = true
+        static let automaticLimit = true
+        static var floor: Int { PublishedRates.startingFloor }
+        static let breakNudgesOn = false
+        /// The classic 20-20-20, with no long break.
+        static let breakMinutes = 20
+        static let breakSeconds = 20
+        static let longBreakOn = false
+        static let longBreakEvery = 3
+        static let longBreakMinutes = 5
+        static let breakStartSound = true
+        static let breakEndSound = true
+    }
+
+    /// "Reset to Defaults": every CHOICE goes back to what it was on the first day.
+    ///
+    /// What is not a choice stays: your usual rate (it was measured, and measuring it
+    /// again takes days), the history, the model and its recordings, the routines and
+    /// their log, a pause or a Quiet in force, today's count of breaks, and the fact that
+    /// the welcome was seen. Start at login is kept by macOS, not here, and stays too.
+    /// The camera goes back to Automatic through `MonitorModel.resetChoices`, which also
+    /// tells the camera.
+    func resetChoices() {
+        showRateInMenuBar = Standard.showRateInMenuBar
+        orangeRateWhenLow = Standard.orangeRateWhenLow
+        liveViewSound = Standard.liveViewSound
+        pauseOnBattery = Standard.pauseOnBattery
+        pauseInLowPower = Standard.pauseInLowPower
+        quietDuringCalls = Standard.quietDuringCalls
+        blinkBack = Standard.blinkBack
+        remindersOn = Standard.remindersOn
+        automaticLimit = Standard.automaticLimit
+        floor = Standard.floor
+        // The lowest limit is back where it started, so "Follow My Own Rate" may be offered again.
+        ownRateOfferAnswered = false
+        breakNudgesOn = Standard.breakNudgesOn
+        breakMinutes = Standard.breakMinutes
+        breakSeconds = Standard.breakSeconds
+        longBreakOn = Standard.longBreakOn
+        longBreakEvery = Standard.longBreakEvery
+        longBreakMinutes = Standard.longBreakMinutes
+        breakStartSound = Standard.breakStartSound
+        breakEndSound = Standard.breakEndSound
+        cameraID = nil
+    }
+
+    /// Whether any choice differs from its default: "Reset to Defaults" has something to do.
+    var hasChoices: Bool {
+        showRateInMenuBar != Standard.showRateInMenuBar || orangeRateWhenLow != Standard.orangeRateWhenLow
+            || liveViewSound != Standard.liveViewSound || pauseOnBattery != Standard.pauseOnBattery
+            || pauseInLowPower != Standard.pauseInLowPower || quietDuringCalls != Standard.quietDuringCalls
+            || blinkBack != Standard.blinkBack || remindersOn != Standard.remindersOn
+            || automaticLimit != Standard.automaticLimit || floor != Standard.floor
+            || breakNudgesOn != Standard.breakNudgesOn || breakMinutes != Standard.breakMinutes
+            || breakSeconds != Standard.breakSeconds || longBreakOn != Standard.longBreakOn
+            || longBreakEvery != Standard.longBreakEvery || longBreakMinutes != Standard.longBreakMinutes
+            || breakStartSound != Standard.breakStartSound || breakEndSound != Standard.breakEndSound
+            || cameraID != nil
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        showRateInMenuBar = defaults.object(forKey: Key.showRate) as? Bool ?? true
-        orangeRateWhenLow = defaults.object(forKey: Key.orangeWhenLow) as? Bool ?? true
-        liveViewSound = defaults.bool(forKey: Key.liveViewSound)
+        func bool(_ key: String, _ standard: Bool) -> Bool { defaults.object(forKey: key) as? Bool ?? standard }
+        func int(_ key: String, _ standard: Int) -> Int { defaults.object(forKey: key) as? Int ?? standard }
+        showRateInMenuBar = bool(Key.showRate, Standard.showRateInMenuBar)
+        orangeRateWhenLow = bool(Key.orangeWhenLow, Standard.orangeRateWhenLow)
+        liveViewSound = bool(Key.liveViewSound, Standard.liveViewSound)
         cameraID = defaults.string(forKey: Key.cameraID)
-        pauseOnBattery = defaults.bool(forKey: Key.pauseOnBattery)
-        pauseInLowPower = defaults.bool(forKey: Key.pauseInLowPower)
-        quietDuringCalls = defaults.bool(forKey: Key.quietDuringCalls)
-        blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
-        remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
-        automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true
-        floor = defaults.object(forKey: Key.floor) as? Int ?? PublishedRates.startingFloor
+        pauseOnBattery = bool(Key.pauseOnBattery, Standard.pauseOnBattery)
+        pauseInLowPower = bool(Key.pauseInLowPower, Standard.pauseInLowPower)
+        quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
+        blinkBack = bool(Key.blinkBack, Standard.blinkBack)
+        remindersOn = bool(Key.remindersOn, Standard.remindersOn)
+        automaticLimit = bool(Key.automaticLimit, Standard.automaticLimit)
+        floor = int(Key.floor, Standard.floor)
         ownRateOfferAnswered = defaults.bool(forKey: Key.ownRateOfferAnswered)
-        breakNudgesOn = defaults.bool(forKey: Key.breakNudgesOn)
+        breakNudgesOn = bool(Key.breakNudgesOn, Standard.breakNudgesOn)
         // Whoever chose a time before the other numbers existed keeps it, with the classic
         // 20 seconds and no long break: what the app did until then.
-        breakMinutes = defaults.object(forKey: Key.breakMinutes) as? Int ?? 20
-        breakSeconds = defaults.object(forKey: Key.breakSeconds) as? Int ?? 20
-        longBreakOn = defaults.bool(forKey: Key.longBreakOn)
-        longBreakEvery = defaults.object(forKey: Key.longBreakEvery) as? Int ?? 3
-        longBreakMinutes = defaults.object(forKey: Key.longBreakMinutes) as? Int ?? 5
-        breakStartSound = defaults.object(forKey: Key.breakStartSound) as? Bool ?? true
-        breakEndSound = defaults.object(forKey: Key.breakEndSound) as? Bool ?? true
+        breakMinutes = int(Key.breakMinutes, Standard.breakMinutes)
+        breakSeconds = int(Key.breakSeconds, Standard.breakSeconds)
+        longBreakOn = bool(Key.longBreakOn, Standard.longBreakOn)
+        longBreakEvery = int(Key.longBreakEvery, Standard.longBreakEvery)
+        longBreakMinutes = int(Key.longBreakMinutes, Standard.longBreakMinutes)
+        breakStartSound = bool(Key.breakStartSound, Standard.breakStartSound)
+        breakEndSound = bool(Key.breakEndSound, Standard.breakEndSound)
 
         let stored = defaults.dictionary(forKey: Key.reference)
         if let rate = stored?["rate"] as? Double, let measuredOn = stored?["measuredOn"] as? Date,

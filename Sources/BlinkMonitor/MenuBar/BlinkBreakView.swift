@@ -62,7 +62,7 @@ struct BlinkBreakView: View {
 
             VStack(spacing: 6) {
                 Text(exercise.isDone ? "Done" : "Close gently, hold for a second, open")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.title2.weight(.semibold))
                 Text(note(done: exercise.isDone))
                     .font(.callout)
                     .foregroundStyle(.secondary)

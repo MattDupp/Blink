@@ -378,7 +378,7 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - Nothing is uploaded: the app makes no network connection. (The About tab opens a paper, or the project's page, in your browser when you press a button.)
 - While it counts, each camera picture is read and discarded at once.
 - **What the setup keeps:** the small pictures of your eyes it recorded (64 x 64 pixels each, never your face, about 10 MB a recording) and the model trained on them, in `~/Library/Application Support/BlinkMonitor/`, in folders only your account can read. Settings > Model shows them and deletes them, for good.
-- **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it.
+- **What counting keeps:** one line per minute (seconds counted, blinks) in `history.csv`, in the same folder. Settings shows the file and can erase it. History > *Export…* copies it, with the routine log, to a folder you choose.
 - With a routine switched on, one line each time a reminder is shown, done, put off or left, or a timer is started, in `routines.csv` in the same folder. A line names its routine by an id, never by the name you typed. Deleting a routine leaves its lines there: the file is only ever added to.
 - Other pictures are written only by the two record buttons of the Live View window. The app you download does not show them: they appear when the app is started with a folder for captures, which `make monitor` does. A capture keeps two small pictures of your eyes per frame. Captures an earlier version saved among the app's own files are listed in Settings > Your Data, and Settings > Model deletes them with the recordings. It keeps the whole camera picture only if you started the app with `make monitor WHOLE_FRAMES=1`, a mode for testing changes to the eye finding; the Live View window says so for as long as it is on.
 - This repository contains **no recordings and no trained model**. Both are personal, and both are yours to make.
@@ -436,7 +436,8 @@ Trash first. macOS should know one copy only. `make monitor` checks, and tells y
 other copy is still there.
 
 The screenshots in this page come from `make snapshots`. A window that is never shown draws
-its switches grey: read a switch by the side its knob is on.
+its switches grey: read a switch by the side its knob is on. The main button of a window
+is drawn tinted, as the app shows it.
 
 ### The Python route
 

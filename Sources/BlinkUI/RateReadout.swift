@@ -20,9 +20,12 @@ public struct RateReadout: View {
         self.size = size
     }
 
-    /// The rate as the app writes it everywhere: a whole number, or "--".
+    /// What stands where a number is missing: a real dash. It was two hyphens, in six places.
+    public static let none = "–"
+
+    /// The rate as the app writes it everywhere: a whole number, or a dash.
     public static func text(_ rate: Double?) -> String {
-        rate.map { String(format: "%.0f", $0) } ?? "--"
+        rate.map { String(format: "%.0f", $0) } ?? none
     }
 
     public var body: some View {

@@ -145,7 +145,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.image = image
         let demo = model.isDemo ? " demo" : ""
         let title = NSMutableAttributedString()
-        let font = button.font ?? NSFont.menuBarFont(ofSize: 0)
+        // Digits of one width, so that "11" and "18" take the same room (see `MonitorStatus.slot`).
+        let font = NSFont.monospacedDigitSystemFont(ofSize: (button.font ?? NSFont.menuBarFont(ofSize: 0)).pointSize, weight: .regular)
         if withRate && !status.menuBarText.isEmpty {
             // Orange for the number alone, and only while low: the eye stays the bar's colour.
             title.append(NSAttributedString(string: " " + status.menuBarText,
@@ -162,11 +163,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         if !demo.isEmpty { title.append(NSAttributedString(string: demo, attributes: [.font: font])) }
         button.attributedTitle = title
-        let said = marks.tooltip(after: status.tooltip)
+        let tooltip = status.tooltip(limit: model.preferences.limit)
+        let said = marks.tooltip(after: tooltip)
         button.toolTip = (model.isDemo ? "Demo, on made-up eyes. " : "") + said
         // VoiceOver heard "Blink Monitor" whatever the rate or the state.
-        button.setAccessibilityLabel(status.tooltip.hasPrefix("Blink Monitor") ? said : "Blink Monitor. " + said)
-        if case .watching(let rate?) = status { button.setAccessibilityLabel("Blink Monitor. \(Int(rate.rounded())) blinks a minute. " + said) }
+        button.setAccessibilityLabel(tooltip.hasPrefix("Blink Monitor") ? said : "Blink Monitor. " + said)
+        if let rate = status.rate {
+            button.setAccessibilityLabel("Blink Monitor. \(Int(rate.rounded())) blinks a minute. " + said)
+        }
     }
 
     @objc private func clicked() {

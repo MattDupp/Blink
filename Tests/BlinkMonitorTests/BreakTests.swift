@@ -93,7 +93,7 @@ struct BreakTests {
     func lengths() {
         #expect(BreakWords.length(seconds: 40) == "40 seconds")
         #expect(BreakWords.length(seconds: 60) == "1 minute")
-        #expect(BreakWords.length(seconds: 90) == "1 min 30 s")
+        #expect(BreakWords.length(seconds: 90) == "1 minute 30 seconds")
         #expect(BreakWords.length(minutes: 5) == "5 minutes")
     }
 

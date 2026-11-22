@@ -466,6 +466,22 @@ enum RoutineWords {
     static let footnote = "Blink Monitor reminds you of routines that you, or your eye-care professional, chose. "
         + "It does not say what to use or how often."
 
+    /// Under the day chips of a weekly routine. "3" times beside seven chips looked like a
+    /// contradiction, and the last chosen day refused a click without a word: the count
+    /// is a number to reach, the days are where it asks first (`RoutineWeek`).
+    static func weekDays(count: Int, chosen: Int) -> String {
+        let times = count == 1 ? "once" : "\(count) times"
+        let first: String
+        if chosen < count {
+            first = "It reminds you on these days first, then on other days, until it is done \(times) in the week."
+        } else if chosen > count {
+            first = "It reminds you on these days, until it is done \(times) in the week."
+        } else {
+            first = "It reminds you on these days. If you miss one, the next day reminds you."
+        }
+        return first + " One day at least stays chosen."
+    }
+
     /// A time of day as this Mac writes it: "08:00", or "8:00 AM".
     static func time(_ time: TimeOfDay, calendar: Calendar = .current) -> String {
         calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: Date(timeIntervalSinceReferenceDate: 0))
@@ -505,6 +521,9 @@ enum RoutineWords {
 struct RoutineSettings: View {
     @ObservedObject var routines: RoutineController
     var moment = Moment()
+    /// Whether macOS lets the app show banners: a test reminder needs it.
+    var notifications = ReminderController.Notifications.allowed
+    var openNotificationSettings: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -621,6 +640,15 @@ struct RoutineSettings: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        if notifications == .refused {
+            // Pressed with notifications off, the test did nothing at all, without a word.
+            Text(TestReminderWords.refused)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+        }
     }
 
     /// A routine at times of day: its times, and the days of the week it asks on.
@@ -636,7 +664,7 @@ struct RoutineSettings: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("On these days")
             dayChips(chosen: weekdays ?? Set(1...7)) { weekday, on in routines.setDay(routine.id, weekday, on: on) }
-            Text("All seven: every day. Choose at least one.")
+            Text("All seven: every day. One day at least stays chosen.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -705,20 +733,22 @@ struct RoutineSettings: View {
             + "the Mac stays awake, and a sound marks the end. Then it is marked done."
         if !routine.isBuiltIn {
             Divider()
-            Row("Timer", detail: routine.sessionMinutes == nil ? "For something that takes a while: Start Timer is added to its reminder." : detail) {
-                HStack(spacing: 6) {
-                    if let minutes = routine.sessionMinutes {
-                        Text(Format.count(minutes, "minute")).monospacedDigit().fixedSize()
-                        Stepper("Length of the timer, in minutes",
-                                value: Binding(get: { minutes }, set: { routines.setSessionMinutes(routine.id, $0) }), in: 1...60)
-                            .accessibilityValue("\(minutes)")
-                    }
-                    Toggle("Timer", isOn: Binding(get: { routine.sessionMinutes != nil }, set: { routines.setTimer(routine.id, $0) }))
-                }
+            // The switch alone in its row, like every other row; the length under it
+            // (as the long break in Breaks). A stepper stood before the switch.
+            Row("Timer", detail: routine.sessionMinutes == nil ? "For something that takes a while: Start Timer is added to its reminder."
+                                                               : "Start Timer is on its reminder and in the panel.") {
+                Toggle("Timer", isOn: Binding(get: { routine.sessionMinutes != nil }, set: { routines.setTimer(routine.id, $0) }))
             }
+            if let minutes = routine.sessionMinutes { timerLength(routine, minutes: minutes, detail: detail) }
         } else if let minutes = routine.sessionMinutes {
+            timerLength(routine, minutes: minutes, detail: detail)
+        }
+    }
+
+    private func timerLength(_ routine: Routine, minutes: Int, detail: String) -> some View {
+        Group {
             Divider()
-            Row("Timer", detail: detail) {
+            Row("Length of the timer", detail: detail) {
                 HStack(spacing: 6) {
                     Text(Format.count(minutes, "minute")).monospacedDigit().fixedSize()
                     Stepper("Length of the timer, in minutes",
@@ -739,8 +769,8 @@ struct RoutineSettings: View {
         } else {
             Button("Delete…", role: .destructive) { confirmDelete(routine) }
         }
-        Button("Send a Test Reminder") { routines.sendTest(routine.id) }
-            .help("Shows the reminder now. Its buttons do nothing on a test.")
+        TestReminderButton(notifications: notifications, openSettings: openNotificationSettings) { routines.sendTest(routine.id) }
+            .help(notifications == .refused ? "" : "Shows the reminder now. Its buttons do nothing on a test.")
     }
 
     /// Asks before deleting, and says what happens to the record.
@@ -777,7 +807,7 @@ struct RoutineSettings: View {
                     .fixedSize()
             }
             dayChips(chosen: weekdays) { weekday, on in routines.setWeekday(routine.id, weekday, preferred: on) }
-            Text("The days it reminds you first. Choose at least one.")
+            Text(RoutineWords.weekDays(count: count, chosen: weekdays.count))
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -805,7 +835,7 @@ struct RoutineSettings: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(isChosen && chosen.count == 1 ? "A routine keeps at least one day" : "")
+                .help(isChosen && chosen.count == 1 ? "The last day stays: a routine keeps at least one" : "")
                 .accessibilityLabel(calendar.weekdaySymbols[weekday - 1])
                 .accessibilityValue(isChosen ? "chosen" : "not chosen")
                 .accessibilityAddTraits(isChosen ? .isSelected : [])

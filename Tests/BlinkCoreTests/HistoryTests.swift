@@ -247,6 +247,31 @@ struct HistoryTests {
         #expect(ask(7, allowed: true) != nil)
     }
 
+    @Test("Export copies the files that exist under names of their own, and replaces an earlier export")
+    func export() throws {
+        let home = Fixture.temporaryFolder(), chosen = Fixture.temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: home); try? FileManager.default.removeItem(at: chosen) }
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: chosen, withIntermediateDirectories: true)
+        let history = home.appendingPathComponent("history.csv"), log = home.appendingPathComponent("routines.csv")
+        try "minute,blinks\n".write(to: history, atomically: true, encoding: .utf8)
+        let items = DataExport.items(history: history, routineLog: log)
+
+        // No routine was ever shown: its log does not exist, and that is not an error.
+        var copies = try DataExport.copy(items, to: chosen)
+        #expect(copies.map(\.lastPathComponent) == ["Blink Monitor history.csv"])
+
+        try "minute,blinks\n1,12\n".write(to: history, atomically: true, encoding: .utf8)
+        try "at,routine\n".write(to: log, atomically: true, encoding: .utf8)
+        copies = try DataExport.copy(items, to: chosen)
+        #expect(copies.map(\.lastPathComponent) == ["Blink Monitor history.csv", "Blink Monitor routine log.csv"])
+        #expect(try String(contentsOf: copies[0], encoding: .utf8).hasSuffix("1,12\n"), "the earlier export was replaced")
+        // The app's own files are where they were.
+        #expect(FileManager.default.fileExists(atPath: history.path) && FileManager.default.fileExists(atPath: log.path))
+        // A folder that cannot be written to is an error, said to the user.
+        #expect(throws: (any Error).self) { try DataExport.copy(items, to: chosen.appendingPathComponent("missing")) }
+    }
+
     @Test("While snoozed there is no reminder; afterwards they come back")
     func snooze() {
         var policy = ReminderPolicy()

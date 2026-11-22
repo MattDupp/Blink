@@ -2,6 +2,28 @@ import SwiftUI
 import BlinkCore
 import BlinkUI
 
+/// What the app says of itself, under its name.
+enum AppWords {
+    /// It ended "when you forget to.", and the last word attached itself to "count".
+    static let tagline = "Counts your blinks, and tells you when you forget to blink."
+}
+
+/// The low rate, said once. The banner, the panel and the menu bar's tooltip each had
+/// their own sentence for it, and the panel's stood under a large number that measures
+/// something else: the last minute, where "low" is about the last three.
+enum LowRateWords {
+    /// "under your limit of 10 over the last 3 minutes": the fact, to put after "Low: ".
+    static func fact(limit: Int, minutes: Int = ReminderPolicy().windowMinutes) -> String {
+        "under your limit of \(limit) over the last \(Format.count(minutes, "minute"))"
+    }
+
+    /// The same as a sentence: "Under your limit of 10 over the last 3 minutes."
+    static func sentence(limit: Int) -> String {
+        let fact = fact(limit: limit)
+        return fact.prefix(1).uppercased() + fact.dropFirst() + "."
+    }
+}
+
 /// How each situation is worded and drawn. `MonitorStatus` (in BlinkCore) decides WHAT the
 /// situation is; this is the only place that decides how the app says it.
 extension MonitorStatus {
@@ -16,7 +38,7 @@ extension MonitorStatus {
         }
     }
 
-    /// The rate as written in the menu bar: "13", or "--" when there is none to show.
+    /// The rate as written in the menu bar: "13", or a dash when there is none to show.
     var rateText: String {
         RateReadout.text(rate)
     }
@@ -26,11 +48,19 @@ extension MonitorStatus {
         switch self {
         case .starting, .failed, .paused, .cameraSilent, .settingUp: return ""
         case .cameraRefused, .needsSetup: return "!"
-        case .noFace, .watching, .low: return rateText
+        case .noFace, .watching, .low: return Self.slot(rateText)
         }
     }
 
-    var tooltip: String {
+    /// The rate in a slot two digits wide: "9" took less room than "10", so the item, and
+    /// every item to its left, moved each time the rate crossed ten. A figure space is as
+    /// wide as a digit (the menu bar draws the number with digits of one width).
+    static func slot(_ text: String) -> String {
+        text.count >= 2 ? text : String(repeating: "\u{2007}", count: 2 - text.count) + text
+    }
+
+    /// `limit`: the limit in force, said when the rate is under it.
+    func tooltip(limit: Int) -> String {
         switch self {
         case .starting: return "Blink Monitor is starting"
         case .needsSetup: return "Blink Monitor: setup is not finished"
@@ -41,8 +71,7 @@ extension MonitorStatus {
         case .cameraSilent: return "Blink Monitor: the camera is not sending pictures"
         case .noFace: return "Blink Monitor: no face in view"
         case .watching: return "Blinks a minute, over the last minute"
-        case .low(_, let recent):
-            return String(format: "Low: %.0f blinks a minute over the last 3 minutes", recent)
+        case .low: return "Low: " + LowRateWords.fact(limit: limit)
         }
     }
 
@@ -91,7 +120,7 @@ extension MonitorStatus {
     /// One sentence under the rate, in the panel. `limit`: the limit in force.
     /// `timer`: the routine whose timer holds the pause (a mask on the eyes), if any.
     /// `energy`: counting rests to save energy (`EnergyPause`), which is not a pause.
-    func explanation(limit: Int, timer: String? = nil, energy: EnergyPause.Reason? = nil) -> String {
+    func explanation(limit: Int, timer: String? = nil, energy: EnergyPause.Reason? = nil, camera: CameraPlace = .lid) -> String {
         if case .paused = self, let energy {
             switch energy {
             case .battery:
@@ -129,13 +158,13 @@ extension MonitorStatus {
             return "The camera is off until " + (until.map { Format.pauseEnd($0) } ?? "you resume")
                 + ". Nothing is counted, and no blink reminder or look-away break comes. Routines still remind you."
         case .cameraSilent:
-            return CameraNote.silent + " Nothing is counted. " + CameraNote.silentWhy
+            return CameraNote.silent + " Nothing is counted. " + CameraNote.silentWhy(camera)
         case .noFace:
             return "No face in view, so this time is not counted. If you are here: face the camera and check the light."
         case .watching(let rate):
             return rate == nil ? "Your rate appears after 20 seconds." : "Your rate over the last minute. Your limit is \(limit)."
-        case .low(_, let recent):
-            return String(format: "About %.0f a minute over the last 3 minutes. Try a blink break: ten slow, full blinks.", recent)
+        case .low:
+            return LowRateWords.sentence(limit: limit) + " Try a blink break: ten slow, full blinks."
         }
     }
 }
@@ -219,7 +248,7 @@ enum StartFailure: Equatable {
         case .model(trainedHere: false):
             return "The model this copy of the app came with could not be read, so nothing is counted. Open the setup to train one on your eyes."
         case .noCamera:
-            return "No camera was found, so nothing is counted. Plug one in, or open the lid, then try again."
+            return "No camera was found, so nothing is counted. \(CameraNote.findOne(macHasLid: MacState.hasLid)), then try again."
         case .camera:
             return "The camera could not be started, so nothing is counted. Another app may be holding it. Try again in a moment."
         case .cameraLeftOff:

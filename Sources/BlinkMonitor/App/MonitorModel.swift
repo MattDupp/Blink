@@ -205,6 +205,16 @@ final class MonitorModel: ObservableObject {
     private var camerasTried: Set<String> = []
     /// The cameras this Mac offers. A closure, so that a test can state them.
     var cameraOptions: () -> [CameraOption] = { CameraCapture.options() }
+    /// Whether this Mac has a lid (stated in the tests and the screenshots).
+    var macHasLid: () -> Bool = { MacState.hasLid }
+    /// Where the camera in use sits, for the sentences that would otherwise speak of a
+    /// lid on a Mac that has none. The demo is drawn as a portable Mac.
+    var cameraPlace: CameraPlace {
+        guard !isDemo else { return .lid }
+        let options = cameraOptions()
+        let inUse = options.first { $0.id == camera.deviceID } ?? CameraChoice.pick(from: options, wanted: preferences.cameraID)
+        return CameraPlace(builtIn: inUse?.builtIn, macHasLid: macHasLid())
+    }
 
     /// The Camera row of Settings and of the setup: `id` nil is Automatic.
     func setCamera(_ id: String?) {
@@ -672,6 +682,13 @@ final class MonitorModel: ObservableObject {
     }
 
     /// Erases the recorded minutes, and the reference that was measured from them.
+    /// "Reset to Defaults" in Settings: the choices only (`Preferences.resetChoices`), and
+    /// the camera is told that it is Automatic again.
+    func resetChoices() {
+        preferences.resetChoices()
+        setCamera(nil)
+    }
+
     func eraseHistory() {
         history.erase()
         preferences.reference = nil

@@ -66,7 +66,7 @@ private struct CaptureBanner: View {
         if let instruction = captures.instruction {
             VStack(alignment: .leading, spacing: 6) {
                 Text(instruction)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.title2.weight(.semibold))
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.12))
@@ -103,7 +103,7 @@ private struct Counters: View {
                 Row(label: "In the last 60 s", value: "\(counters.blinksLastMinute)")
                 Row(label: "Time at the screen", value: clock(counters.observedSeconds))
                 Row(label: "Last blink lasted",
-                    value: counters.lastBlinkSeconds.map { String(format: "%.0f ms", $0 * 1000) } ?? "--")
+                    value: counters.lastBlinkSeconds.map { String(format: "%.0f ms", $0 * 1000) } ?? Format.none)
                 Row(label: "Long closures (not blinks)", value: "\(counters.longClosures)")
             }
 
@@ -114,7 +114,7 @@ private struct Counters: View {
                 Row(label: "Eyes read", value: eyesRead)
                 Row(label: "Each eye: closed", value: eachEye)
                 Row(label: "Both combined: closed",
-                    value: model.live.probability.map { String(format: "%.0f%%", $0 * 100) } ?? "--")
+                    value: model.live.probability.map { String(format: "%.0f%%", $0 * 100) } ?? Format.none)
             }
 
             // The pipeline's own cost, averaged over the last two seconds.
@@ -151,7 +151,7 @@ private struct Counters: View {
     /// How many eyes the model is asked about, and why not both. One square on the picture
     /// is not a fault: with the head turned, the far eye hides behind the nose.
     private var eyesRead: String {
-        guard model.live.faceFound else { return "--" }
+        guard model.live.faceFound else { return Format.none }
         switch model.live.eyeAnswers.count {
         case 2: return "2 of 2"
         case 1: return model.live.headTurned ? "1 of 2: head turned" : "1 of 2: one at the picture's edge"
@@ -162,7 +162,7 @@ private struct Counters: View {
     /// The left and the right of the PICTURE, as the squares are drawn.
     private var eachEye: String {
         func answer(_ side: EyeRegion.Side) -> String {
-            model.live.eyeAnswers[side].map { String(format: "%.0f%%", $0 * 100) } ?? "--"
+            model.live.eyeAnswers[side].map { String(format: "%.0f%%", $0 * 100) } ?? Format.none
         }
         return "left \(answer(.imageLeft))   right \(answer(.imageRight))"
     }

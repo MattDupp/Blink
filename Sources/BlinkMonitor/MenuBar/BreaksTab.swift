@@ -14,6 +14,7 @@ struct BreaksTab: View {
     @ObservedObject var reminders: ReminderController
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
+    var openNotificationSettings: () -> Void = {}
 
     var body: some View {
         let plan = preferences.breakPlan
@@ -24,17 +25,30 @@ struct BreaksTab: View {
                     Toggle("Remind me to look away", isOn: $preferences.breakNudgesOn)
                 }
                 Divider()
-                Row("Start from", detail: "Ready-made settings. Change any number afterwards.") {
-                    Menu(plan.preset?.rawValue ?? "Your own") {
+                Row("Start from", detail: "Ready-made settings: the sentence above says what each does. Change any number afterwards.") {
+                    // A pop-up of names, ticked on the one in use. It was a menu whose
+                    // lines each spelled out every number, hard to tell apart at a glance.
+                    Picker("Start from", selection: Binding(get: { plan.preset },
+                                                            set: { if let preset = $0 { preferences.breakPlan = preset.plan } })) {
                         ForEach(BreakPlan.Preset.allCases, id: \.self) { preset in
-                            Button(BreakWords.summary(preset)) { preferences.breakPlan = preset.plan }
+                            Text(preset.rawValue).tag(BreakPlan.Preset?.some(preset))
+                                .help(BreakWords.summary(preset))
+                        }
+                        // Numbers that match no ready-made setting. Not a choice one can
+                        // make, so it is listed only while it is the case.
+                        if plan.preset == nil {
+                            Divider()
+                            Text(BreakWords.custom).tag(BreakPlan.Preset?.none)
                         }
                     }
+                    .labelsHidden()
                     .fixedSize()
                 }
                 Divider()
-                Row("See what it looks like", detail: "Shows the break's banner now, with your numbers, marked as a test. No break starts.") {
-                    Button("Send a Test Reminder") { reminders.sendBreakTest() }
+                Row("See what it looks like",
+                    detail: TestReminderWords.detail("Shows the break's banner now, with your numbers, marked as a test. No break starts.",
+                                                     notifications: reminders.notifications)) {
+                    TestReminderButton(notifications: reminders.notifications, openSettings: openNotificationSettings) { reminders.sendBreakTest() }
                 }
                 Divider()
                 Row("Time between breaks", detail: "Counted while you are at the screen.") {

@@ -97,6 +97,7 @@ final class SetupModel: ObservableObject {
         var phaseIndex = 0
         var phaseState = PhaseState.idle
         var recordProgress = 0.0
+        var glow = 0.0
         var sessionOpen = 0
         var sessionClosed = 0
         var sessionNote: String?
@@ -155,6 +156,11 @@ final class SetupModel: ObservableObject {
     @Published private(set) var phaseState = PhaseState.idle
     @Published private(set) var phaseIndex = 0
     @Published var recordProgress = 0.0
+    /// How far the window's brightness is changed, 0 to 1: the end of a closed-eye pose,
+    /// shown to someone who cannot hear its sound (`PoseSignal`).
+    @Published private(set) var glow = 0.0
+    /// Reduce Motion, as macOS has it (stated in the tests).
+    var reduceMotion: () -> Bool = { Comfort.reduceMotion }
     @Published private(set) var sessionOpen = 0
     @Published private(set) var sessionClosed = 0
     /// Said after a session that was not kept.
@@ -239,6 +245,7 @@ final class SetupModel: ObservableObject {
             rightCrop = initial.crops.last ?? nil
             sessionRunning = initial.sessionRunning
             phaseIndex = initial.phaseIndex
+            glow = initial.glow
             phaseState = initial.phaseState
             recordProgress = initial.recordProgress
             sessionOpen = initial.sessionOpen
@@ -504,7 +511,7 @@ final class SetupModel: ObservableObject {
     /// Why the camera did not start, with what to try.
     static func cameraTrouble(_ error: Error) -> String {
         if case CameraCapture.CameraError.noCamera = error {
-            return "No camera was found. Plug one in, or open the lid, then press Check Again."
+            return "No camera was found. \(CameraNote.findOne(macHasLid: MacState.hasLid)), then press Check Again."
         }
         return "Another app may be using the camera. Quit that app, then press Check Again."
     }
@@ -600,6 +607,20 @@ final class SetupModel: ObservableObject {
         }
     }
 
+    /// The end of a pose, shown: one soft change of the window's brightness, or with
+    /// Reduce Motion a steady one that lasts until the next pose begins.
+    func show(_ signal: PoseSignal) {
+        switch signal {
+        case .none: break
+        case .steady: glow = signal.strength
+        case .pulse(let rise, let hold, let fall):
+            withAnimation(.easeInOut(duration: rise)) { glow = signal.strength }
+            DispatchQueue.main.asyncAfter(deadline: .now() + rise + hold) { [weak self] in
+                withAnimation(.easeInOut(duration: fall)) { self?.glow = 0 }
+            }
+        }
+    }
+
     func stopSession() {
         sessionTask?.cancel()
         speaker.stop()
@@ -659,6 +680,9 @@ final class SetupModel: ObservableObject {
                 if Task.isCancelled { break }
 
                 phaseState = .settling
+                // A steady change of brightness ends here, a second before pictures are
+                // taken again: the screen lights the face, and the camera needs a moment.
+                if glow != 0, reduceMotion() { glow = 0 }
                 await pause(pace.settleSeconds)
                 if Task.isCancelled { break }
 
@@ -670,6 +694,7 @@ final class SetupModel: ObservableObject {
                 pipeline.setRecording(nil)
                 recordProgress = 0
                 if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
+                if !Task.isCancelled { show(PoseSignal.atEnd(of: phase.label, pace: pace, reduceMotion: reduceMotion())) }
 
                 if Task.isCancelled { break }
                 if SessionCheck.poseIsWhole(pictures: sessionOpen + sessionClosed - before, pace: pace) { break }
@@ -682,7 +707,11 @@ final class SetupModel: ObservableObject {
         let stopped = Task.isCancelled
         phaseState = .idle
         recordProgress = 0
+        if stopped { glow = 0 }
         if !stopped && pace.spoken { await speaker.say("Finished. You can open your eyes.") }
+        // A steady brightening after a last closed-eye pose lasts as long as those words.
+        // (A pulse ends by itself.)
+        if reduceMotion(), glow != 0 { glow = 0 }
         await pause(0.1)                         // the last frames' counts are on their way
         sessionEnded(folder: writer.folder, stopped: stopped)
     }

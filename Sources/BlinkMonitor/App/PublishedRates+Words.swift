@@ -89,12 +89,13 @@ extension PublishedRates.Comparison {
 
 extension Citation {
 
-    /// "read as an abstract": said next to each source, because an abstract can leave out
-    /// limits that the article states.
+    /// Where the finding was taken from, said next to each source, because an abstract
+    /// can leave out limits that the article states. It was "read as an abstract", which
+    /// reads as "nobody read these": the words now name the text, not the reader.
     var readAs: String {
         switch reading {
-        case .fullText: return "read in full"
-        case .abstract: return "read as an abstract"
+        case .fullText: return "from the full article"
+        case .abstract: return "from the published abstract"
         }
     }
 }

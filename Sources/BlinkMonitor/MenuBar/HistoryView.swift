@@ -25,6 +25,8 @@ struct HistoryView: View {
     @ObservedObject var state: HistoryState
     /// The moment the window describes: the present, except in the screenshots.
     var moment = Moment()
+    /// "Export…": copies the history and the routine log where the user chooses.
+    var export: () -> Void = {}
 
     private var limit: Double { Double(preferences.limit) }
 
@@ -52,10 +54,11 @@ struct HistoryView: View {
                     SectionTitle("Last 7 days")
                     HStack(spacing: 8) {
                         StatTile(value: Format.duration(week.observedSeconds), caption: "at the screen")
-                        StatTile(value: week.ratePerMinute.map(Format.rate) ?? "--", caption: "blinks a minute")
-                        StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--",
+                        StatTile(value: week.ratePerMinute.map(Format.rate) ?? Format.none, caption: "blinks a minute")
+                        StatTile(value: week.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? Format.none,
                                  caption: "above your limit")
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     BarChart(bars: days.map { day in
                         BarChart.Bar(label: day.day.formatted(.dateTime.weekday(.abbreviated)), value: day.summary.ratePerMinute)
                     }, threshold: limit, showValues: true,
@@ -118,8 +121,8 @@ struct HistoryView: View {
                     Label("Orange: under \(preferences.limit) blinks a minute, your limit.", systemImage: "square.fill")
                         .labelStyle(LegendStyle(color: .orange))
                     Spacer()
-                    Button("Show Data File") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
-                        .help("One line per minute, in a file any spreadsheet opens. No picture is ever stored.")
+                    Button("Export…") { export() }
+                        .help("Copies your history and your routine log to a folder you choose: one line per minute, in files any spreadsheet opens. No picture is ever stored.")
                 }
                 .font(.callout)
             }
@@ -194,8 +197,14 @@ private struct NothingYet: View {
                 .font(.system(size: 38))
                 .foregroundStyle(.secondary)
             Text("Nothing recorded yet")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.title2.weight(.semibold))
             Text("One line is kept for every minute counted. After a few minutes this window shows your days, each of them hour by hour, and the hours when your rate drops.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 420)
+            // Where to look meanwhile: an empty window sent people nowhere.
+            Text("Meanwhile, the menu-bar panel shows your rate now and the last hour, minute by minute: click the eye in the menu bar.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

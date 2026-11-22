@@ -56,7 +56,7 @@ struct RoutineSessionView: View {
 
             VStack(spacing: 6) {
                 Text(running != nil ? (routine?.title ?? "Timer") : shown != nil ? "Done" : "No timer is running")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.title2.weight(.semibold))
                 Text(note(running: running != nil, finished: shown != nil, week: week))
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -70,7 +70,7 @@ struct RoutineSessionView: View {
                     // someone with covered eyes is waiting on.
             } else if shown != nil {
                 Button("Close") { session.dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
             }
         }
         .padding(24)

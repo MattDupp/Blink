@@ -37,11 +37,46 @@ enum GoodToKnow {
     ]
 }
 
+/// "Send a Test Reminder", by what macOS allows. A test with notifications off did
+/// nothing at all, and the first one made macOS ask its question with no warning.
+enum TestReminderWords {
+    static let send = "Send a Test Reminder"
+    static let openSettings = "Open Notification Settings"
+    static let refused = "Notifications are off for Blink Monitor, so a test has nothing to show. "
+        + "Allow them in System Settings > Notifications > Blink Monitor, then send the test."
+    static let asksFirst = "macOS first asks whether Blink Monitor may show notifications: choose Allow."
+
+    /// The sentence beside the button. `usual`: what the test shows when it can.
+    static func detail(_ usual: String, notifications: ReminderController.Notifications) -> String {
+        switch notifications {
+        case .allowed: return usual
+        case .unknown: return usual + " " + asksFirst
+        case .refused: return refused
+        }
+    }
+}
+
+/// The button of a test reminder. With notifications refused it cannot show anything,
+/// so it becomes the way to allow them.
+struct TestReminderButton: View {
+    let notifications: ReminderController.Notifications
+    let openSettings: () -> Void
+    let send: () -> Void
+
+    var body: some View {
+        if notifications == .refused {
+            Button(TestReminderWords.openSettings, action: openSettings)
+        } else {
+            Button(TestReminderWords.send, action: send)
+        }
+    }
+}
+
 /// What the app says about the choice of a camera (`CameraChoice`).
 enum CameraWords {
-    static func detail(inUse name: String?) -> String {
+    static func detail(inUse name: String?, macHasLid: Bool = true) -> String {
         "Automatic uses the Mac's own camera, and another one when that sends no picture for "
-            + "\(Int(CameraChoice.silenceBeforeFallback)) seconds, as with the lid closed. "
+            + "\(Int(CameraChoice.silenceBeforeFallback)) seconds\(macHasLid ? ", as with the lid closed" : ""). "
             + "Your model learned your eyes on one camera: after changing, test it again under Model."
             + (name.map { " In use: \($0)." } ?? "")
     }
@@ -85,6 +120,13 @@ enum EraseWords {
     static func recordingsAndModel(_ what: String) -> Confirm.Question {
         Confirm.Question(title: "Delete the recordings and the model?", text: what, button: "Delete")
     }
+
+    /// Not an erasure of anything recorded, but it cannot be undone either: same question.
+    static let choices = Confirm.Question(
+        title: "Reset every setting to its default?",
+        text: "The switches and numbers of General, Blink Rate and Breaks go back to how they were on the first day, and the camera to Automatic. "
+            + "Your usual rate, your history, your model, your routines and Start at login stay as they are. This cannot be undone.",
+        button: "Reset")
 
     static let startAgain = Confirm.Question(
         title: "Start again?",
@@ -209,8 +251,10 @@ struct SettingsView: View {
                     switch state.tab {
                     case .general: general
                     case .reminders: remindersTab
-                    case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment)
-                    case .routines: RoutineSettings(routines: model.routines, moment: moment)
+                    case .breaks: BreaksTab(model: model, preferences: preferences, reminders: reminders, moment: moment,
+                                            openNotificationSettings: actions.openNotificationSettings)
+                    case .routines: RoutineSettings(routines: model.routines, moment: moment, notifications: reminders.notifications,
+                                                    openNotificationSettings: actions.openNotificationSettings)
                     case .model: modelTab
                     case .data: data
                     case .sources: sources
@@ -260,6 +304,17 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             generalCard
             if !model.isDemo { energyCard }
+            HStack(spacing: 12) {
+                Button("Reset to Defaults…") {
+                    if Confirm.destructive(EraseWords.choices) { model.resetChoices() }
+                }
+                .disabled(!preferences.hasChoices)
+                .help(preferences.hasChoices ? "" : "Every setting is at its default.")
+                Text("Every switch and number in Settings. It keeps your usual rate, your history, your model and your routines.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -316,7 +371,7 @@ struct SettingsView: View {
             }
             if !model.isDemo {
                 Divider()
-                Row("Camera", detail: CameraWords.detail(inUse: model.cameraName)) {
+                Row("Camera", detail: CameraWords.detail(inUse: model.cameraName, macHasLid: model.macHasLid())) {
                     if state.cameras.count > 1 {
                         // "" stands for Automatic: a picker's tag cannot be nil.
                         Picker("Camera", selection: Binding(get: { preferences.cameraID ?? "" },
@@ -345,8 +400,10 @@ struct SettingsView: View {
                     Toggle("Remind me when I blink too little", isOn: $preferences.remindersOn)
                 }
                 Divider()
-                Row("See what it looks like", detail: "Shows a reminder now, marked as a test. Its two buttons show when the pointer is over it, and on the test they do nothing.") {
-                    Button("Send a Test Reminder") { reminders.sendTest() }
+                Row("See what it looks like",
+                    detail: TestReminderWords.detail("Shows a reminder now, marked as a test. Its two buttons show when the pointer is over it, and on the test they do nothing.",
+                                                     notifications: reminders.notifications)) {
+                    TestReminderButton(notifications: reminders.notifications, openSettings: actions.openNotificationSettings) { reminders.sendTest() }
                 }
                 Divider()
                 // It answers the blink reminder, so it is here and not under Breaks.
@@ -504,7 +561,7 @@ struct SettingsView: View {
                 Spacer(minLength: 12)
                 // Nothing dismissed this until the window was closed.
                 Button("OK") { state.measurement = nil }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
             }
         case nil:
             EmptyView()
@@ -599,7 +656,7 @@ struct SettingsView: View {
                 Row(modelTitle, detail: modelDetail) {
                     if !model.isDemo && model.modelSource == .none {
                         Button(preferences.welcomed ? "Continue Setup…" : "Set Up…") { actions.openSetup(.resume) }
-                            .keyboardShortcut(.defaultAction)
+                            .mainButton()
                     }
                 }
             }

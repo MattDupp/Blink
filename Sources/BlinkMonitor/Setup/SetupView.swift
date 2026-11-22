@@ -78,6 +78,22 @@ struct SetupView: View {
             }
         }
         .frame(width: 700)
+        // The end of a closed-eye pose, for someone who cannot hear its sound: the whole
+        // window changes its brightness, once (`PoseSignal`). Light passes closed eyelids.
+        .overlay { PoseGlow(amount: model.glow) }
+    }
+}
+
+/// White over a dark window, black over a light one (`PoseSignal.change`).
+private struct PoseGlow: View {
+    let amount: Double
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        (PoseSignal.change(windowIsDark: colorScheme == .dark) == .brighter ? Color.white : Color.black)
+            .opacity(amount)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -102,7 +118,7 @@ private struct WelcomeBackPage: View {
                     .controlSize(.large)
                     .help("Closes this window. Continue Setup is in the menu-bar panel.")
                 Button("Continue") { model.continueSetup() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
                     .controlSize(.large)
             }
         }
@@ -192,8 +208,8 @@ private struct WelcomePage: View {
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Blink Monitor")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                    Text("Counts your blinks, and tells you when you forget to.")
+                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                    Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -239,7 +255,7 @@ private struct WelcomePage: View {
                         .help("The whole app on made-up eyes: no camera, nothing recorded")
                 }
                 Button(model.isDemo ? "See the Setup" : "Set Up on My Eyes") { model.begin() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
                     .controlSize(.large)
             }
         }
@@ -320,7 +336,7 @@ private struct CameraPage: View {
                     .controlSize(.large)
                     .help("To the first page, where the demo is offered. The camera turns off.")
                 Button("Continue") { model.cameraLooksRight() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
                     .controlSize(.large)
                     .disabled(!model.canLeaveCameraCheck)
             }
@@ -332,12 +348,12 @@ private struct CameraPage: View {
         var checks: [Check] = []
         if watching && model.cameraSilent {
             checks.append(Check(state: .warning, title: String(CameraNote.silent.dropLast()),
-                                detail: "That is normal with the lid closed. Open it, or choose another camera: the camera in use has to face you."))
+                                detail: CameraNote.silentAdvice(model.monitor.cameraPlace)))
         } else if model.faceInView {
             checks.append(Check(state: .good, title: "Your face is in view", detail: "Stay where you are comfortable: that is where it will watch you."))
         } else if watching && model.faceMissing {
             checks.append(Check(state: .warning, title: "No face found",
-                                detail: "The Mac's own camera has to face you: the lid open, you in front of it."))
+                                detail: CameraNote.faceIt(model.monitor.cameraPlace)))
         } else {
             checks.append(Check(state: .waiting, title: "Looking for your face", detail: "It takes a second or two."))
         }
@@ -559,13 +575,16 @@ private struct RecordPage: View {
     }
 
     private var footnote: String {
-        if model.sessionRunning { return "Keep your face in front of the camera. Blink whenever you need to." }
+        if model.sessionRunning { return "Keep your face in front of the camera. Blink whenever you need to. The window's brightness changes once when a closed-eye pose ends." }
         if model.camera == .on && !model.faceFound { return "No face in view: recording can start once the camera sees you." }
         if !model.parts.ownSessions {
             return "Recordings are saved in \(model.parts.sessionsRoot.path), the folder named when the app was started."
         }
-        if model.soundMuted { return "The Mac's sound is off: you would not hear the voice that guides you. Turn it up, then press Play the Voice." }
-        return "Sound on: the voice is your guide while your eyes are closed."
+        if model.soundMuted {
+            return "The Mac's sound is off: you would not hear the voice that guides you. Turn it up, then press Play the Voice. "
+                + "Without sound: read each pose here, and open your eyes when the window's brightness changes."
+        }
+        return "Sound on: the voice is your guide while your eyes are closed. The window's brightness also changes once when a closed-eye pose ends."
     }
 
     @ViewBuilder
@@ -582,14 +601,14 @@ private struct RecordPage: View {
                 .controlSize(.large)
                 .disabled(!model.canStartSession)
             Button("Train My Model") { model.train() }
-                .keyboardShortcut(.defaultAction)
+                .mainButton()
                 .controlSize(.large)
         } else {
             Button("Play the Voice") { model.playVoice() }
                 .controlSize(.large)
                 .help("Says one sentence, to check that you can hear the guide before you close your eyes.")
             Button("Start Recording \(model.nextSession)") { model.startSession() }
-                .keyboardShortcut(.defaultAction)
+                .mainButton()
                 .controlSize(.large)
                 .disabled(!model.canStartSession)
         }
@@ -631,7 +650,7 @@ private struct SessionBanner: View {
                         .foregroundStyle(.secondary)
                 }
                 Text(phase.instruction)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.title.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
@@ -652,7 +671,7 @@ private struct SessionBanner: View {
                 .accessibilityHidden(true)
             } else {
                 Text(guidance.title)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(.title, design: .rounded).weight(.bold))
                 if let note = model.sessionNote {
                     Label(note, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.warningText)
@@ -753,11 +772,11 @@ private struct TrainPage: View {
                 Spacer()
                 if case .failed = model.training {
                     Button("Try Again") { model.retryTraining() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                 } else {
                     Button("Test It") { model.beginProof() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                         .disabled(model.training != .done)
                 }
@@ -903,7 +922,7 @@ private struct ProofPage: View {
                 ProofRing(model: model)
                 VStack(alignment: .leading, spacing: 12) {
                     Text(headline)
-                        .font(.system(size: 19, weight: .semibold))
+                        .font(.title2.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
                     Text(explanation)
                         .foregroundStyle(.secondary)
@@ -970,7 +989,7 @@ private struct ProofPage: View {
         switch model.proof {
         case .ready:
             Button("Start the Test") { model.startTest() }
-                .keyboardShortcut(.defaultAction)
+                .mainButton()
                 .controlSize(.large)
                 .disabled(!model.canStartTest)
         case .running:
@@ -981,11 +1000,11 @@ private struct ProofPage: View {
                 Button("Test Again") { model.testAgain() }
                     .controlSize(.large)
                 Button("Finish") { model.finish() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
                     .controlSize(.large)
             } else {
                 if model.hasPrevious {
-                    Button("Go Back to the Model I Had") { model.goBackToPrevious() }
+                    Button("Keep My Previous Model") { model.goBackToPrevious() }
                 }
                 Button("Use It Anyway") { model.useAnyway() }
                     .help("The app will count with this model and may miss blinks, so your rate can read lower than it is. You can test or record again later in Settings > Model.")
@@ -995,13 +1014,13 @@ private struct ProofPage: View {
                     Button("Record One More") { model.recordOneMore() }
                         .controlSize(.large)
                     Button("Test Again") { model.testAgain() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                 } else {
                     Button("Test Again") { model.testAgain() }
                         .controlSize(.large)
                     Button("Record One More") { model.recordOneMore() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                 }
             }
@@ -1091,7 +1110,7 @@ struct DonePage: View {
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.isDemo ? "That was the whole setup" : Self.title(for: model.monitor.status()))
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(.title, design: .rounded).weight(.bold))
                     Text(summary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1116,8 +1135,7 @@ struct DonePage: View {
                                  text: "The painted recordings and the model trained on them are in a temporary folder, emptied at the next demo.")
                 } else {
                     WelcomePoint(symbol: "folder", title: "Your recordings and your model stay on this Mac",
-                                 text: String(format: "%.0f MB, in a folder only your account can read: %@", model.megabytesOnDisk,
-                                              model.place))
+                                 text: String(format: "%.0f MB, in a folder only your account can read.", model.megabytesOnDisk))
                     NotificationPoint(reminders: model.monitor.reminders, actions: actions)
                     WelcomePoint(symbol: "slider.horizontal.3", title: "Also in Settings",
                                  text: """
@@ -1131,7 +1149,7 @@ struct DonePage: View {
 
             HStack {
                 if !model.isDemo {
-                    Button("Show the Files") { actions.showFiles() }
+                    Button("Show in Finder") { actions.showFiles() }
                     Button("Open Settings") { actions.openSettings() }
                 }
                 Spacer()
@@ -1145,11 +1163,11 @@ struct DonePage: View {
                     Button("Done") { actions.done() }
                         .controlSize(.large)
                     Button("Set Up on My Eyes") { leaveDemo() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                 } else {
                     Button("Done") { actions.done() }
-                        .keyboardShortcut(.defaultAction)
+                        .mainButton()
                         .controlSize(.large)
                 }
             }
@@ -1242,7 +1260,7 @@ private struct PageTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(.title, design: .rounded).weight(.bold))
             Text(subtitle)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

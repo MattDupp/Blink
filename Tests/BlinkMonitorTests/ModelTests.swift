@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import Testing
 import BlinkCore
+import BlinkUI
 @testable import BlinkMonitor
 
 /// The app's own model, without a camera: started from a state, fed updates by hand.
@@ -333,6 +334,53 @@ struct PreferencesTests {
         }
     }
 
+    @Test("Reset to Defaults puts every choice back, and keeps what was measured or lived")
+    func resetChoices() {
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            #expect(!preferences.hasChoices, "a new install has nothing to reset")
+            let measured = Reference(rate: 12.4, measuredOn: Date(timeIntervalSince1970: 1_800_000_000), minutes: 200)
+            let pausedUntil = Date(timeIntervalSince1970: 1_800_003_600)
+            // What was measured or lived, and the routines, which share the store.
+            preferences.reference = measured
+            preferences.welcomed = true
+            preferences.pause = .paused(until: pausedUntil)
+            preferences.quietUntil = pausedUntil
+            store.set(Data([1, 2, 3]), forKey: "routines")
+            // Choices, one of each kind.
+            preferences.showRateInMenuBar = false
+            preferences.blinkBack = false
+            preferences.remindersOn = false
+            preferences.automaticLimit = false
+            preferences.floor = 4
+            preferences.ownRateOfferAnswered = true
+            preferences.breakPlan = BreakPlan(workMinutes: 25, breakSeconds: 40, longEvery: 4, longMinutes: 7)
+            preferences.breakNudgesOn = true
+            preferences.breakEndSound = false
+            preferences.pauseOnBattery = true
+            preferences.quietDuringCalls = true
+            preferences.liveViewSound = true
+            preferences.cameraID = "desk"
+            #expect(preferences.hasChoices)
+
+            preferences.resetChoices()
+
+            // As a new install reads them, now and after a relaunch.
+            for read in [preferences, Preferences(defaults: store)] {
+                #expect(!read.hasChoices)
+                #expect(read.showRateInMenuBar && read.blinkBack && read.remindersOn && read.automaticLimit)
+                #expect(read.floor == PublishedRates.startingFloor && !read.ownRateOfferAnswered)
+                #expect(read.breakPlan == BreakPlan.Preset.classic.plan && !read.breakNudgesOn && read.breakEndSound)
+                #expect(!read.pauseOnBattery && !read.quietDuringCalls && !read.liveViewSound && read.cameraID == nil)
+                // Kept.
+                #expect(read.reference == measured && read.welcomed)
+                #expect(read.pause == .paused(until: pausedUntil) && read.quietUntil == pausedUntil)
+            }
+            #expect(store.data(forKey: "routines") == Data([1, 2, 3]), "the routines are not choices of Settings")
+            #expect(EraseWords.choices.text.contains("Your usual rate") && EraseWords.choices.text.hasSuffix("This cannot be undone."))
+        }
+    }
+
     @Test("A floor somebody chose is never replaced")
     func chosenFloor() {
         withStore { store in
@@ -426,7 +474,10 @@ struct SourceTests {
         // comment lines are skipped.
         let retired = ["your reference", "the reference", "Never under", "your floor", "nudge", "on target", "trainer",
                        "analysed)", "is analysed", "blinks per minute", "Blinks per minute", "Snooze", "watched\"",
-                       "...\"", "Blink Monitor - ", "Session \\(", " Session\""]
+                       "...\"", "Blink Monitor - ", "Session \\(", " Session\"",
+                       // Tier 3 of the same audit.
+                       "\"--\"", "Show the Files", "Show Data File", "Go Back to the Model", "forget to.\"", "read as an abstract",
+                       "Your own\""]
         var offenders: [String] = []
         for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
             let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
@@ -559,6 +610,27 @@ struct PanelSentenceTests {
         #expect(plain.hasPrefix("The camera is off until ") && plain.contains("Routines still remind you"))
         #expect(MonitorStatus.watching(rate: 12).explanation(limit: 10, timer: "Heated eye mask").contains("Your limit is 10"))
     }
+
+    @Test("The low rate is one sentence, in the panel, on the banner and in the tooltip")
+    func lowRateSaidOnce() {
+        let low = MonitorStatus.low(rate: 6, recent: 7)
+        #expect(LowRateWords.sentence(limit: 10) == "Under your limit of 10 over the last 3 minutes.")
+        // The large number above is the last minute: the sentence gives no second rate to confuse it with.
+        #expect(low.explanation(limit: 10) == "Under your limit of 10 over the last 3 minutes. Try a blink break: ten slow, full blinks.")
+        #expect(low.tooltip(limit: 10) == "Low: under your limit of 10 over the last 3 minutes")
+    }
+
+    @Test("A camera that sends nothing: the lid is named only where there is one")
+    func noLidWithoutALid() {
+        #expect(MonitorStatus.cameraSilent.explanation(limit: 10, camera: .lid).contains("the lid closed"))
+        for place in [CameraPlace.screen, .separate] {
+            let said = MonitorStatus.cameraSilent.explanation(limit: 10, camera: place) + CameraNote.silentAdvice(place) + CameraNote.faceIt(place)
+            #expect(!said.contains("lid"))
+        }
+        #expect(!CameraNote.findOne(macHasLid: false).contains("lid"))
+        #expect(!CameraWords.detail(inUse: nil, macHasLid: false).contains("lid"))
+        #expect(AppWords.tagline.hasSuffix("when you forget to blink."))
+    }
 }
 
 @MainActor
@@ -591,6 +663,16 @@ struct SettingsWordsTests {
 
 @Suite("The menu-bar item")
 struct MenuBarMarksTests {
+
+    @Test("The rate keeps a slot two digits wide, so the item does not move when it crosses ten")
+    func fixedSlot() {
+        #expect(MonitorStatus.slot("9") == "\u{2007}9")
+        #expect(MonitorStatus.slot("10") == "10")
+        #expect(MonitorStatus.slot(RateReadout.none).count == 2)
+        #expect(MonitorStatus.watching(rate: 9).menuBarText.count == MonitorStatus.low(rate: 12, recent: 9).menuBarText.count)
+        // A state that shows no rate takes no room for one.
+        #expect(MonitorStatus.paused(until: nil).menuBarText.isEmpty && MonitorStatus.needsSetup.menuBarText == "!")
+    }
 
     @Test("Each thing going on has its symbol, and the tooltip says each in words")
     func marks() {

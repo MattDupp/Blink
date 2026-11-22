@@ -1,4 +1,6 @@
 import AVFoundation
+import AppKit
+import BlinkCore
 
 /// Says the instructions aloud. Half of every session is spent with your eyes closed,
 /// so the screen alone cannot guide you.
@@ -28,8 +30,28 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
+    /// Whether VoiceOver is running, asked each time: it can be switched on mid-recording.
+    /// (A closure, so that a test can state it.)
+    public var voiceOverOn: () -> Bool = { NSWorkspace.shared.isVoiceOverEnabled }
+
     /// Speaks, and returns when the sentence is finished.
     public func say(_ text: String) async {
+        // With VoiceOver on, VoiceOver says the line and this voice keeps silent: two
+        // voices talked over each other (`SpokenGuide`).
+        if SpokenGuide.channel(voiceOverOn: voiceOverOn()) == .voiceOver {
+            generation += 1
+            let mine = generation
+            // High priority: said now, before whatever VoiceOver was reading.
+            NSAccessibility.post(element: NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp as Any,
+                                 notification: .announcementRequested,
+                                 userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            let end = Date().addingTimeInterval(SpokenGuide.seconds(toSay: text))
+            // In short steps, so that `stop` (which moves `generation` on) ends the wait.
+            while Date() < end, generation == mine {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            return
+        }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.voice
         generation += 1
@@ -49,6 +71,7 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     public func stop() {
+        generation += 1                 // ends the wait for a VoiceOver announcement
         synthesizer.stopSpeaking(at: .immediate)
         finish()
     }

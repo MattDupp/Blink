@@ -220,7 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let historyState = HistoryState()
         let history = WindowController(title: "History") {
-            HistoryView(history: model.history, preferences: preferences, state: historyState)
+            HistoryView(history: model.history, preferences: preferences, state: historyState,
+                        export: { ExportPanel.run(history: model.history.store.file, routineLog: model.routines.store.file) })
         }
         history.onVisibilityChange = { open in if open { historyState.selectedDay = nil } }   // opens on today
         let liveView = WindowController(title: "Live View", resizable: true) {

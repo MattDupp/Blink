@@ -91,6 +91,17 @@ struct MonitoringTests {
         #expect(BlinkStats().snapshot(now: 0) == BlinkStats.Snapshot())
     }
 
+    @Test("Where the camera sits: a lid only on a portable Mac, and only for the Mac's own camera")
+    func cameraPlace() {
+        #expect(CameraPlace(builtIn: true, macHasLid: true) == .lid)
+        #expect(CameraPlace(builtIn: true, macHasLid: false) == .screen, "an iMac")
+        #expect(CameraPlace(builtIn: false, macHasLid: true) == .separate, "a webcam beside a MacBook")
+        #expect(CameraPlace(builtIn: false, macHasLid: false) == .separate)
+        // No camera known: Automatic would take the Mac's own, where there is one.
+        #expect(CameraPlace(builtIn: nil, macHasLid: true) == .lid)
+        #expect(CameraPlace(builtIn: nil, macHasLid: false) == .separate, "a Mac mini")
+    }
+
     @Test("Automatic takes the Mac's own camera and moves on after ten silent seconds; a chosen camera is never left")
     func cameraChoice() {
         let own = CameraOption(id: "own", name: "FaceTime HD Camera", builtIn: true)

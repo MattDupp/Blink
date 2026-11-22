@@ -6,6 +6,46 @@ import Testing
 @Suite("Files written by recorded sessions and captures")
 struct RecordingTests {
 
+    @Test("The end of a closed-eye pose changes the window's brightness once, softly, and never as a flicker")
+    func poseSignal() {
+        let real = SessionPace()
+        // Eyes open: the page is seen, nothing is added. The demo's painted eyes: nothing either.
+        #expect(PoseSignal.atEnd(of: .open, pace: real, reduceMotion: false) == .none)
+        #expect(PoseSignal.atEnd(of: .closed, pace: .painted, reduceMotion: false) == .none)
+        // Reduce Motion: no rise and fall, a steady change.
+        #expect(PoseSignal.atEnd(of: .closed, pace: real, reduceMotion: true) == .steady)
+
+        let pulse = PoseSignal.atEnd(of: .closed, pace: real, reduceMotion: false)
+        guard case .pulse(let rise, _, let fall) = pulse else { Issue.record("no pulse"); return }
+        // Soft: neither edge is abrupt.
+        #expect(rise >= 0.3 && fall >= 0.3)
+        // One at a time: a brightening is over before the next pose could end.
+        #expect(pulse.seconds < PoseSignal.shortestGap(pace: real))
+        // Far under three flashes a second, the line for photosensitive epilepsy:
+        // at most one every four seconds, and the spoken instruction makes it rarer.
+        #expect(1 / PoseSignal.shortestGap(pace: real) <= 0.25)
+        // Never a blank screen, and the steady change is the weaker one: the page stays readable.
+        #expect(pulse.strength < 1 && PoseSignal.steady.strength < pulse.strength && PoseSignal.none.strength == 0)
+        // A dark window brightens; a light one cannot, so it dims and comes back.
+        #expect(PoseSignal.change(windowIsDark: true) == .brighter && PoseSignal.change(windowIsDark: false) == .darker)
+    }
+
+    @Test("With VoiceOver on, the spoken lines go to VoiceOver, and the script waits long enough for each")
+    func spokenGuide() {
+        #expect(SpokenGuide.channel(voiceOverOn: false) == .ownVoice)
+        #expect(SpokenGuide.channel(voiceOverOn: true) == .voiceOver)
+        // Nothing to say: no wait. One word: a second, since VoiceOver needs a moment to start.
+        #expect(SpokenGuide.seconds(toSay: "") == 0)
+        #expect(SpokenGuide.seconds(toSay: "Halfway.") == 1)
+        // Six words at three words a second, and half a second to start.
+        #expect(abs(SpokenGuide.seconds(toSay: "Finished. You can open your eyes.") - 2.5) < 0.001)
+        // Every line of the script is given time, and none holds a pose up for long.
+        for phase in SessionScript.phases {
+            let wait = SpokenGuide.seconds(toSay: phase.instruction)
+            #expect(wait >= 1 && wait < 8, "\(phase.instruction)")
+        }
+    }
+
     private let target = CGRect(x: 1000, y: 200, width: 128, height: 128)
 
     private func sample(_ image: CGImage, label: EyeLabel = .closed) -> EyeSample {

@@ -47,6 +47,7 @@ public enum ScreenRenderer {
             // of this Mac's screen must not cut it (`ScrollsWhenTall`). A screen that
             // wants to show the scrolling states a room of its own, further in.
             .environment(\.screenRoom, ScreenRoom.unlimited)
+            .environment(\.isPicture, true)
 
         let hosting = NSHostingView(rootView: framed)
         hosting.appearance = appearance
@@ -55,7 +56,8 @@ public enum ScreenRenderer {
 
         // The view has to live in a window to be drawn with its controls.
         // (A window that is never shown is never "in front", so macOS draws its switches
-        // grey even when they are on: in the pictures, read a switch by its knob's side.)
+        // grey even when they are on: in the pictures, read a switch by its knob's side.
+        // It draws the main button grey too; that one is drawn by hand, see `mainButton`.)
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless],
                               backing: .buffered, defer: false)
         window.appearance = appearance

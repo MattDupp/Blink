@@ -8,12 +8,12 @@ import BlinkCore
 /// wrong in two places at once. `BreakWordsTests` holds this.
 enum BreakWords {
 
-    /// "40 seconds", "1 minute", "1 min 30 s".
+    /// "40 seconds", "1 minute", "1 minute 30 seconds": full words, as in every row of Settings.
     static func length(seconds: Int) -> String {
         if seconds < 60 { return "\(seconds) seconds" }
         let minutes = seconds / 60, rest = seconds % 60
         if rest == 0 { return Format.count(minutes, "minute") }
-        return "\(minutes) min \(rest) s"
+        return "\(Format.count(minutes, "minute")) \(rest) seconds"
     }
 
     static func length(minutes: Int) -> String { length(seconds: minutes * 60) }
@@ -63,6 +63,9 @@ enum BreakWords {
         guard let every = plan.longEvery else { return short }
         return "\(short) After \(every == 1 ? "each one" : "\(every) of these"), leave the screen for \(length(of: .long, in: plan))."
     }
+
+    /// Numbers of your own, that match no ready-made setting. (It was "Your own".)
+    static let custom = "Custom"
 
     /// A ready-made setting, by what it does.
     static func summary(_ preset: BreakPlan.Preset) -> String {

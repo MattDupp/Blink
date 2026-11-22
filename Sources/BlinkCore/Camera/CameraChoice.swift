@@ -16,6 +16,28 @@ public struct CameraOption: Equatable, Identifiable, Sendable {
     }
 }
 
+/// Where the camera in use sits, for the words about it: "open the lid" means nothing on
+/// a Mac mini, nor when the camera is a webcam on a stand.
+public enum CameraPlace: Equatable, Sendable {
+    /// In the lid of a portable Mac: closing the lid hides it.
+    case lid
+    /// In the screen of a desktop Mac.
+    case screen
+    /// A camera of its own, plugged in or in an external display.
+    case separate
+
+    /// `builtIn`: whether the camera in use is the Mac's own; nil when none is known, and
+    /// then the Mac's own is assumed where there is a lid, since that is what Automatic takes.
+    public init(builtIn: Bool?, macHasLid: Bool) {
+        switch (builtIn, macHasLid) {
+        case (false, _): self = .separate
+        case (true, true), (nil, true): self = .lid
+        case (true, false): self = .screen
+        case (nil, false): self = .separate
+        }
+    }
+}
+
 /// Which camera the app uses.
 ///
 /// The app always took the Mac's own. Docked with the lid closed and an external webcam,

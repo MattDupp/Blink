@@ -20,8 +20,8 @@ struct WelcomeView: View {
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Blink Monitor")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                    Text("Counts your blinks, and tells you when you forget to.")
+                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                    Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -56,7 +56,7 @@ struct WelcomeView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Start") { start() }
-                    .keyboardShortcut(.defaultAction)
+                    .mainButton()
                     .controlSize(.large)
             }
         }

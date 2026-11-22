@@ -10,7 +10,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     enum Notice {
         /// You blink too little: `recent` is the rate over the last three minutes.
         /// `sound`: false once the reminder has gone unanswered twice (`ReminderPolicy`).
-        case lowRate(recent: Double, sound: Bool)
+        case lowRate(limit: Int, sound: Bool)
         /// "Send a Test Reminder": the same banner, said to be a test, whose buttons do nothing.
         case lowRateTest
         /// A look-away break starts (the words come from `BreakWords`). `canPostpone`:
@@ -141,12 +141,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.sound = .default
         let identifier: String
         switch notice {
-        case .lowRate(let recent, let sound):
+        case .lowRate(let limit, let sound):
             identifier = Identifier.lowRate
             content.categoryIdentifier = Identifier.lowRate
             content.title = "Time to blink"
-            content.body = String(format: "About %.0f blinks a minute over the last 3 minutes. "
-                                  + "Try ten slow, full blinks.", recent)
+            content.body = LowRateWords.sentence(limit: limit) + " Try ten slow, full blinks."
             if !sound { content.sound = nil }
         case .lowRateTest:
             identifier = Identifier.lowRateTest

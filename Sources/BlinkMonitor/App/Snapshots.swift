@@ -126,6 +126,7 @@ enum Snapshots {
             ("setup-record", setup(.recordFirst)),
             ("setup-record-muted", setup(.recordMuted)),
             ("setup-record-session", setup(.recording)),
+            ("setup-record-pose-ended", setup(.poseEnded)),
             ("setup-record-short", setup(.recordShort)),
             ("setup-record-next", setup(.recordNext)),
             ("setup-record-enough", setup(.recordEnough)),
@@ -179,6 +180,10 @@ enum Snapshots {
             ("history-small-screen", AnyView(history(.watching).environment(\.screenRoom, 700))),
             ("panel-small-screen", AnyView(routinePanel(.waiting).environment(\.screenRoom, 700))),
             ("settings-breaks-notifications-off", settings(.breaks, scene: .notificationsOff)),
+            // A test reminder has nothing to show: its button is the way to allow them.
+            ("settings-routines-notifications-off", settings(.routines, scene: .notificationsOff) { _, model in
+                model.routines.openCard = model.routines.routines.first { $0.isBuiltIn }?.id
+            }),
             ("settings-data-captures", settings(.data) { state, _ in
                 var disk = recorded
                 (disk.captures, disk.captureMegabytes) = (3, 41)
