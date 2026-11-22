@@ -90,7 +90,17 @@ extension MonitorStatus {
 
     /// One sentence under the rate, in the panel. `limit`: the limit in force.
     /// `timer`: the routine whose timer holds the pause (a mask on the eyes), if any.
-    func explanation(limit: Int, timer: String? = nil) -> String {
+    /// `energy`: counting rests to save energy (`EnergyPause`), which is not a pause.
+    func explanation(limit: Int, timer: String? = nil, energy: EnergyPause.Reason? = nil) -> String {
+        if case .paused = self, let energy {
+            switch energy {
+            case .battery:
+                return "Resting on battery, as chosen in Settings: the camera is off and nothing is counted. "
+                    + "It comes back when the Mac is plugged in. Resume counts anyway."
+            case .lowPower:
+                return "Resting while Low Power Mode is on, as chosen in Settings: the camera is off and nothing is counted. Resume counts anyway."
+            }
+        }
         // During a timer the pause is not an ordinary one: the eyes are covered, and
         // Resume would turn the camera on under the mask.
         if case .paused(let until?) = self, let timer {

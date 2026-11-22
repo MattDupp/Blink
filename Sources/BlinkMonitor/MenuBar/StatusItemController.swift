@@ -187,7 +187,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             add("Set Up Blink Monitor…", #selector(menuSetup))
         } else {
             add("Blink Break", #selector(menuBlinkBreak), enabled: status.isCameraOn)
-            if model.isPaused {
+            if model.showsResume {
                 add("Resume", #selector(menuResume))
             } else {
                 add("Pause for 1 Hour", #selector(menuPause), enabled: model.lifecycle == .running)
@@ -234,6 +234,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// The panel opens next time as it first was: no pause choices left showing.
     func popoverDidClose(_ notification: Notification) {
         panelState.reset()
+        model.seenWhileAway()       // what ended during sleep has been read
     }
 }
 

@@ -73,7 +73,7 @@ struct MenuPanelView: View {
             VStack(alignment: .leading, spacing: 10) {
                 NowSection(status: status, blinks: model.live.counters.totalBlinks, begun: preferences.welcomed,
                            limit: preferences.limit, offersSetup: model.failure?.offersSetup ?? false,
-                           timer: timerRoutine,
+                           timer: timerRoutine, energy: model.energyHold,
                            tryAgain: { Task { await model.tryAgain() } }, actions: actions)
                 // The four actions sit directly under the rate, at the same place each time
                 // the panel opens: at the bottom they moved with every routine and note.
@@ -81,7 +81,7 @@ struct MenuPanelView: View {
                     ActionTiles(model: model, state: state, status: status, actions: actions)
                         .padding(.top, 4)
                     Notes(status: status, history: history, reminders: reminders, preferences: preferences, now: now,
-                      cameraMovedTo: model.cameraMovedTo)
+                      cameraMovedTo: model.cameraMovedTo, whileAway: model.whileAway)
                 }
             }
             .padding(16)
@@ -168,6 +168,8 @@ private struct NowSection: View {
     var offersSetup = false
     /// The routine whose timer holds the pause, if one runs.
     var timer: String?
+    /// Counting rests to save energy.
+    var energy: EnergyPause.Reason?
     var tryAgain: () -> Void = {}
     let actions: PanelActions
 
@@ -192,7 +194,7 @@ private struct NowSection: View {
                     StatusPill(text: status.label, color: status.tint, pulse: blinks)
                 }
             }
-            Text(status.explanation(limit: limit, timer: timer))
+            Text(status.explanation(limit: limit, timer: timer, energy: energy))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -269,6 +271,8 @@ private struct Notes: View {
     let now: Date
     /// Automatic moved to this camera (`CameraChoice`): said until a camera is chosen.
     var cameraMovedTo: String?
+    /// What ended while the Mac slept: said here until the panel is closed.
+    var whileAway = WhileAway()
 
     var body: some View {
         let lines = self.lines
@@ -349,6 +353,7 @@ private struct Notes: View {
         if status == .needsSetup { return lines }
         if case .settingUp = status { return lines }
         if let cameraMovedTo { lines.append(("camera", CameraWords.moved(to: cameraMovedTo), .primary)) }
+        for sentence in whileAway.sentences { lines.append(("moon.zzz", sentence, .primary)) }
         if preferences.breakNudgesOn, let tally = BreakWords.takenToday(reminders.breaks.tally(now: now)) {
             lines.append(("checkmark.circle", tally, .secondary))
         }
@@ -559,7 +564,7 @@ private struct ActionTiles: View {
                                         : "The camera counts the blinks of a blink break, and it is off now.")
                 .keyboardShortcut("b", modifiers: [])
 
-                if model.isPaused {
+                if model.showsResume {
                     // During a timer, Resume is there but not the thing to press: the
                     // camera comes back by itself when the timer ends.
                     let timed = model.routines.session.session != nil
@@ -585,7 +590,7 @@ private struct ActionTiles: View {
                     .keyboardShortcut("s", modifiers: [])
             }
 
-            if state.choosingPause && !model.isPaused {
+            if state.choosingPause && !model.showsResume {
                 PauseChoices { duration in
                     model.pause(for: duration)
                     state.choosingPause = false

@@ -239,6 +239,7 @@ facts, and its tests are moments written by hand.
 | Rule | Why |
 |---|---|
 | Nothing during a look-away break, a blink break, a routine's timer or the setup | You are doing what the app asked. A break that falls due meanwhile waits, it is not lost |
+| Nothing while an app uses the microphone, when "Quiet during calls" is on | A call is the worst moment for a banner or a sound. The app asks Core Audio whether the input device is running somewhere: it opens no microphone and needs no permission |
 | At least two minutes between two banners | Three gentle reminders in one minute are not gentle |
 | A break goes first: the others stay away when one falls due within two minutes | The break has a clock running. The blink reminder comes back by itself |
 | Quiet (30 minutes, an hour, until tomorrow) holds every banner and every sound | "Leave me alone" is one thing to say, not three. Counting goes on, and it is remembered |

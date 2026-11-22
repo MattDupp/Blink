@@ -35,6 +35,9 @@ final class RoutineSessionController: ObservableObject {
     var resumeCamera: (Date) -> Void = { _ in }
     /// The timer ran to its end.
     var onDone: (RoutineSession) -> Void = { _ in }
+    /// Its end was found late (the Mac slept through it): marked done with no sound and
+    /// no window, so it is said in the panel.
+    var onEndedLate: (RoutineSession) -> Void = { _ in }
     /// The sound of the end. Twice, a moment apart: your eyes are closed, and one short
     /// sound is easy to take for something else.
     var chime: () -> Void = {
@@ -97,6 +100,7 @@ final class RoutineSessionController: ObservableObject {
         let late = now.timeIntervalSince(current.end) > Self.lateSeconds
         Log.app.notice("Routine timer ended, late: \(late, privacy: .public)")
         guard !late else {
+            onEndedLate(current)
             onClose()
             return
         }

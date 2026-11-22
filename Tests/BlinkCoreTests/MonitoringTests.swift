@@ -113,6 +113,27 @@ struct MonitoringTests {
                                       tried: ["own", "desk", "third"]) == nil)
     }
 
+    @Test("Counting rests on battery or in Low Power Mode only when chosen; what ended during sleep is said once; a call holds every banner")
+    func energyAndAway() {
+        #expect(EnergyPause.reason(onBattery: true, lowPower: true, pauseOnBattery: false, pauseInLowPower: false) == nil)
+        #expect(EnergyPause.reason(onBattery: true, lowPower: false, pauseOnBattery: true, pauseInLowPower: false) == .battery)
+        #expect(EnergyPause.reason(onBattery: false, lowPower: false, pauseOnBattery: true, pauseInLowPower: true) == nil)
+        #expect(EnergyPause.reason(onBattery: true, lowPower: true, pauseOnBattery: true, pauseInLowPower: true) == .lowPower)
+
+        var away = WhileAway()
+        #expect(away.isEmpty && away.sentences.isEmpty)
+        away.pauseEnded = true
+        away.timersEnded = ["Heated eye mask"]
+        #expect(away.sentences.count == 2 && away.sentences[0].contains("Heated eye mask") && away.sentences[1].contains("pause ended"))
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let gate = BannerGate()
+        for kind in BannerGate.Kind.allCases {
+            #expect(gate.mayShow(kind, now: now))
+            #expect(!gate.mayShow(kind, busy: BannerGate.Busy(call: true), now: now), "\(kind)")
+        }
+    }
+
     @Test("Quit asks only when something would be lost: a timer, a recording, a training")
     func quitQuestion() {
         #expect(QuitQuestion.question(.init()) == nil, "an ordinary quit is immediate")

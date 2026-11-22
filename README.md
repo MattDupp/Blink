@@ -154,6 +154,10 @@ and shipping it inside a real app.
 - **Reminders that know each other.** Nothing arrives during a look-away break, a blink
   break, a routine's timer or the setup. Two banners are at least two minutes apart.
   When two would come together, a break goes first.
+- **Quiet during calls** (off by default): nothing arrives while an app uses the
+  microphone. The app asks macOS whether the microphone is in use; it never listens.
+- **Rest on battery, or in Low Power Mode** (both off by default): the camera goes off and
+  comes back by itself. Resume counts anyway.
 
 <p align="center">
   <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the usual rate" width="270">

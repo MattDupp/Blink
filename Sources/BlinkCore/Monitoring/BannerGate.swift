@@ -10,6 +10,7 @@ import Foundation
 ///
 ///   - nothing while you are busy with something the app itself started: a look-away
 ///     break, a blink break, a routine's timer, the setup;
+///   - nothing during a call, when the user asked for that (`Busy.call`);
 ///   - at least two minutes between any two banners, whatever their kinds;
 ///   - when two would come together, a break goes first, then a routine, then the blink
 ///     reminder (the break is the one with a clock running; the blink reminder comes back
@@ -34,12 +35,17 @@ public struct BannerGate: Equatable {
         public var blinkBreak = false
         public var timer = false
         public var setup = false
+        /// A call is under way (the microphone is in use), and the user asked for quiet
+        /// during calls: nothing interrupts it, a look-away break included.
+        public var call = false
 
-        public init(lookAwayBreak: Bool = false, blinkBreak: Bool = false, timer: Bool = false, setup: Bool = false) {
+        public init(lookAwayBreak: Bool = false, blinkBreak: Bool = false, timer: Bool = false, setup: Bool = false,
+                    call: Bool = false) {
             self.lookAwayBreak = lookAwayBreak
             self.blinkBreak = blinkBreak
             self.timer = timer
             self.setup = setup
+            self.call = call
         }
 
         public static let free = Busy()
@@ -47,7 +53,7 @@ public struct BannerGate: Equatable {
         /// Busy for a banner of this kind. A look-away break does not keep its own banner
         /// away: that banner is what announces it.
         public func holds(_ kind: Kind) -> Bool {
-            blinkBreak || timer || setup || (lookAwayBreak && kind != .screenBreak)
+            blinkBreak || timer || setup || call || (lookAwayBreak && kind != .screenBreak)
         }
     }
 

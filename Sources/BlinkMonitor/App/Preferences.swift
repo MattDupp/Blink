@@ -15,6 +15,9 @@ final class Preferences: ObservableObject {
         static let orangeWhenLow = "orangeRateWhenLow"
         static let liveViewSound = "liveViewSound"
         static let cameraID = "cameraID"
+        static let pauseOnBattery = "pauseOnBattery"
+        static let pauseInLowPower = "pauseInLowPowerMode"
+        static let quietDuringCalls = "quietDuringCalls"
         static let blinkBack = "blinkBack"
         static let remindersOn = "remindersOn"
         static let automaticLimit = "automaticLimit"
@@ -46,6 +49,12 @@ final class Preferences: ObservableObject {
     /// A short sound at every counted blink while Live View is open. Off unless chosen,
     /// and kept: it was on at every opening, and the Mac popped at each blink.
     @Published var liveViewSound: Bool { didSet { defaults.set(liveViewSound, forKey: Key.liveViewSound) } }
+    /// Counting rests while the Mac runs on its battery, and while Low Power Mode is on
+    /// (`EnergyPause`). Both off unless chosen.
+    @Published var pauseOnBattery: Bool { didSet { defaults.set(pauseOnBattery, forKey: Key.pauseOnBattery) } }
+    @Published var pauseInLowPower: Bool { didSet { defaults.set(pauseInLowPower, forKey: Key.pauseInLowPower) } }
+    /// No banner and no sound while the microphone is in use, which is most likely a call.
+    @Published var quietDuringCalls: Bool { didSet { defaults.set(quietDuringCalls, forKey: Key.quietDuringCalls) } }
     /// The camera the user chose, as macOS knows it. Nil: Automatic (`CameraChoice`).
     @Published var cameraID: String? { didSet { defaults.set(cameraID, forKey: Key.cameraID) } }
     /// The rate in the menu bar is written in orange while it is low. The badge on the
@@ -182,6 +191,9 @@ final class Preferences: ObservableObject {
         orangeRateWhenLow = defaults.object(forKey: Key.orangeWhenLow) as? Bool ?? true
         liveViewSound = defaults.bool(forKey: Key.liveViewSound)
         cameraID = defaults.string(forKey: Key.cameraID)
+        pauseOnBattery = defaults.bool(forKey: Key.pauseOnBattery)
+        pauseInLowPower = defaults.bool(forKey: Key.pauseInLowPower)
+        quietDuringCalls = defaults.bool(forKey: Key.quietDuringCalls)
         blinkBack = defaults.object(forKey: Key.blinkBack) as? Bool ?? true
         remindersOn = defaults.object(forKey: Key.remindersOn) as? Bool ?? true
         automaticLimit = defaults.object(forKey: Key.automaticLimit) as? Bool ?? true

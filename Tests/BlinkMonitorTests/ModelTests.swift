@@ -91,6 +91,50 @@ struct ModelTests {
         #expect(model.preferences.cameraID == nil)
     }
 
+    @Test("Rest on battery turns counting off and back by itself; Resume counts anyway until the Mac is plugged in")
+    func restOnBattery() {
+        let model = running()
+        var onBattery = false
+        model.powerFacts = { (onBattery, false) }
+        let start = Date()
+        model.apply(frame(), now: start)
+        model.preferences.pauseOnBattery = true
+        model.checkEnergy()
+        #expect(model.energyHold == nil && model.status(now: start) == .watching(rate: 13))
+
+        onBattery = true
+        model.checkEnergy()
+        #expect(model.energyHold == .battery && model.showsResume && !model.isPaused)
+        #expect(model.status(now: start) == .paused(until: nil))
+        #expect(model.status(now: start).explanation(limit: 10, energy: model.energyHold).hasPrefix("Resting on battery"))
+
+        // "Resume" during the rest: it counts anyway, and the rule does not undo that.
+        model.resume()
+        model.checkEnergy()
+        #expect(model.energyHold == nil && !model.showsResume)
+        // Plugged in, then on battery again: the rule applies again.
+        onBattery = false
+        model.checkEnergy()
+        onBattery = true
+        model.checkEnergy()
+        #expect(model.energyHold == .battery)
+        onBattery = false
+        model.checkEnergy()
+        #expect(model.energyHold == nil)
+    }
+
+    @Test("Quiet during calls holds the banners only when it is switched on and the microphone is in use")
+    func quietDuringCalls() {
+        let model = running()
+        var inUse = true
+        model.microphoneInUse = { inUse }
+        #expect(!model.reminders.busy().call, "off unless chosen")
+        model.preferences.quietDuringCalls = true
+        #expect(model.reminders.busy().call && !model.reminders.mayShowRoutineBanner())
+        inUse = false
+        #expect(!model.reminders.busy().call && model.reminders.mayShowRoutineBanner())
+    }
+
     @Test("A paused camera is not a silent one")
     func pausedIsNotSilent() {
         let model = running()

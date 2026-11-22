@@ -20,6 +20,23 @@ struct SettingsActions {
     var deleteEverythingAndQuit: (() -> Void)?
 }
 
+/// The questions people ask after a few days, answered where they look for the version.
+/// Each answer says what the app does, checked against its code, and nothing about health.
+enum GoodToKnow {
+    static let all: [(question: String, answer: String)] = [
+        ("Does it count someone else's blinks?",
+         "It reads one face: the largest in view, which is the one at the keyboard. Someone behind you is not counted. Someone who sits in your place is: the app does not know whose eyes they are."),
+        ("Does it work during a video call?",
+         "Yes. macOS lets several apps use the camera together, and the call does not see what Blink Monitor does. For no reminders meanwhile, use Quiet in the panel, or Quiet during calls in General."),
+        ("New glasses, a new desk, a new camera?",
+         "Your model learned your eyes as they looked when you recorded them. After a change, test it under Model. If it counts fewer than 8 of 10, add a recording there."),
+        ("Why is my rate lower than what I read elsewhere?",
+         "The app counts complete blinks only, and people blink less at a screen than in conversation. What it compares with is your own usual rate."),
+        ("Can I leave it running all day?",
+         "Yes: that is what it is for. Pause turns the camera off whenever you want, and it rests by itself when the screen sleeps."),
+    ]
+}
+
 /// What the app says about the choice of a camera (`CameraChoice`).
 enum CameraWords {
     static func detail(inUse name: String?) -> String {
@@ -240,7 +257,32 @@ struct SettingsView: View {
     // MARK: General
 
     private var general: some View {
-        generalCard
+        VStack(alignment: .leading, spacing: 12) {
+            generalCard
+            if !model.isDemo { energyCard }
+        }
+    }
+
+    /// What counting costs, and the two ways to spare a battery. Also quiet during calls:
+    /// the other thing the Mac's own state can decide.
+    private var energyCard: some View {
+        Card {
+            Row("Energy", detail: "While it reads your eyes, Blink Monitor keeps the camera on and uses about a third of one processor core. Pause, in the panel, stops both.") {
+                EmptyView()
+            }
+            Divider()
+            Row("Rest on battery", detail: "The camera goes off while the Mac runs on its battery, and comes back when it is plugged in. Resume, in the panel, counts anyway.") {
+                Toggle("Rest on battery", isOn: $preferences.pauseOnBattery)
+            }
+            Divider()
+            Row("Rest in Low Power Mode", detail: "The same, while Low Power Mode is on in System Settings > Battery.") {
+                Toggle("Rest in Low Power Mode", isOn: $preferences.pauseInLowPower)
+            }
+            Divider()
+            Row("Quiet during calls", detail: "No reminder, no look-away break and no sound while an app uses the microphone. Blink Monitor only asks macOS whether it is in use: it never listens.") {
+                Toggle("Quiet during calls", isOn: $preferences.quietDuringCalls)
+            }
+        }
     }
 
     private var generalCard: some View {
@@ -700,6 +742,24 @@ struct SettingsView: View {
             Text("Each of these opens in your browser.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            SectionTitle("Good to know")
+                .padding(.top, 6)
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(GoodToKnow.all, id: \.question) { entry in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.question)
+                            Text(entry.answer)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
             SectionTitle("What studies report")
                 .padding(.top, 6)
             Card {
