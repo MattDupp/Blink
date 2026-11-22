@@ -26,6 +26,11 @@ public struct FrameSchedule {
     }
 
     /// Search for the eyes on one frame in this many, while they are found.
+    ///
+    /// MEASURED 2026-11-20 on three captures replayed from their whole frames (`make
+    /// replay`): at 2 the blinks counted are those counted when every frame is searched.
+    /// At 3, five false blinks appear in the two seconds where the person leans out of
+    /// view: squares two frames old no longer frame the eyes of a head that moves.
     public var searchEvery = 2
     /// Searches without a face before the chair counts as empty (90 = 3 s).
     public var idleAfterSearches = 90

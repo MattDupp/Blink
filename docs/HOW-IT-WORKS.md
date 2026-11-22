@@ -42,6 +42,14 @@ eye closes, while the eye's own outline collapses. `EyeCropper` resizes each squ
 When the head is turned far to one side, the far eye hides behind the nose and its
 square lands on the cheek, so only the near eye is used.
 
+Vision does this in two steps, find the face then place the landmarks on it, and the
+first is half of the cost: it shrinks the whole 1920x1080 frame for its detector. A face
+at a screen does not go far in half a second, so the face is looked for twice a second
+only. In between, Vision is handed the box where the face was and places the landmarks
+in it; the box follows the eyes it finds. Vision places landmarks wherever it is told to,
+face or no face, so each result is checked: both eyes inside the box, and as far apart
+as when the face was detected. If not, the whole frame is searched again at once.
+
 This code lives in the shared library, `BlinkCore`. The recorder and the app call the
 same functions, and a test checks that the app's fast path produces the very pixels the
 training pictures were made of.
@@ -137,6 +145,10 @@ The app runs all day, so its cost matters as much as its accuracy.
   passed images and paid 9 ms per picture for it ([Lessons](LESSONS.md), number 3).
 - The eyes are searched for every other frame; the frame in between reads the same squares.
   This saved 15% of a frame's cost, not the 40% expected: each search got slower. The README has the numbers.
+- The face is looked for twice a second; the other searches only place the landmarks in
+  its box (step 2). Whether this changed what is counted was measured before it shipped, on
+  captures replayed from their whole frames. In the app's log a frame went from 14.7 ms to
+  9.4 ms ([Lessons](LESSONS.md), number 5).
 - After 3 s without a face, one frame in six is analysed. (Both rules are one tested type, `FrameSchedule`.)
 - With no window open, the interface is updated on change and once a second.
 - The camera picture is only prepared while the Live View window shows it.

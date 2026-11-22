@@ -153,16 +153,36 @@ the hand-marked blinks pointed to; [Lessons](docs/LESSONS.md) tells that story.
 |---|---|---|
 | Handing one eye picture to Core ML | 9.1 ms | 0.12 ms |
 | Memory after running for a while | 591 MB after 11 min, 2.6 GB after 4 h (a leak) | 240 MB after one hour |
-| Processor, one core, while watching you | about 60% | about 37% |
+| Processor, one core, while watching you | about 60% | about 32% |
 | Processor, nobody in front of the camera | about 60% | under 5% |
 
-**One optimisation did not pay.** Finding the eyes (Apple Vision) is three quarters of a
-frame's cost, so searching on every other frame, and reading the same squares in between,
-should have nearly halved it. Measured by the app's own log: a frame went from about 14.5 ms
-to 12.3 ms, 15% less. Each search now takes about 18 ms where it took 12. I have not found
-out why yet, and 37% of a core is more than a background app should use; this is the next
-thing to work on. The app logs its cost once a minute to
-`~/Library/Application Support/BlinkMonitor/performance.csv`.
+**One optimisation did not pay, the next one did.** Finding the eyes (Apple Vision) is
+most of a frame's cost, so searching on every other frame, and reading the same squares in
+between, should have nearly halved it. Measured by the app's own log: a frame went from
+about 14.5 ms to 12.3 ms, 15% less. Each search took about 18 ms where it took 12.
+
+A profile showed where a search goes, and that one part can be skipped: finding the face.
+Vision accepts the box where the face was and only places the landmarks in it. The face is
+now found twice a second instead of fifteen times. The same build, switched between the
+two ways six times, three and a half minutes each:
+
+| | Face found at every search | Face found twice a second |
+|---|---|---|
+| Finding the eyes, per frame | 10.7 ms | 5.2 ms |
+| Whole frame | 14.7 ms | 9.4 ms |
+| Processor, one core | 39% | 32% |
+
+Does it still count the same blinks? Three recordings that keep the whole camera picture
+(121 s, 80 blinks marked, with the head turning and leaving the picture on purpose) were
+run through both ways. Each finds 72 of the 80. Blink by blink, the new way counts the 76
+blinks the old one counts, and one more that is a real, marked blink. Two cautions: those
+80 blinks were marked from the eye pictures by Claude, the AI assistant this app is built
+with, not by me; and the setting was chosen on the recordings it is reported on.
+
+32% of a core is still more than a background app should use. Cutting the eye pictures out
+of the frame is now a third of a frame's cost, and the next thing to work on.
+[Lessons](docs/LESSONS.md), number 5, has the whole story. The app logs its cost once a
+minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 
 ## Privacy
 
@@ -230,9 +250,9 @@ Sources/BlinkUI          the SwiftUI views both apps share, and the screenshot r
 Sources/BlinkRecorder    the app that records labelled eye pictures
 Sources/BlinkMonitor     the menu-bar app, and its demo
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
-Tests/BlinkCoreTests     97 tests of the rules (Swift Testing)
+Tests/BlinkCoreTests     103 tests of the rules (Swift Testing)
 Tests/BlinkMonitorTests  12 tests of the app itself: its model, its clock, the demo
-training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 25 tests
+training/                PyTorch training, Core ML conversion, labelling and evaluation tools, 26 tests
 scripts/                 app bundling, prerequisite check, icon drawing, manifest repair
 docs/                   how it works, lessons, development notes
 ```
@@ -240,7 +260,7 @@ docs/                   how it works, lessons, development notes
 ## Limits and roadmap
 
 - **One person, one morning.** The model has only seen its author, in daylight. Other light is untested.
-- **Processor use.** About 37% of one core while it watches you (see Results).
+- **Processor use.** About 32% of one core while it watches you (see Results).
 - **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look.
 - **The Mac's own camera has to face you.** If you work on an external display with the MacBook to one side, it sees you in profile or not at all, and the panel says "No face". There is no camera picker yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.

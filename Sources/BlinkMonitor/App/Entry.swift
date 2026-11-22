@@ -10,6 +10,8 @@ import BlinkCore
 ///                                          there instead (to replay the eye finding: make replay)
 ///       --open=<window>[,<window>]         open windows at launch: live-view, history, settings,
 ///                                          blink-break (to look at them, or to check they open)
+///       --eye-search=whole-frame           find the face in the whole frame at every search, as
+///                                          the first versions did (to compare what it costs)
 ///       --no-camera                        leave the camera off (to look at the windows)
 ///       --demo                             made-up eyes: no camera, no model (make demo)
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit
@@ -68,6 +70,12 @@ enum Options {
     /// ordinary one is two small pictures of eyes. It is for working on the stage that
     /// finds the eyes (`CaptureReplay`), and is asked for at launch, by whoever does that.
     static var wholeFrameRoot: URL? { LaunchArguments.folder("whole-frames-dir") }
+
+    /// How the eyes are found: the usual way, unless the old one is asked for at launch.
+    /// The two can then be timed on the same Mac, the same day, in the same light.
+    static var eyeSearch: EyeLocator.Strategy {
+        LaunchArguments.value(of: "eye-search") == "whole-frame" ? .wholeFrame : EyeLocator.usual
+    }
 
     static var snapshotFolder: URL? { LaunchArguments.folder("snapshots") }
 }

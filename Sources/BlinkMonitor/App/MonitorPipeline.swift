@@ -56,9 +56,11 @@ struct MonitorUpdate {
 ///     frame -> EyeReader (find eyes, crop, model) -> BlinkDetector -> statistics -> update
 ///              └──────── process(frame) ────────┘    └──────────── count ────────────┘
 ///
-/// TWO THINGS KEEP IT CHEAP IN THE BACKGROUND:
+/// THREE THINGS KEEP IT CHEAP IN THE BACKGROUND:
 ///   - Frames get only the work they need: `FrameSchedule` (inside the reader) searches
 ///     for the eyes every other frame, and looks at one frame in six when nobody is there.
+///   - A search looks for the face in the whole frame twice a second only; in between it
+///     places the landmarks in the box where the face was (`EyeLocator.usual`).
 ///   - The rest of the app is only told what it needs. With no window open, an update is
 ///     sent when something changes (a blink, a face, a minute) and once a second -
 ///     not 30 times a second.
@@ -89,8 +91,9 @@ final class MonitorPipeline: @unchecked Sendable {
     private var lastTimingsAt = 0.0
     private var lastMinuteTimingsAt = 0.0
 
-    init(classifier: EyeClassifier) {
-        reader = EyeReader(classifier: classifier)
+    /// `strategy`: how the eyes are found (`EyeLocator.usual` unless asked otherwise at launch).
+    init(classifier: EyeClassifier, strategy: EyeLocator.Strategy = EyeLocator.usual) {
+        reader = EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy)))
     }
 
     /// A pipeline with no camera and no model behind it: see `process(_:time:)` for readings.

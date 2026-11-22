@@ -105,7 +105,7 @@ counted more false ones, so it is in the code, switched off, with its numbers.
 ideas that only sound right. One caution about these figures: the rule was chosen on the
 same three recordings it is reported on, so the 100% is the best case, not a promise.
 
-## 5. An optimisation that did not pay
+## 5. An optimisation that did not pay, and the one that did
 
 Finding the eyes with Apple Vision was most of the cost of a frame. The eyes do
 not move far in 33 ms, so the plan was simple: search every other frame, and on the frame
@@ -120,12 +120,78 @@ numbers:
 | Searching every other frame | about 9 ms | about 12.3 ms |
 
 15% less, not 40%. A search that runs half as often takes half as long again (about 18 ms
-instead of 12). I do not know why yet. The app still uses about 37% of one core while it
-watches, which is too much for something that runs all day.
+instead of 12). The app still used about 37% of one core while it watched, which is too
+much for something that runs all day.
 
 **What I keep from it:** the first README said the optimisation was "in the code, effect
 not measured yet". Had the log not existed, that sentence would have stayed, and I would
 have gone on believing a number I had only calculated.
+
+### The second try, judged before it reached the app
+
+Two measurements explained part of the surprise. The same Vision call, timed in a loop,
+takes about 5 ms back to back and about 10 ms when the calls are 33 ms apart, as the
+camera delivers them. A search costs more the longer Vision has rested. I can measure
+that; I cannot explain it. And a profile of the running app (2026-11-20) showed what one
+search is made of:
+
+| Share of a search | What Vision is doing |
+|---|---|
+| 38% | Bookkeeping before any work: which version of itself to run, on which processor. It asks again at every call |
+| 26% | Finding the face. Nearly all of it is shrinking the 1920x1080 frame for the detector |
+| 25% | Cutting the face out of the frame for the landmarks |
+| 11% | Everything else, the neural networks included |
+
+The second row can be skipped: handed the box where the face is, Vision only places the
+landmarks. So the face is now found on one search in eight, about twice a second, and
+the searches in between reuse its box, moved along with the eyes
+([How it works](HOW-IT-WORKS.md), step 2).
+
+Moving where the eyes are found moves the eye pictures, so the stored pictures of lesson 4
+could not judge this. Three new recordings keep the whole camera picture (121 s, 80 blinks
+marked), and `make replay` runs them through any way of finding the eyes, then compares
+the counts blink by blink:
+
+| Way of finding the eyes | Blinks counted |
+|---|---|
+| Whole frame, on every frame (how the recordings were made) | 76 |
+| Whole frame, on every other frame (the app until then) | the same 76 |
+| Face found twice a second, box in between | the same 76, and one more that is a real, marked blink |
+| Whole frame, on one frame in three | 5 false blinks in the two seconds where I leaned out of view |
+
+Against the marks, the second and third rows each find 72 of the 80, and the score holds
+one count against the third row as false. It is a blink that both rows count, made during a
+head turn: before, one eye was not read on those frames, and the marks only cover frames
+where both were. So the line to trust is the blink-by-blink one.
+
+The last row was the next idea for saving more. The replay refused it before it reached
+the app.
+
+Then the app's own figures. On 2026-11-22 the same build was switched between the two
+ways six times, three and a half minutes each, with me at the screen:
+
+| | Face found at every search | Face found twice a second |
+|---|---|---|
+| Finding the eyes, per frame | 10.7 ms | 5.2 ms |
+| Whole frame | 14.7 ms | 9.4 ms |
+| Processor, one core | 39% | 32% |
+
+Finding the eyes costs half, more than the profile's 26% promised; I have not looked for
+where the rest went. The processor falls by a fifth only, and the log shows why the two
+figures differ: it times how long a frame takes, waiting included. From one turn to the
+next the old way's frame wandered between 11.5 and 16 ms while its processor share stayed
+at 39%. The new way stayed between 8.7 and 9.7 ms, at 32%.
+
+32% is still too much. Cutting the two eye pictures out of the frame is now 3 ms of the
+9.4, and it is the next thing to look at.
+
+Two cautions. The blinks of those three recordings were marked from the eye pictures by
+Claude, the AI assistant this app is built with, not by me. And "one search in eight" was
+chosen on the recordings it is reported on.
+
+**What I keep from this one:** the first try was calculated, shipped, then measured. The
+second was measured twice before it shipped, and the same tool that let it in kept the
+third idea out.
 
 ## 6. A baseline that would have hidden the problem
 

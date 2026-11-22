@@ -209,6 +209,23 @@ struct ReplayTests {
         #expect(gap.largestGap == 0 && gap.otherSide == 0)
     }
 
+    @Test("The blinks of two runs are paired when they are a frame or two apart; the others are named")
+    func sameBlinks() {
+        func run(_ counted: [Int]) -> [TraceLine] {
+            (0..<300).map { TraceLine(frame: $0, time: Double($0) / 30, blink: counted.contains($0)) }
+        }
+        let same = CaptureReplay.sameBlinks(run([10, 50, 90]), run([11, 48, 90]))
+        #expect(same.both == 3 && same.same)
+
+        // 50 against 54 is too far to be the same blink; 200 is counted by the second run only.
+        let other = CaptureReplay.sameBlinks(run([10, 50, 90]), run([10, 54, 90, 200]))
+        #expect(other == CaptureReplay.SameBlinks(both: 2, onlyFirst: [50], onlySecond: [54, 200]))
+        #expect(!other.same)
+
+        // Two blinks close together are two blinks: each is paired once.
+        #expect(CaptureReplay.sameBlinks(run([10, 12]), run([11])).onlyFirst == [12])
+    }
+
     @Test("A replay's trace is written like the app's, and reads back as the lines it returned")
     func traceFile() async throws {
         let folder = try await capture()

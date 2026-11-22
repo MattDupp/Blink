@@ -106,11 +106,17 @@ def strip(capture: Capture, first: int, last: int, title: str):
 def carry_answers(old: list[dict], new: list[tuple[int, int]]) -> tuple[list[dict], list[dict]]:
     """Gives each new candidate (first frame number, last frame number) the answer of the
     old line it overlaps. Returns (the new lines, the answered old lines left without a
-    candidate) - nothing a person typed is dropped."""
+    candidate) - nothing a person typed is dropped.
+
+    Each line carries the position of its candidate in `new` ("candidate"). There is one
+    line per candidate, except for a candidate that a person CUT BY HAND into several
+    answers of one kind: a long look down with three blinks in it is one candidate here
+    and three blinks in truth. Those lines are kept as they are, in the candidate's place.
+    (The first version merged them back into one line: three marked blinks became one.)"""
     answered = [line for line in old if line["kind"]]
     used: set[int] = set()
     lines = []
-    for first, last in new:
+    for position, (first, last) in enumerate(new):
         overlapping = [
             (n, line)
             for n, line in enumerate(answered)
@@ -118,13 +124,27 @@ def carry_answers(old: list[dict], new: list[tuple[int, int]]) -> tuple[list[dic
         ]
         kinds = {line["kind"] for _, line in overlapping}
         used |= {n for n, _ in overlapping}
+        if len(kinds) == 1 and len(overlapping) > 1:
+            lines += [
+                {
+                    "first_frame": int(line["first_frame"]),
+                    "last_frame": int(line["last_frame"]),
+                    "kind": line["kind"],
+                    "note": line["note"],
+                    "candidate": position,
+                }
+                for _, line in overlapping
+            ]
+            continue
         if len(kinds) == 1:
             kind, note = kinds.pop(), overlapping[0][1]["note"]
         elif kinds:  # two old candidates with different answers became one: ask again
             kind, note = "", "was: " + " + ".join(sorted(kinds))
         else:
             kind, note = "", ""
-        lines.append({"first_frame": first, "last_frame": last, "kind": kind, "note": note})
+        lines.append(
+            {"first_frame": first, "last_frame": last, "kind": kind, "note": note, "candidate": position}
+        )
     orphans = [line for n, line in enumerate(answered) if n not in used]
     return lines, orphans
 
@@ -143,20 +163,26 @@ def annotate(capture: Capture, sheet_folder: Path = SHEETS) -> tuple[int, int, i
 
     lines, orphans = carry_answers(old, [(frames[a].number, frames[b].number) for a, b in stretches])
     for orphan in orphans:
-        orphan["note"] = (orphan["note"] + " [no longer a candidate]").strip()
+        # Said once: a line added by hand is an orphan at every run.
+        if "[no longer a candidate]" not in orphan["note"]:
+            orphan["note"] = (orphan["note"] + " [no longer a candidate]").strip()
     everything = sorted(lines + orphans, key=lambda line: int(line["first_frame"]))
     for number, line in enumerate(everything, start=1):
         line["id"] = number
 
     with answers_file.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n")
+        # "candidate" is this script's own bookkeeping, not a column.
+        writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n", extrasaction="ignore")
         writer.writeheader()
         writer.writerows(everything)
 
     strips = []
-    for line, (first, last) in zip(lines, stretches, strict=True):
+    for position, (first, last) in enumerate(stretches):
+        ids = [line["id"] for line in lines if line["candidate"] == position]
         ticked = any(frames[i].tick for i in range(max(0, first - 30), first + 1))
-        title = f"#{line['id']}  frames {line['first_frame']}-{line['last_frame']}"
+        # A candidate cut by hand shows the numbers of all its lines.
+        title = f"#{ids[0]}" + (f"-{ids[-1]} (cut by hand)" if len(ids) > 1 else "")
+        title += f"  frames {frames[first].number}-{frames[last].number}"
         strips.append(strip(capture, first, last, title + ("  (after a tick)" if ticked else "")))
 
     sheet_folder.mkdir(parents=True, exist_ok=True)
@@ -167,7 +193,7 @@ def annotate(capture: Capture, sheet_folder: Path = SHEETS) -> tuple[int, int, i
         sheets.stack(strips[start : start + per_sheet], columns=2).save(
             sheet_folder / f"{capture.name}_{sheet_number:02d}.png"
         )
-    return len(lines), sum(1 for line in lines if not line["kind"]), len(orphans)
+    return len(stretches), sum(1 for line in lines if not line["kind"]), len(orphans)
 
 
 def main() -> None:

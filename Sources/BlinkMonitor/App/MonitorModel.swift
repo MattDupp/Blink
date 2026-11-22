@@ -168,7 +168,7 @@ final class MonitorModel: ObservableObject {
                  + "Make it with: make train\n\(error)")
             return
         }
-        let pipeline = MonitorPipeline(classifier: classifier)
+        let pipeline = MonitorPipeline(classifier: classifier, strategy: Options.eyeSearch)
         connect(pipeline)
 
         if Options.noCamera {

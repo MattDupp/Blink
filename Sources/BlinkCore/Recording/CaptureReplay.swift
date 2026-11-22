@@ -96,6 +96,37 @@ public enum CaptureReplay {
 
     // MARK: - Two runs compared
 
+    /// The blinks two runs counted, paired up: a blink counted by both lands on the same
+    /// frame, or a frame or two apart when the squares were a frame old.
+    public struct SameBlinks: Equatable {
+        public var both = 0
+        /// Frames at which only the first run counted a blink, and only the second.
+        public var onlyFirst: [Int] = []
+        public var onlySecond: [Int] = []
+
+        public var same: Bool { onlyFirst.isEmpty && onlySecond.isEmpty }
+    }
+
+    /// Pairs the blinks of two runs that are at most `within` frames apart.
+    ///
+    /// This asks nothing of the marks: it says whether a change to the eye finding counts
+    /// the blinks the reference counts, on every frame - also those with one eye hidden,
+    /// which the marks do not cover (`RecordedCapture.score`).
+    public static func sameBlinks(_ first: [TraceLine], _ second: [TraceLine], within: Int = 3) -> SameBlinks {
+        var result = SameBlinks()
+        var others = RecordedCapture.counted(in: second)
+        for frame in RecordedCapture.counted(in: first) {
+            if let match = others.firstIndex(where: { abs($0 - frame) <= within }) {
+                others.remove(at: match)
+                result.both += 1
+            } else {
+                result.onlyFirst.append(frame)
+            }
+        }
+        result.onlySecond = others
+        return result
+    }
+
     /// How far the answers of one run are from another's, frame by frame.
     public struct Difference: Equatable {
         /// Frames both runs answered.

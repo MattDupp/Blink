@@ -170,6 +170,24 @@ def test_two_answers_merged_into_one_candidate_are_asked_again():
     assert orphans == []
 
 
+def test_answers_cut_by_hand_inside_one_candidate_are_kept():
+    # A long look down is one candidate; a person found three blinks in it and wrote three lines.
+    old = [
+        {"first_frame": "655", "last_frame": "660", "kind": "blink", "note": "a"},
+        {"first_frame": "688", "last_frame": "694", "kind": "blink", "note": "b"},
+        {"first_frame": "721", "last_frame": "726", "kind": "blink", "note": "c"},
+    ]
+    lines, orphans = annotate.carry_answers(old, [(100, 104), (628, 731)])
+    assert [(line["first_frame"], line["last_frame"], line["kind"], line["note"]) for line in lines] == [
+        (100, 104, "", ""),
+        (655, 660, "blink", "a"),
+        (688, 694, "blink", "b"),
+        (721, 726, "blink", "c"),
+    ]
+    assert [line["candidate"] for line in lines] == [0, 1, 1, 1]
+    assert orphans == []
+
+
 def test_labelling_leaves_a_labelled_capture_alone(tmp_path, monkeypatch, capsys):
     loaded = capture(tmp_path / "live", ONE_BLINK)
     monkeypatch.setattr(label_captures, "all_captures", lambda: [loaded])

@@ -269,6 +269,8 @@ public final class WholeFrameReader {
 
     /// Frames the movie holds.
     public var count: Int { index.count }
+    /// Their numbers, in order.
+    public var numbers: [Int] { index.map(\.number) }
     public let frameSize: CGSize
 
     private let reader: AVAssetReader

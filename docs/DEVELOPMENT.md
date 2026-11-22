@@ -110,17 +110,38 @@ be run again from them:
    ProRes movie (each frame stored on its own, about 1 GB a minute). This is a film of a
    face: it stays in `data/`, in folders only their owner can read.
 2. `cd training && uv run python annotate.py --replay`, then mark the candidates in each
-   capture's `blinks.csv`, as for any capture.
+   capture's `blinks.csv`, as for any capture. A long look down at the keyboard comes out
+   as one candidate and can hold several blinks: write one line per blink in its place,
+   with the first and last frame of each. `annotate.py` keeps lines cut by hand.
 3. `make replay`. For each capture it prints the blinks found, missed and false, three
    times: as the app counted while recording, replayed with the eyes searched on every
-   frame, and replayed as the app runs. `PACE=1` hands the frames over at the camera's
-   pace and reports what each stage costs.
+   frame, and replayed as the app runs.
 
-The second of the three is the control. It does the work the app did while recording, on
-the same frames, so whatever differs from the first is what storing the frames in a movie
-changed; the tool prints that difference frame by frame. On real eye pictures pushed
-through the movie format and back, the model's answer moved by 0.2% on average and the
-same 20 blinks of 20 were counted at the same frames.
+How to read it:
+
+- **The second of the three is the control.** It does the work the app did while
+  recording, on the same frames, so whatever differs from the first is what storing the
+  frames in a movie changed. On the three captures of 2026-11-20 the model's answer moved
+  by 0.1 to 0.7% on average, and the same 76 blinks were counted.
+- **The line that says whether a change counts differently is the blink-by-blink one**
+  ("the same 36 blinks counted", or which frames only one run counted at). The score
+  against the marks can move by a blink or two with nothing changed in what is counted:
+  the marks cover only the frames where both eyes were read, so a blink counted one frame
+  earlier, while one eye was still hidden by a head turn, is "missed" by that score.
+- **Costs.** Each replay ends with what a search cost; searches of the whole frame and
+  searches in the face's box are timed in the same run, so their ratio does not depend
+  on how busy the Mac was. `PACE=1` hands the frames over at the camera's pace: a search
+  then costs about twice what it costs flat out. Even so the figures are about half of
+  what the app logs for itself (I have not established why), so use them to compare two
+  ways, and time the app itself for the real figure: `--eye-search=whole-frame` starts it
+  with the old search, on the same Mac and in the same light.
+
+Other ways of finding the eyes are tried from the command line, every rhythm with every
+way of finding the face (`0`: in the whole frame at every search):
+
+```bash
+make replay REPLAY_ARGS="--search-every=2,3 --detect-every=0,8,15"
+```
 
 Captures in `data/replay` are kept apart from `data/live` on purpose: `make evaluate` and
 `make improve` do not see them, so recording some changes neither the model nor the

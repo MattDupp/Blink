@@ -59,6 +59,8 @@ public final class EyeFinder {
         case .skip:
             return .skipped
         case .search:
+            // Every frame read in full: nothing is taken from the frame before.
+            if everyFrame { locator.forget() }
             lastLocated = try FrameCost.measure(into: &cost.findEyes) { try locator.locate(in: pixelBuffer) }
             schedule.searched(found: lastLocated != nil)
         case .reuseSquares:
