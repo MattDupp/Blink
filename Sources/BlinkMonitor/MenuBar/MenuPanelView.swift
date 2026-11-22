@@ -95,7 +95,7 @@ struct MenuPanelView: View {
            }
           }
             Divider()
-            FooterRow(model: model, bare: bare, actions: actions)
+            FooterRow(model: model, bare: bare, cameraOn: status.isCameraOn, actions: actions)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
         }
@@ -400,9 +400,10 @@ private struct TodaySection: View {
             SectionTitle("Today")
             HStack(spacing: 8) {
                 StatTile(value: Format.duration(today.observedSeconds), caption: "at the screen")
-                StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute, average")
-                    .help("\(today.blinks.formatted()) blinks counted today")
-                StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--", caption: "of minutes above your limit")
+                StatTile(value: today.ratePerMinute.map { String(format: "%.1f", $0) } ?? "--", caption: "blinks a minute")
+                    .help("Today's average. \(today.blinks.formatted()) blinks counted today.")
+                StatTile(value: today.lowShare.map { "\(Int(((1 - $0) * 100).rounded()))%" } ?? "--", caption: "above your limit")
+                    .help("The share of today's minutes at or above your limit of \(limit) blinks a minute")
             }
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
@@ -492,8 +493,12 @@ private struct MinuteBars: View {
             line.addLine(to: CGPoint(x: size.width, y: y))
             context.stroke(line, with: .color(.secondary.opacity(0.7)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             // The line carries its number: the chart had no scale at all.
-            context.draw(Text("\(Int(limit))").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary),
-                         at: CGPoint(x: size.width - 3, y: y - 6), anchor: .trailing)
+            let number = context.resolve(Text("\(Int(limit))").font(.system(size: 9, weight: .semibold)).foregroundColor(.primary))
+            let measured = number.measure(in: size)
+            let plate = CGRect(x: 2, y: y - measured.height / 2 - 1, width: measured.width + 6, height: measured.height + 2)
+            // On a plate of its own, at the left end: over the bars it could not be read.
+            context.fill(Path(roundedRect: plate, cornerRadius: 3), with: .color(Color(nsColor: .windowBackgroundColor).opacity(0.9)))
+            context.draw(number, at: CGPoint(x: plate.midX, y: plate.midY), anchor: .center)
         }
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
         .overlay {
@@ -585,13 +590,15 @@ private struct CameraOnStyle: LabelStyle {
 private struct FooterRow: View {
     @ObservedObject var model: MonitorModel
     let bare: Bool
+    /// The camera is running (asked of the panel's own moment, not of the clock).
+    let cameraOn: Bool
     let actions: PanelActions
 
     var body: some View {
             HStack(spacing: 14) {
                 // The green light is explained in the setup, then seen every day: three days
                 // later the panel is where someone looks to learn whose it is.
-                if model.status().isCameraOn && !model.isDemo {
+                if cameraOn && !model.isDemo {
                     Label("Camera on", systemImage: "circle.fill")
                         .labelStyle(CameraOnStyle())
                         .help("The green light beside the camera is Blink Monitor counting your blinks. Pause turns it off.")

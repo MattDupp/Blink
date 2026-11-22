@@ -77,7 +77,11 @@ private struct RoutineList: View {
     private func row(_ day: RoutineDay) -> some View {
         let running = session.session?.routine == day.routine.id ? session.session : nil
         if let week = day.week {
-            WeekRow(day: day, week: week, running: running,
+            WeekRow(day: day, week: week, running: running, isOpen: routines.openWeeks.contains(day.routine.id),
+                    toggle: {
+                        if routines.openWeeks.contains(day.routine.id) { routines.openWeeks.remove(day.routine.id) }
+                        else { routines.openWeeks.insert(day.routine.id) }
+                    },
                     calendar: routines.calendar, laterMinutes: routines.policy.laterMinutes,
                     actions: WeekRow.Actions(
                         didIt: { routines.didIt(day.routine.id) }, undo: { routines.undo(day.routine.id) },
@@ -128,11 +132,45 @@ private struct WeekRow: View {
     let week: RoutineWeek
     /// This routine's timer, while it runs.
     let running: RoutineSession?
+    /// Its days and buttons were opened by a click.
+    var isOpen = false
+    var toggle: () -> Void = {}
     let calendar: Calendar
     let laterMinutes: Int
     let actions: Actions
 
+    /// Nothing waits, nothing runs and nothing was done today: one line says it all. It
+    /// took about 110 points before, with both buttons, on days that asked for nothing.
+    private var folded: Bool {
+        !isOpen && running == nil && day.due == nil && day.putOff == nil && week.today.done == 0
+    }
+
     var body: some View {
+        if folded {
+            Button(action: toggle) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: day.routine.symbol)
+                        .foregroundStyle(.tint)
+                        .frame(width: 16)
+                    Text(day.routine.title)
+                    Spacer(minLength: 8)
+                    Text("\(week.done) of \(week.target) · \(state)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Show the week, and mark it done")
+        } else {
+            unfolded
+        }
+    }
+
+    private var unfolded: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: day.routine.symbol)
@@ -143,6 +181,13 @@ private struct WeekRow: View {
                 Text("\(week.done) of \(week.target) this week")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if isOpen && running == nil && day.due == nil && day.putOff == nil && week.today.done == 0 {
+                    Button(action: toggle) {
+                        Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show less")
+                }
             }
             HStack(spacing: 5) {
                 ForEach(Array(week.days.enumerated()), id: \.element.id) { index, weekDay in

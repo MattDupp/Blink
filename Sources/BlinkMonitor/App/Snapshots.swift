@@ -72,10 +72,11 @@ enum Snapshots {
                                          actions: PanelActions()))
         }
         /// The panel with the routine counted by the week switched on, in a made-up week.
-        func weekPanel(_ scene: SampleData.WeekScene, withDrops: Bool = false) -> AnyView {
+        func weekPanel(_ scene: SampleData.WeekScene, withDrops: Bool = false, open: Bool = false) -> AnyView {
             let model = SampleData.model(now: now, scene: scene == .timer ? .paused : .watching)
             if withDrops { SampleData.routines(in: model, now: now, scene: .kept) }
             SampleData.week(in: model, now: now, scene: scene)
+            if open { model.routines.openWeeks = Set(model.routines.routines.map(\.id)) }
             return AnyView(MenuPanelView(model: model, history: model.history, reminders: model.reminders,
                                          preferences: model.preferences, state: PanelState(), moment: Moment(frozen: now),
                                          actions: PanelActions()))
@@ -195,6 +196,7 @@ enum Snapshots {
                 SampleData.routines(in: model, now: now, scene: .kept)
             }),
             ("panel-week", weekPanel(.toCome)),
+            ("panel-week-open", weekPanel(.toCome, open: true)),
             ("panel-week-waiting", weekPanel(.waiting)),
             ("panel-week-reached", weekPanel(.reached)),
             ("panel-week-timer", weekPanel(.timer)),

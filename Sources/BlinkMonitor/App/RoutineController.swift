@@ -71,6 +71,9 @@ final class RoutineController: ObservableObject {
     @Published private var quietDay: String?
     /// The panel shows every routine, not only what waits and what is next.
     @Published var showsAll = false
+    /// The weekly routines whose days and buttons are open in the panel. With nothing
+    /// due, a weekly routine is one line; a click opens it.
+    @Published var openWeeks: Set<String> = []
     /// Keeps `RoutineBanners` alive for as long as this is.
     private var banners: AnyObject?
 
