@@ -46,6 +46,27 @@ than it, so nothing here shows where a model starts to fail.
 view, so a session that holds under 70% of what it can was partly recorded on an empty
 chair. It is not kept, and the window says to record it again.
 
+**The end of a pose is a sound, and a change of light.** The eyes are closed for half of a
+recording, so the end of a pose is a sound. For someone who cannot hear it, the window also
+changes its brightness once when a closed-eye pose ends: light passes closed eyelids
+(`Sources/BlinkCore/Recording/PoseSignal.swift`). Three rules:
+
+- **Once, and softly.** One slow rise and fall for a pose, several seconds apart: far from
+  the three flashes a second that can trigger a seizure. With Reduce Motion on, it is a
+  steady change with no rise and fall.
+- **A dark window brightens; a light one dims and comes back.** A light window is already
+  as bright as the screen goes.
+- **After the pose, never during it.** The screen lights the face. A window that dimmed
+  while the eyes are closed would make every closed-eye picture a little darker, and the
+  model could learn the darkness instead of the eyelid.
+
+Whether the change is strong enough through closed eyelids has not been tried by a person.
+
+**With VoiceOver on, VoiceOver says the instructions**, and the app's own voice stays
+silent: two voices talk over each other (`SpokenGuide`). VoiceOver does not say when it has
+finished a sentence, so the wait before a pose is worked out from the sentence's length.
+Nobody has heard this yet.
+
 **Two sessions before the first training**, in different light. Measured on the author's
 recordings (the table is in the README): trained on one session, the model found 55 to 70
 of 72 real blinks depending on the session; on two, 60 to 72, and 69 on average.

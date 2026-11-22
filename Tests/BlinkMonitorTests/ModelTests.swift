@@ -496,6 +496,18 @@ struct SourceTests {
         #expect(offenders.isEmpty, "a retired word in: \(offenders)")
     }
 
+    @Test("A window's main button is made with mainButton(), so that the pictures draw it tinted")
+    func mainButtons() throws {
+        // `.keyboardShortcut(.defaultAction)` alone is drawn grey in a picture, which is
+        // rendered in a window that is never in front (`MainButton.swift`).
+        var offenders: [String] = []
+        let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent("Sources/BlinkMonitor"), includingPropertiesForKeys: nil)
+        for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
+            if try String(contentsOf: file, encoding: .utf8).contains(".keyboardShortcut(.defaultAction)") { offenders.append(file.lastPathComponent) }
+        }
+        #expect(offenders.isEmpty, "a main button made by hand in: \(offenders)")
+    }
+
     @Test("No window types a number that comes from a study: they are read from PublishedRates")
     func noStudyNumberInAView() throws {
         // The ends of the ranges that are not whole numbers, as a window would write them,
