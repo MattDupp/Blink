@@ -28,12 +28,18 @@ public enum CameraPlace: Equatable, Sendable {
 
     /// `builtIn`: whether the camera in use is the Mac's own; nil when none is known, and
     /// then the Mac's own is assumed where there is a lid, since that is what Automatic takes.
+    ///
+    /// Written with `if`, not as a `switch` over the two values: the older Swift that
+    /// GitHub's macOS 15 builds with cannot see that `true`, `false` and `nil` cover an
+    /// optional Bool, and refuses the switch as not exhaustive. The Swift on a newer Mac
+    /// accepts it, so the fault only showed in CI (2026-11-22).
     public init(builtIn: Bool?, macHasLid: Bool) {
-        switch (builtIn, macHasLid) {
-        case (false, _): self = .separate
-        case (true, true), (nil, true): self = .lid
-        case (true, false): self = .screen
-        case (nil, false): self = .separate
+        if builtIn == false {
+            self = .separate
+        } else if macHasLid {
+            self = .lid
+        } else {
+            self = builtIn == true ? .screen : .separate
         }
     }
 }
