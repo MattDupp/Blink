@@ -681,7 +681,10 @@ enum SampleData {
     /// would fall on another day are left out.
     static func demoRoutine(in model: MonitorModel, now: Date, calendar: Calendar = .current) {
         let id = Routine.eyeDrops.id
-        let moments = [-3 * 3600.0, 120, 4 * 3600].map { now.addingTimeInterval($0) }
+        // The type is written out: left to guess from `-3 * 3600.0, 120, 4 * 3600`, the
+        // older Swift that CI builds with takes `4 * 3600` for an Int and stops.
+        let offsets: [TimeInterval] = [-3 * 3600, 120, 4 * 3600]
+        let moments = offsets.map { now.addingTimeInterval($0) }
             .filter { calendar.isDate($0, inSameDayAs: now) }
         let times = moments.map { TimeOfDay(hour: calendar.component(.hour, from: $0), minute: calendar.component(.minute, from: $0)) }
         guard !times.isEmpty else { return }
