@@ -20,6 +20,12 @@
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <!-- What Finder's Get Info shows under the name, and the shelf Launchpad and the
+         Applications folder's "by kind" view file the app on. -->
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 MattDupp. MIT License.</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.healthcare-fitness</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <!-- "UI element": an app that lives in the menu bar, with no Dock icon. -->

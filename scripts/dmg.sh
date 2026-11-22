@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the installer:   scripts/dmg.sh     (or: make dmg)
 #
-#   build/BlinkMonitor-<version>.dmg     one file to download: opening it shows the app
+#   build/BlinkMonitor.dmg               one file to download: opening it shows the app
 #                                        next to a shortcut to Applications
 #
 # A DISK IMAGE (.dmg) is one file that holds a small disk. Opening it "mounts" the disk:
@@ -33,8 +33,11 @@ APP="$WORK/$VOLUME.app"
 MOUNT="$WORK/mount"
 # The version is written once, in the app's Info.plist; the file name follows it.
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' App/BlinkMonitor-Info.plist)"
-DMG="build/BlinkMonitor-$VERSION.dmg"
-[ -z "$WITH_MODEL" ] || DMG="build/BlinkMonitor-$VERSION-with-my-model.dmg"
+# The file's name carries no version, on purpose: the README links straight to
+# releases/latest/download/BlinkMonitor.dmg, and that link then never changes. The
+# version is in the app (Get Info), in the release's title and in the check of step 5.
+DMG="build/BlinkMonitor.dmg"
+[ -z "$WITH_MODEL" ] || DMG="build/BlinkMonitor-with-my-model.dmg"
 
 step() { printf '\n== %s\n' "$1"; }
 stop() { printf '\nNot built: %s\n' "$1" >&2; exit 1; }

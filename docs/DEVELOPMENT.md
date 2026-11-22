@@ -25,7 +25,7 @@ Run `make` to list them.
 | `make compare` | The app's own trainer against the Python route, on the same pictures and splits (see "Measuring the app's trainer") |
 | `make replay` | Run the captures that kept whole frames through the eye finding again, and count their blinks; `PACE=1` also reports the cost of each stage |
 | `make uninstall` | Remove every installed copy of the app; history, recordings and model are kept |
-| `make dmg` | Build the installer, `build/BlinkMonitor-<version>.dmg`, and check what is inside |
+| `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
 | `make snapshots` | Render every screen, in every state worth looking at, to `build/screens` with made-up data; the pictures the docs show are copied to `docs/img` |
 | `make icon` | Draw the app icon |
 | `make clean` | Remove build products. Never touches `data/` or `models/` |
@@ -294,7 +294,7 @@ changes. `SourceTests` fails if a stored `Date()` comes back.
 
 ## The installer
 
-`make dmg` builds `build/BlinkMonitor-<version>.dmg`. The version comes from
+`make dmg` builds `build/BlinkMonitor.dmg`. The name carries no version, so the README's download link never changes. The version comes from
 `CFBundleShortVersionString` in `App/BlinkMonitor-Info.plist`: change it there, and
 `CFBundleVersion` with it, before a new release.
 
@@ -336,7 +336,7 @@ directly is what lets the image be built with nobody at the screen, and in CI.
 **No model, ever, in the public image.** The app that the image installs has no model, so
 it runs as the demo (`Options.demo`) and says how to train one. For your own second Mac
 there is `make dmg WITH_MODEL=models/EyeNet.mlmodelc`. It writes
-`build/BlinkMonitor-<version>-with-my-model.dmg`, under another name so that it cannot be
+`build/BlinkMonitor-with-my-model.dmg`, under another name so that it cannot be
 taken for the public one. Publishing that file publishes the model.
 
 ### What a downloaded app meets
@@ -415,13 +415,13 @@ Once `main` is pushed, in a browser:
 1. Open `https://github.com/MattDupp/blink-monitor/releases/new`.
 2. In *Choose a tag*, type `v1.0` and pick *Create new tag on publish*. The target is `main`.
 3. Give it the title `Blink Monitor 1.0` and a few words: a demo, and macOS stops the first opening.
-4. Drop `build/BlinkMonitor-1.0.dmg` on *Attach binaries*.
+4. Drop `build/BlinkMonitor.dmg` on *Attach binaries*.
 5. *Save draft* to look at it first, or *Publish release*.
 
 Or with GitHub's command-line tool (`brew install gh`, then `gh auth login`):
 
 ```bash
-gh release create v1.0 build/BlinkMonitor-1.0.dmg --title "Blink Monitor 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
+gh release create v1.0 build/BlinkMonitor.dmg --title "Blink Monitor 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
 ```
 
 Either way this creates the tag `v1.0` on GitHub at the tip of `main`, and a public page

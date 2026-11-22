@@ -28,7 +28,7 @@ Everything goes through the `Makefile`; `make` alone lists the targets.
 | `make build` | `swift build -c release` |
 | `make demo` | Build and open the app on made-up eyes: no camera, nothing recorded |
 | `make snapshots` | Render every screen and state, light and dark, to `build/screens` |
-| `make dmg` | Build the installer, `build/BlinkMonitor-<version>.dmg`, and check what is inside |
+| `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
 | `make monitor` | Install the app in `~/Applications` and start it |
 | `make evaluate` | Blink counting on the annotated captures (needs `data/`): judges the model and the counting rules |
 | `make replay` | Whole-frame captures through the eye finding again (needs `data/replay`): judges the stage before the model |

@@ -17,8 +17,8 @@ and nothing is sent anywhere.
 
 ## Try it
 
-**[Download the latest disk image](https://github.com/MattDupp/blink-monitor/releases/latest)**
-(`BlinkMonitor-1.0.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
+**[Download the disk image](https://github.com/MattDupp/blink-monitor/releases/latest/download/BlinkMonitor.dmg)**
+(`BlinkMonitor.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
 No terminal.
 
 1. Open the file. A window shows Blink Monitor next to a shortcut to your Applications folder.
@@ -31,24 +31,32 @@ No terminal.
 trained on one person's eyes. That model is personal, so none comes with the app. The
 first time, the setup checks the camera, records your eyes twice, trains the model on your
 Mac and tests it: about six minutes, in one window. See
-[Set it up on your own eyes](#set-it-up-on-your-own-eyes). To look around first, the setup's
+[The setup, step by step](#the-setup-step-by-step). To look around first, the setup's
 first page offers a demo on made-up blinks, with the camera off.
 
 ### If macOS stops it
 
-macOS only opens a downloaded app without a question when its developer pays Apple for a
-yearly account and has Apple scan the app. This one is free and Apple has not scanned it, so
-macOS refuses the first opening. All of its code is in this repository.
+The first time you open it, macOS shows a window titled ***"Blink Monitor" Not Opened***. It
+says that Apple could not verify the app, and it has two buttons: **Done** and
+**Move to Trash**.
 
-- **macOS 15 and later.** A window says *"Blink Monitor" Not Opened*. Press **Done**, not
-  *Move to Trash*. Open **System Settings > Privacy & Security** and scroll down to
-  *Security*. Next to the line about Blink Monitor, press **Open Anyway**. Confirm with
-  **Open Anyway**, then your password or Touch ID. The button stays for about an hour after
-  the refusal.
-- **macOS 14.** Hold Control and click Blink Monitor in Applications. Choose **Open**, then
-  **Open** again.
+**Press Done. Do not press Move to Trash.** Then, on macOS 15 and later:
+
+1. Open **System Settings > Privacy & Security**.
+2. Scroll down to *Security*. A line says that Blink Monitor was blocked.
+3. Press **Open Anyway** beside that line. The button stays for about an hour after the
+   refusal. If it is gone, open Blink Monitor once more and come back.
+4. Press **Open Anyway** again in the window that follows, then give your password or
+   Touch ID.
+
+On macOS 14 the window has no such button. Hold Control and click Blink Monitor in
+Applications, choose **Open**, then **Open** again.
 
 You do this once per version. After an update, macOS asks again.
+
+**Why macOS does this.** macOS only opens a downloaded app without a question when its
+developer pays Apple for a yearly account and has Apple scan the app. This one is free and
+Apple has not scanned it. All of its code is in this repository.
 
 ### Update it, remove it
 
@@ -79,7 +87,8 @@ when the 20 seconds are over. The third break is a long one, of one minute.
 It never opens the camera and keeps its settings and history apart from the real app's.
 *See the Setup*, in its panel, goes through the setup on painted eyes: they are recorded,
 a model is really trained on them, and it is really tested.
-To use Blink Monitor on your own eyes, see [Set it up on your own eyes](#set-it-up-on-your-own-eyes).
+To use Blink Monitor on your own eyes, [download it](#try-it), or
+[build it yourself](#build-it-yourself).
 
 ## Why
 
@@ -359,17 +368,11 @@ minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
 - The disk image contains no model either. `make dmg` checks the app before packing it and the image afterwards, and refuses to build one that holds a model.
 - The app is signed with macOS's hardened runtime and asks for one thing, the camera, so another program cannot load its code into it to borrow that permission.
 
-## Set it up on your own eyes
+## The setup, step by step
 
-You need an Apple Silicon Mac with macOS 14 or later and Apple's Command Line Tools
-(`xcode-select --install`; full Xcode is not required). `make doctor` checks that.
-
-```bash
-make monitor
-```
-
-This builds the app, installs it in `~/Applications` and starts it. It has no model yet,
-so it opens its setup. Every page says what is happening, how long it takes and why.
+The first time it is opened, the app has no model, so it opens its setup. This is the same
+whether you downloaded the app or built it. Every page says what is happening, how long it
+takes and why.
 
 | Step | What happens | How long |
 |---|---|---|
@@ -377,10 +380,6 @@ so it opens its setup. Every page says what is happening, how long it takes and 
 | Record | A voice asks for 16 poses, eyes open and closed, three seconds each. Then once more in another light. Every picture is saved with the pose you were asked for: that is how the model gets the right answer. | two minutes, twice |
 | Train | The model is trained on this Mac. The window shows the passes, the time left as measured on your Mac, and your own pictures as the model is shown them. | seconds: 22 for four sessions on an M5 Pro, about half for two |
 | Test | Ten ticks, and you blink at each. The ring fills with every blink the model counts, and the eye in the menu bar blinks with you. | fifteen seconds |
-
-If you installed Blink Monitor from the disk image, quit it and move it to the Trash before
-step 3. `make monitor` builds your own copy with your model inside, and macOS should know
-one copy only. `make monitor` checks, and tells you if the other copy is still there.
 
 <p align="center">
   <img src="docs/img/setup-record-session-light.png" alt="The setup during a recording: session 2, pose 6 of 16, the instruction in large letters, and the two eye pictures being saved" width="420">
@@ -399,6 +398,25 @@ on disk, and the menu-bar panel offers to continue.
 **Later.** Settings > Your Model adds a session (another light, another day, other
 glasses) and trains again on everything, takes the test again, or deletes the recordings
 and the model.
+
+## Build it yourself
+
+Nobody needs this section to use the app: the [disk image](#try-it) is the whole app. It is
+for reading the code, changing it, or measuring the model.
+
+You need an Apple Silicon Mac with macOS 14 or later and Apple's Command Line Tools
+(`xcode-select --install`; full Xcode is not required). `make doctor` checks that.
+
+```bash
+make monitor
+```
+
+This builds the app, installs it in `~/Applications` and starts it. It has no model yet,
+so it opens the setup described above.
+
+If you also installed Blink Monitor from the disk image, quit that copy and move it to the
+Trash first. macOS should know one copy only. `make monitor` checks, and tells you if the
+other copy is still there.
 
 ### The Python route
 
