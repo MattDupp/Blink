@@ -14,6 +14,19 @@ public final class EyeCropper {
     /// have real pixels to show the model.
     public static let outputSize = 64
 
+    /// How an eye picture is cut.
+    public enum Way {
+        /// On the processor, with the arithmetic written out (`DirectCrop`): what the
+        /// apps use. A picture it cannot cut exactly as Core Image would is handed to
+        /// Core Image.
+        case direct
+        /// By Core Image, every time: the first way, kept as the reference the direct
+        /// way is measured against (`BlinkReplay --crops`, and the tests).
+        case coreImage
+    }
+
+    public let way: Way
+
     // Core Image runs these operations on the GPU. A context is expensive to create and
     // cheap to reuse, so there is ONE for the whole life of the cropper.
     let context: CIContext
@@ -23,7 +36,13 @@ public final class EyeCropper {
     /// second would be wasteful, a pool hands back buffers that are no longer in use.
     private let pool: CVPixelBufferPool?
 
-    public init() {
+    private let direct = DirectCrop()
+    /// The brightness curve of the camera pictures seen last (`ColourCurve`), with the
+    /// labels they carried. A nil curve: pictures with these labels go to Core Image.
+    private var curve: (labels: ColourCurve.Labels, curve: ColourCurve?)?
+
+    public init(way: Way = .direct) {
+        self.way = way
         context = CIContext(options: [.workingColorSpace: colorSpace, .cacheIntermediates: false])
 
         let size = Self.outputSize
@@ -43,6 +62,12 @@ public final class EyeCropper {
         CGRect(x: 0, y: 0, width: outputSize, height: outputSize)
     }
 
+    /// A square worth cutting: large enough to show an eye, and entirely inside the frame.
+    static func holds(_ rect: CGRect, in pixelBuffer: CVPixelBuffer) -> Bool {
+        let frame = CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
+        return rect.width >= 8 && frame.contains(rect)
+    }
+
     /// The recipe that turns `rect` of the frame into a 64x64 picture at the origin.
     ///
     /// `rect` is in pixels, origin top-left (as `EyeLocator` gives it). Nil when the square
@@ -51,10 +76,11 @@ public final class EyeCropper {
     ///
     /// Nothing is computed here: a CIImage is a recipe. Rendering it runs it, and only for
     /// the 64x64 region asked for - the rest of the frame is never touched.
+    ///
+    /// This is Core Image's way of cutting, the reference: `DirectCrop` copies what it does.
     func recipe(for pixelBuffer: CVPixelBuffer, rect: CGRect) -> CIImage? {
-        let width = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
+        guard Self.holds(rect, in: pixelBuffer) else { return nil }
         let height = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
-        guard rect.width >= 8, CGRect(x: 0, y: 0, width: width, height: height).contains(rect) else { return nil }
 
         // Core Image measures y from the BOTTOM of the picture, we measure from the top.
         let bottomUp = CGRect(x: rect.minX, y: height - rect.maxY, width: rect.width, height: rect.height)
@@ -71,13 +97,38 @@ public final class EyeCropper {
     /// for every picture: 9.1 ms each, 87% of the app's processor time, and 50 MB of memory
     /// leaked per minute. A pixel buffer in the model's own format (64x64, BGRA) is used as
     /// it is: 0.12 ms.
+    ///
+    /// Since 2026-11-23 the picture is cut on the processor (`DirectCrop` says why, and
+    /// how close to Core Image's it is). Nil when the square is not entirely inside the
+    /// frame, whichever way cuts it.
     public func cropBuffer(_ pixelBuffer: CVPixelBuffer, rect: CGRect) -> CVPixelBuffer? {
-        guard let recipe = recipe(for: pixelBuffer, rect: rect), let pool else { return nil }
+        guard Self.holds(rect, in: pixelBuffer), let pool else { return nil }
         var output: CVPixelBuffer?
         guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output) == kCVReturnSuccess,
               let output else { return nil }
+        if way == .direct, let curve = curve(for: pixelBuffer),
+           direct.cut(pixelBuffer, rect: rect, curve: curve, into: output) {
+            return output
+        }
+        guard let recipe = recipe(for: pixelBuffer, rect: rect) else { return nil }
         context.render(recipe, to: output, bounds: Self.outputRect, colorSpace: colorSpace)
         return output
+    }
+
+    /// How many times Core Image halves a square of `width` pixels before it blends it
+    /// down to 64 (`DirectCrop`): 0 up to 147 pixels, 1 up to 294, 2 up to 588.
+    public static func halvings(forSquare width: CGFloat) -> Int {
+        DirectCrop.halvings(forSquare: width)
+    }
+
+    /// The brightness curve for pictures labelled like this one. Core Image is asked the
+    /// first time, and again only when the labels change (another camera).
+    private func curve(for pixelBuffer: CVPixelBuffer) -> ColourCurve? {
+        let labels = ColourCurve.Labels(of: pixelBuffer)
+        if let known = curve, known.labels.same(as: labels) { return known.curve }
+        let measured = ColourCurve.measure(like: pixelBuffer, context: context, colorSpace: colorSpace)
+        curve = (labels, measured)
+        return measured
     }
 
     /// The eye picture as an image, for saving to disk or showing in a window.

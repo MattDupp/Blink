@@ -89,6 +89,86 @@ struct VisionTests {
         #expect(worst <= 1, "largest difference \(worst) of 255")
     }
 
+    // MARK: Cut on the processor, as Core Image would
+
+    /// How many of the colour values of two eye pictures differ, and by how much at most.
+    private func gap(_ a: CVPixelBuffer, _ b: CVPixelBuffer) -> (different: Int, largest: Int) {
+        CVPixelBufferLockBaseAddress(a, .readOnly)
+        CVPixelBufferLockBaseAddress(b, .readOnly)
+        defer {
+            CVPixelBufferUnlockBaseAddress(a, .readOnly)
+            CVPixelBufferUnlockBaseAddress(b, .readOnly)
+        }
+        let first = CVPixelBufferGetBaseAddress(a)!.assumingMemoryBound(to: UInt8.self)
+        let second = CVPixelBufferGetBaseAddress(b)!.assumingMemoryBound(to: UInt8.self)
+        let rowA = CVPixelBufferGetBytesPerRow(a), rowB = CVPixelBufferGetBytesPerRow(b)
+        var different = 0, largest = 0
+        for y in 0..<64 {
+            for x in 0..<64 {
+                for channel in 0..<4 {
+                    let apart = abs(Int(first[y * rowA + x * 4 + channel]) - Int(second[y * rowB + x * 4 + channel]))
+                    if apart > 0 { different += 1 }
+                    largest = max(largest, apart)
+                }
+            }
+        }
+        return (different, largest)
+    }
+
+    /// A frame labelled as the Mac's camera labels its own (ITU-R 709): Core Image then
+    /// converts the brightness, which is the case the app meets.
+    private func cameraFrame() -> CVPixelBuffer {
+        let frame = Fixture.frame(noise: true)
+        CVBufferSetAttachment(frame, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, .shouldPropagate)
+        CVBufferSetAttachment(frame, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, .shouldPropagate)
+        CVBufferSetAttachment(frame, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, .shouldPropagate)
+        return frame
+    }
+
+    /// The model learned from pictures Core Image cut. The pictures cut on the processor
+    /// (`DirectCrop`) must be those pictures: on a frame of pure noise, the hardest there
+    /// is to resize alike, no value may be more than one level of 255 away.
+    @Test("An eye picture cut on the processor is Core Image's, to one level of 255",
+          arguments: [40, 64, 90, 131, 147, 148, 200, 293, 294])
+    func directCropMatchesCoreImage(side: Int) throws {
+        let direct = EyeCropper(way: .direct), reference = EyeCropper(way: .coreImage)
+        for frame in [Fixture.frame(noise: true), cameraFrame()] {
+            for origin in [CGPoint(x: 701, y: 303), CGPoint(x: 1000, y: 500)] {
+                let rect = CGRect(x: origin.x, y: origin.y, width: CGFloat(side), height: CGFloat(side))
+                let a = try #require(direct.cropBuffer(frame, rect: rect)), b = try #require(reference.cropBuffer(frame, rect: rect))
+                let apart = gap(a, b)
+                #expect(apart.largest <= 1, "a square of \(side): a value is \(apart.largest) levels away")
+                #expect(apart.different < 64 * 64 * 3 / 4, "a square of \(side): \(apart.different) of 12288 values differ")
+            }
+        }
+    }
+
+    @Test("Core Image halves a square from 148 pixels on, twice from 295")
+    func halvings() {
+        #expect([147, 148, 294, 295, 588, 589].map { EyeCropper.halvings(forSquare: CGFloat($0)) } == [0, 1, 1, 2, 2, 3])
+    }
+
+    /// What the direct way does not cut exactly as Core Image would, it hands to Core
+    /// Image: the picture is then the same to the last number.
+    @Test("A square halved twice, an enlarged one at the frame's edge, colours that are not the screen's: left to Core Image")
+    func directCropHandsOver() throws {
+        let direct = EyeCropper(way: .direct), reference = EyeCropper(way: .coreImage)
+        let frame = cameraFrame()
+        for rect in [CGRect(x: 700, y: 300, width: 300, height: 300), CGRect(x: 0, y: 0, width: 20, height: 20)] {
+            let a = try #require(direct.cropBuffer(frame, rect: rect)), b = try #require(reference.cropBuffer(frame, rect: rect))
+            #expect(gap(a, b).different == 0, "\(rect)")
+        }
+        // A camera whose colours are wider than the screen's: one curve per channel
+        // cannot say what Core Image does with them.
+        let wide = Fixture.frame(noise: true)
+        CVBufferSetAttachment(wide, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_P3_D65, .shouldPropagate)
+        CVBufferSetAttachment(wide, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, .shouldPropagate)
+        #expect(ColourCurve.measure(like: wide, context: reference.context, colorSpace: reference.colorSpace) == nil)
+        let rect = CGRect(x: 700, y: 300, width: 120, height: 120)
+        let a = try #require(direct.cropBuffer(wide, rect: rect)), b = try #require(reference.cropBuffer(wide, rect: rect))
+        #expect(gap(a, b).different == 0)
+    }
+
     @Test("A picture copied into a pixel buffer and back is unchanged")
     func bufferRoundTrip() throws {
         let cropper = EyeCropper()

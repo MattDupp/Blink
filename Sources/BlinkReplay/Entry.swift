@@ -15,11 +15,17 @@ import BlinkCore
 ///     With both, every rhythm is tried with every way of finding the face.
 ///       --weights=<eyenet.weights>           ask the network written in Swift (a model trained
 ///                                            in the app) instead of the Core ML model
+///       --core-image-crops                   cut the eye pictures with Core Image, as the app
+///                                            did until 2026-11-23, instead of on the processor
+///       --traces=<folder>                    write each run's answers there, frame by frame,
+///                                            instead of in the capture's own folder
 ///
 ///     BlinkReplay <folder> --cost=<stage>    what a stage costs the Mac: processor, graphics
 ///                                            processor, energy (Cost.swift)
 ///     BlinkReplay --cost-of=<pid>            what a running copy of the app costs, watched
 ///       [--seconds=60]                       from outside
+///     BlinkReplay <folder> --crops           how far the eye pictures cut on the processor
+///                                            are from Core Image's (Crops.swift)
 ///
 /// For each capture it prints how many of the blinks a person marked (blinks.csv) are
 /// counted: as the app counted them while recording, then replayed from the stored frames
@@ -96,6 +102,11 @@ enum Entry {
             exit(1)
         }
 
+        // The eye pictures cut on the processor, against Core Image's: see Crops.swift.
+        if LaunchArguments.has("crops") {
+            try await Crops.run(captures: captures, classifier: classifier, judge: judge)
+            return
+        }
         // What a stage costs the Mac, instead of what it counts: see Cost.swift.
         if let asked = LaunchArguments.value(of: "cost") {
             guard let stage = Cost.Stage(rawValue: asked) else {
@@ -109,7 +120,8 @@ enum Entry {
             if let every = number("detect-every") {
                 strategy = every == 0 ? .wholeFrame : .faceBox(detectEvery: every, follow: !LaunchArguments.has("still-box"))
             }
-            try await Cost.run(stage, captures: captures, classifier: classifier, judge: judge, schedule: schedule, strategy: strategy)
+            try await Cost.run(stage, captures: captures, classifier: classifier, judge: judge, schedule: schedule, strategy: strategy,
+                               flatOut: LaunchArguments.has("flat-out"))
             return
         }
 
@@ -164,8 +176,12 @@ enum Entry {
             for capture in captures {
                 let frames = try await WholeFrameReader(folder: capture.folder)
                 let locator = EyeLocator(strategy: variant.strategy)
-                let reader = EyeReader(classifier: classifier, finder: EyeFinder(locator: locator, schedule: variant.schedule))
-                let file = capture.folder.appendingPathComponent("replays/\(variant.name).csv")
+                let reader = EyeReader(classifier: classifier,
+                                       finder: EyeFinder(locator: locator, schedule: variant.schedule, cropper: cropper()))
+                // Each run's answers, frame by frame: beside the capture, or in the folder
+                // named with --traces (a capture that must not be written to).
+                let file = LaunchArguments.folder("traces")?.appendingPathComponent("\(capture.name)-\(variant.name).csv")
+                    ?? capture.folder.appendingPathComponent("replays/\(variant.name).csv")
                 try? FileManager.default.removeItem(at: file)
                 let outcome = try CaptureReplay.run(frames, reader: reader, everyFrame: variant.everyFrame, atCameraPace: paced,
                                                     trace: try CSVAppender(url: file, header: CaptureWriter.header))
@@ -226,6 +242,12 @@ enum Entry {
         if !paced {
             print("\nFor what each way costs in the app, replay at the camera's pace:  make replay PACE=1")
         }
+    }
+
+    /// How the eye pictures are cut in this run: on the processor, as the apps do, unless
+    /// Core Image is asked for.
+    static func cropper() -> EyeCropper {
+        EyeCropper(way: LaunchArguments.has("core-image-crops") ? .coreImage : .direct)
     }
 
     static func describe(_ schedule: FrameSchedule, _ strategy: EyeLocator.Strategy) -> String {

@@ -13,7 +13,10 @@ import BlinkCore
 ///       --weights=<eyenet.weights>   ask the network written in Swift (a model trained in
 ///                                    the app) instead of the Core ML model
 ///       --search-every=<n> --detect-every=<n>   another way of finding the eyes
+///       --core-image-crops                      the eye pictures cut by Core Image
 ///       --log=<file.csv> --label=<word>         also add the line to a file
+///       --flat-out                              as fast as the frames can be read: for the
+///                                               instructions only (see below)
 ///
 /// HOW TO READ IT. The replay decodes a movie, which the app never does, so no line is the
 /// app's cost by itself. A stage's cost is the difference between two lines: `model`
@@ -21,6 +24,15 @@ import BlinkCore
 /// several times: the spread between two runs of the same line is the smallest saving
 /// these numbers can show. The power source is written on every line, because a Mac on
 /// its battery does not clock its processor as it does on the charger.
+///
+/// FLAT OUT. A pass at the camera's pace takes as long as the captures: two minutes each
+/// time. With `--flat-out` the frames are handed over as fast as they are read, and a pass
+/// takes a few seconds. The time a stage takes is then not what the app pays (a stage that
+/// runs with pauses in between is slower, `CaptureReplay.run`), so the line gives the work
+/// by frame, in instructions, and nothing else. MEASURED 2026-11-23, each stage three times
+/// flat out and once at the camera's pace: the instructions of the two are within 2% of
+/// each other (the whole pipeline 624 to 627 million a second flat out, 629 paced), and
+/// three passes flat out are within 1% of one another.
 enum Cost {
 
     enum Stage: String {
@@ -28,7 +40,7 @@ enum Cost {
     }
 
     static func run(_ stage: Stage, captures: [RecordedCapture], classifier: EyeJudging, judge: String,
-                    schedule: FrameSchedule, strategy: EyeLocator.Strategy) async throws {
+                    schedule: FrameSchedule, strategy: EyeLocator.Strategy, flatOut: Bool = false) async throws {
         var seconds = 0.0, wall = 0.0
         var used = ProcessCost()
         var gpuKnown = true
@@ -42,12 +54,13 @@ enum Cost {
             var lines: [TraceLine] = []
             switch stage {
             case .model:
-                let reader = EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy), schedule: schedule))
-                let outcome = try CaptureReplay.run(frames, reader: reader, atCameraPace: true)
+                let reader = EyeReader(classifier: classifier,
+                                       finder: EyeFinder(locator: EyeLocator(strategy: strategy), schedule: schedule, cropper: Entry.cropper()))
+                let outcome = try CaptureReplay.run(frames, reader: reader, atCameraPace: !flatOut)
                 lines = outcome.lines
                 if let timings = outcome.timings { costs.append((timings, Double(lines.count) * timings.analysedShare)) }
             case .frames, .find, .crop:
-                let outcome = try paced(frames, stage: stage, schedule: schedule, strategy: strategy)
+                let outcome = try paced(frames, stage: stage, schedule: schedule, strategy: strategy, flatOut: flatOut)
                 seconds += outcome.seconds
                 if let timings = outcome.timings { costs.append((timings, Double(outcome.frames) * timings.analysedShare)) }
             }
@@ -75,14 +88,21 @@ enum Cost {
         }
         let power = onBattery ? "battery" : "charger"
         let way = stage == .frames ? "-" : "search \(schedule.searchEvery) \(describe(strategy))"
-        var text = String(format: "cost %@ (%@, %@, on %@): %.0f s of video | work %.1f million instructions a second | "
-                              + "processor %.2f%% of one core (%.0f%% of it on performance cores) | ",
-                          stage.rawValue, stage == .model ? judge : "no model", way, power, seconds,
-                          used.instructions / seconds / 1_000_000, used.cpuSeconds / seconds * 100,
-                          used.cpuSeconds > 0 ? used.performanceCoreSeconds / used.cpuSeconds * 100 : 0)
-        text += used.gpuSeconds.map { String(format: "graphics %.2f%% | ", $0 / seconds * 100) } ?? "graphics not known | "
-        text += String(format: "processor energy %.0f mW", used.cpuJoules / seconds * 1000)
-        if !costs.isEmpty {
+        var text = String(format: "cost %@ (%@, %@, on %@%@): %.0f s of video | work %.1f million instructions a second | ",
+                          stage.rawValue, stage == .model ? judge : "no model", way, power, flatOut ? ", flat out" : "", seconds,
+                          used.instructions / seconds / 1_000_000)
+        if !flatOut {
+            // Flat out, the time and the energy are those of another rhythm than the app's:
+            // only the work is said.
+            text += String(format: "processor %.2f%% of one core (%.0f%% of it on performance cores) | ",
+                           used.cpuSeconds / seconds * 100,
+                           used.cpuSeconds > 0 ? used.performanceCoreSeconds / used.cpuSeconds * 100 : 0)
+            text += used.gpuSeconds.map { String(format: "graphics %.2f%% | ", $0 / seconds * 100) } ?? "graphics not known | "
+            text += String(format: "processor energy %.0f mW", used.cpuJoules / seconds * 1000)
+        } else {
+            text += used.gpuSeconds.map { String(format: "graphics %.2f%% of the video's length", $0 / seconds * 100) } ?? "graphics not known"
+        }
+        if !costs.isEmpty && !flatOut {
             text += String(format: " | per frame: finding the eyes %.2f ms, cropping %.2f ms, model %.2f ms, whole frame %.2f ms",
                            mean(\.findEyes), mean(\.crop), mean(\.model), mean(\.total))
         }
@@ -91,7 +111,7 @@ enum Cost {
 
         if let file = LaunchArguments.value(of: "log") {
             let log = try CSVAppender(url: URL(fileURLWithPath: file), header: Self.header)
-            log.append([ISO8601DateFormatter().string(from: Date()), power, LaunchArguments.value(of: "label") ?? "", stage.rawValue,
+            log.append([ISO8601DateFormatter().string(from: Date()), power + (flatOut ? " flat out" : ""), LaunchArguments.value(of: "label") ?? "", stage.rawValue,
                         stage == .model ? judge : "", way,
                         String(format: "%.1f", seconds), String(format: "%.1f", wall),
                         String(format: "%.0f", used.instructions / 1_000_000),
@@ -145,14 +165,14 @@ enum Cost {
 
     /// The first stages alone, at the camera's pace, on a queue of the camera's priority
     /// (`CaptureReplay.run` does the same for the whole pipeline).
-    private static func paced(_ frames: WholeFrameReader, stage: Stage, schedule: FrameSchedule,
-                              strategy: EyeLocator.Strategy) throws -> (seconds: Double, frames: Int, timings: StageTimings.Summary?) {
+    private static func paced(_ frames: WholeFrameReader, stage: Stage, schedule: FrameSchedule, strategy: EyeLocator.Strategy,
+                              flatOut: Bool) throws -> (seconds: Double, frames: Int, timings: StageTimings.Summary?) {
         var result: Result<(Double, Int, StageTimings.Summary?), Error>?
         let done = DispatchSemaphore(value: 0)
         DispatchQueue(label: "blink.replay.frames", qos: .utility).async {
             result = Result {
                 let locator = EyeLocator(strategy: strategy)
-                let finder = EyeFinder(locator: locator, schedule: schedule)
+                let finder = EyeFinder(locator: locator, schedule: schedule, cropper: Entry.cropper())
                 var rhythm = schedule
                 var timings = StageTimings()
                 var started: (clock: Double, camera: Double)?
@@ -163,7 +183,7 @@ enum Cost {
                         let start = started ?? (StageTimings.now(), frame.time)
                         started = start
                         let wait = start.clock + (frame.time - start.camera) - StageTimings.now()
-                        if wait > 0 { usleep(UInt32(wait * 1_000_000)) }
+                        if wait > 0 && !flatOut { usleep(UInt32(wait * 1_000_000)) }
                         timings.frameDelivered(at: StageTimings.now())
                         last = frame.time
                         count += 1

@@ -41,15 +41,18 @@ public final class EyeFinder {
     }
 
     private let locator: EyeLocating
-    private let cropper = EyeCropper()
+    private let cropper: EyeCropper
     private var schedule: FrameSchedule
     private var lastLocated: LocatedEyes?
 
     /// The apps take the defaults. A replay passes its own to try another way of finding
-    /// the eyes, or another rhythm, on frames that were recorded (`CaptureReplay`).
-    public init(locator: EyeLocating = EyeLocator(), schedule: FrameSchedule = FrameSchedule()) {
+    /// the eyes, another rhythm, or another way of cutting them out, on frames that were
+    /// recorded (`CaptureReplay`).
+    public init(locator: EyeLocating = EyeLocator(), schedule: FrameSchedule = FrameSchedule(),
+                cropper: EyeCropper = EyeCropper()) {
         self.locator = locator
         self.schedule = schedule
+        self.cropper = cropper
     }
 
     /// `everyFrame`: search on this frame whatever the schedule says.
