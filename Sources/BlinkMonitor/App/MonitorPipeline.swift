@@ -92,7 +92,8 @@ final class MonitorPipeline: @unchecked Sendable {
     /// two others as they were.
     private var judge: EyeJudging?
     private let strategy: EyeLocator.Strategy
-    private var effort: Effort
+    /// (Read by a test, on the thread that feeds the frames.)
+    private(set) var effort: Effort
     private var detector = BlinkDetector()
     private var stats = BlinkStats()
     private var minutes = MinuteAggregator()

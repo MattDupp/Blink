@@ -128,6 +128,12 @@ public final class EyeCropper {
         if let known = curve, known.labels.same(as: labels) { return known.curve }
         let measured = ColourCurve.measure(like: pixelBuffer, context: context, colorSpace: colorSpace)
         curve = (labels, measured)
+        // Said once for each kind of picture: which way cuts is what a frame's cost depends on.
+        if measured != nil {
+            Log.pipeline.notice("Eye pictures: cut on the processor")
+        } else {
+            Log.pipeline.notice("Eye pictures: cut by Core Image (this camera's colours are not one curve per channel)")
+        }
         return measured
     }
 
