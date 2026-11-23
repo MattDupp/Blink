@@ -215,10 +215,11 @@ swift build -c release --product BlinkReplay
   the cutting, `model` the model and the counting. A stage's cost is the difference
   between two lines: the replay reads a movie, which the app never does.
 - A pass takes as long as the captures. `--flat-out` takes seconds and gives the
-  instructions only: they are the same at both paces within 2%, and the same from one
-  pass to the next within 1%. The share of a core is not: the same pass read 10.1% and
-  11.3% an hour apart, depending on the cores macOS chose. Compare two versions by their
-  instructions, and say on which power the Mac ran: every line does.
+  instructions only: they are the same at both paces within 2%, the same from one pass
+  flat out to the next within 1%, and within 2% between two passes at the camera's pace
+  forty minutes apart. The share of a core is not: the same pass read 13.3% and 17.2%,
+  depending on the cores macOS chose and how fast it ran them. Compare two versions by
+  their instructions, and say on which power the Mac ran: every line does.
 - `--effort=light|standard|thorough` costs a level of effort; `--log=<file.csv>` keeps the lines.
 - `--cost-of=<pid> --seconds=60` watches a running copy of the app from outside: the
   demo, or the app at work on a camera.

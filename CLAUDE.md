@@ -205,7 +205,8 @@ their numbers, and the file formats, across the two languages.
 - **So do claims about cost.** `BlinkReplay <captures> --cost=<stage>` reads processor
   time, instructions, energy and graphics time for a pass over stored frames
   (`docs/DEVELOPMENT.md`, "What a stage costs"). Compare two versions by their
-  instructions: the share of a core moves by a tenth between two passes of the same code.
+  instructions (two passes agree within 2%): the share of a core can differ by a quarter
+  between two passes of the same code.
   What the app uses with a real camera is another number, which only its owner can measure.
 - **`make replay` writes into the captures' folders.** For recordings that must stay as
   they are, pass `REPLAY_ARGS="--traces=<a folder of yours>"`.

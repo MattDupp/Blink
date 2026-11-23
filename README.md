@@ -406,9 +406,9 @@ with a model trained in the app, on a MacBook Pro (M5 Pro) running on its batter
 |---|---|---|
 | Cutting one eye picture | 2.1 million instructions | 0.4 million |
 | The model, one eye picture | 5.35 million instructions | 0.97 million |
-| The whole pipeline, each second | 785 million instructions | 417 million |
-| Its share of one core, in the replay | 12.9% (one pass) | 8.4% and 9.5% (two passes) |
-| The processor's power for it | 79 mW | 42 and 46 mW |
+| The whole pipeline, each second | 785 million instructions | 420 million |
+| Its share of one core, in the replay | 12.9% (one pass) | 8.4% to 10.2% (three passes) |
+| The processor's power for it | 79 mW | 42 to 50 mW |
 | Blinks counted, of the 80 marked | 72, and 1 not marked | the same, blink by blink |
 
 Two stages were rewritten, and neither changes what is counted. The eye pictures were cut
@@ -422,23 +422,25 @@ attempts at making Apple's Vision itself cheaper saved nothing and were dropped.
 
 Three cautions. These are figures of the replay: they compare two versions well, and they
 are about half of what the app logs for itself with a camera. What the app itself uses
-now has not been measured: the 32% is from before. The share of a core moves by a tenth
-between two passes of the same code, so the versions are compared by their work. And
+now has not been measured: the 32% is from before. The share of a core can differ by a quarter
+between two passes of the same code (Thorough read 13.3% and 17.2%), where the work
+differs by 2% at most: so the versions and the levels are compared by their work. And
 everything was measured on the battery, nothing on the charger.
 
-The graphics processor has no part worth a setting: the app keeps it busy 0.4% of the
-time, before and after.
+The graphics processor has no part worth a setting: the app keeps it busy under 1% of
+the time, before and after (0.05% to 0.75% over all the passes).
 
 **How much to spend is now a choice**: Settings > General > Effort. Finding the eyes is
 four fifths of what is left of a frame's work, so the levels differ in one thing, how
 often the eyes are looked for. Every level still shows every picture of the camera to
-the model. The same replay, the three levels within the same half hour:
+the model. The same replay, each level passed twice, forty minutes apart; the work and
+the cost are the mean of the two passes:
 
 | Effort | Eyes looked for | Blinks counted, of 80 marked | Counted, not marked | Work each second | Of one core | Processor's power |
 |---|---|---|---|---|---|---|
-| Light | 10 times a second | 70 | 0 | 319 million instructions | 6.7% | 36 mW |
-| Standard | 15 times a second | 72 | 1 | 417 million | 8.4% | 46 mW |
-| Thorough | 30 times a second | 73 | 0 | 714 million | 13.3% | 75 mW |
+| Light | 10 times a second | 70 | 0 | 322 million instructions | 7.4% | 37 mW |
+| Standard | 15 times a second | 72 | 1 | 420 million | 9.3% | 48 mW |
+| Thorough | 30 times a second | 73 | 0 | 720 million | 15.3% | 85 mW |
 
 Standard is what the app did before the choice existed. Light reads squares that are up
 to two pictures old. When the head moves fast the eyes leave them, and the answers then

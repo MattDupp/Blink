@@ -14,7 +14,7 @@ import Foundation
 /// the eye pictures are made; the counting rules.
 ///
 /// Nothing here speaks of the graphics processor: measured the same day, the app keeps
-/// it busy 0.4% of the time whatever the level.
+/// it busy under 1% of the time at every level (0.05% to 0.75% over the passes).
 public enum Effort: String, CaseIterable, Sendable {
     /// The eyes are looked for on one frame in 3, and what was read in squares the eyes
     /// had left is forgotten (`FrameSchedule.strayBeyond`).
@@ -60,25 +60,31 @@ public enum Effort: String, CaseIterable, Sendable {
 
     /// MEASURED 2026-11-23 on three captures replayed from their whole frames at the
     /// camera's pace (`BlinkReplay --cost=model --effort=<level>`, 121 s, 80 blinks
-    /// marked), the three levels within the same half hour, MacBook Pro M5 Pro on battery,
-    /// the model trained in the app. The cost is the pipeline's alone: what the replay
-    /// spends reading its movie (47 million instructions a second, 1.7% of a core, 5 mW)
-    /// is taken off.
+    /// marked), MacBook Pro M5 Pro on battery, the model trained in the app. Each level
+    /// was passed twice, forty minutes apart; the numbers here are the mean of the two.
+    /// The cost is the pipeline's alone: what the replay spends reading its movie (47
+    /// million instructions a second, 1.7% of a core, 6 mW) is taken off.
     ///
-    /// HOW TO READ THEM. The instructions are the same from one pass to the next, within
-    /// 1%; the share of a core is not (the same pass read 10.1% and 11.3% an hour apart,
-    /// depending on which cores macOS chose), so the levels are compared by their work.
-    /// In the app the same work takes a larger share of a core than in the replay
-    /// (`EyeLocator.usual`), and the camera adds its own: these numbers compare the
-    /// levels, they are not the app's bill.
+    ///                first pass                  second pass
+    ///     light      319 M   6.7%   36 mW        324 M   8.0%   37 mW
+    ///     standard   417 M   8.4%   46 mW        423 M  10.2%   50 mW
+    ///     thorough   714 M  13.3%   75 mW        727 M  17.2%   94 mW
+    ///
+    /// HOW TO READ THEM. The instructions of two passes are within 2% of each other. The
+    /// share of a core and the power are not: thorough read 13.3% and 17.2%, depending on
+    /// which cores macOS chose and how fast it ran them. So the levels are compared by
+    /// their work, and that comparison holds: light did 23.5% and 23.4% less than
+    /// standard, thorough 71% and 72% more. In the app the same work takes a larger share
+    /// of a core than in the replay (`EyeLocator.usual`), and the camera adds its own:
+    /// these numbers compare the levels, they are not the app's bill.
     ///
     /// The one blink `standard` counts where none is marked is a real one, on frames
     /// where one eye was hidden: the marks do not cover those.
     public var measured: Measured {
         switch self {
-        case .light: return Measured(found: 70, marked: 80, falseBlinks: 0, instructions: 319, processor: 6.7, milliwatts: 36)
-        case .standard: return Measured(found: 72, marked: 80, falseBlinks: 1, instructions: 417, processor: 8.4, milliwatts: 46)
-        case .thorough: return Measured(found: 73, marked: 80, falseBlinks: 0, instructions: 714, processor: 13.3, milliwatts: 75)
+        case .light: return Measured(found: 70, marked: 80, falseBlinks: 0, instructions: 322, processor: 7.4, milliwatts: 37)
+        case .standard: return Measured(found: 72, marked: 80, falseBlinks: 1, instructions: 420, processor: 9.3, milliwatts: 48)
+        case .thorough: return Measured(found: 73, marked: 80, falseBlinks: 0, instructions: 720, processor: 15.3, milliwatts: 85)
         }
     }
 

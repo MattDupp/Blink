@@ -33,7 +33,8 @@ import BlinkCore
 /// by frame, in instructions, and nothing else. MEASURED 2026-11-23, each stage three times
 /// flat out and once at the camera's pace: the instructions of the two are within 2% of
 /// each other (the whole pipeline 624 to 627 million a second flat out, 629 paced), and
-/// three passes flat out are within 1% of one another.
+/// three passes flat out are within 1% of one another. The share of a core is another
+/// matter: two passes of the same code at the camera's pace read 13.3% and 17.2%.
 enum Cost {
 
     enum Stage: String {

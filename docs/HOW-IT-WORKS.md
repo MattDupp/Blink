@@ -617,4 +617,4 @@ The app runs all day, so its cost matters as much as its accuracy.
 - The pipeline times its own stages and logs them every minute.
 - What a stage costs the Mac (processor, graphics processor, energy) is measured on
   recorded frames, not guessed: `BlinkReplay --cost` ([Development](DEVELOPMENT.md)).
-  The graphics processor is busy 0.4% of the time, which is why no setting speaks of it.
+  The graphics processor is busy under 1% of the time, which is why no setting speaks of it.
