@@ -17,6 +17,7 @@ final class Preferences: ObservableObject {
         static let cameraID = "cameraID"
         static let pauseOnBattery = "pauseOnBattery"
         static let pauseInLowPower = "pauseInLowPowerMode"
+        static let effort = "effort"
         static let quietDuringCalls = "quietDuringCalls"
         static let blinkBreakShortcut = "blinkBreakShortcut"
         static let largerText = "largerText"
@@ -65,6 +66,9 @@ final class Preferences: ObservableObject {
     /// (`EnergyPause`). Both off unless chosen.
     @Published var pauseOnBattery: Bool { didSet { defaults.set(pauseOnBattery, forKey: Key.pauseOnBattery) } }
     @Published var pauseInLowPower: Bool { didSet { defaults.set(pauseInLowPower, forKey: Key.pauseInLowPower) } }
+    /// How often the eyes are looked for while counting runs (`Effort`). Standard unless
+    /// chosen: what the app did before the choice existed.
+    @Published var effort: Effort { didSet { defaults.set(effort.rawValue, forKey: Key.effort) } }
     /// No banner and no sound while the microphone is in use, which is most likely a call.
     @Published var quietDuringCalls: Bool { didSet { defaults.set(quietDuringCalls, forKey: Key.quietDuringCalls) } }
     /// "Quiet outside working hours": off unless chosen. The two times are minutes since
@@ -239,6 +243,7 @@ final class Preferences: ObservableObject {
         static let liveViewSound = false
         static let pauseOnBattery = false
         static let pauseInLowPower = false
+        static let effort = Effort.standard
         static let quietDuringCalls = false
         static let workingHoursOn = false
         static let largerText = false
@@ -278,6 +283,7 @@ final class Preferences: ObservableObject {
         liveViewSound = Standard.liveViewSound
         pauseOnBattery = Standard.pauseOnBattery
         pauseInLowPower = Standard.pauseInLowPower
+        effort = Standard.effort
         quietDuringCalls = Standard.quietDuringCalls
         blinkBreakShortcut = nil
         largerText = Standard.largerText
@@ -311,6 +317,7 @@ final class Preferences: ObservableObject {
         showRateInMenuBar != Standard.showRateInMenuBar || orangeRateWhenLow != Standard.orangeRateWhenLow
             || liveViewSound != Standard.liveViewSound || pauseOnBattery != Standard.pauseOnBattery
             || pauseInLowPower != Standard.pauseInLowPower || quietDuringCalls != Standard.quietDuringCalls
+            || effort != Standard.effort
             || blinkBack != Standard.blinkBack || remindersOn != Standard.remindersOn
             || automaticLimit != Standard.automaticLimit || floor != Standard.floor
             || breakNudgesOn != Standard.breakNudgesOn || breakMinutes != Standard.breakMinutes
@@ -334,6 +341,8 @@ final class Preferences: ObservableObject {
         cameraID = defaults.string(forKey: Key.cameraID)
         pauseOnBattery = bool(Key.pauseOnBattery, Standard.pauseOnBattery)
         pauseInLowPower = bool(Key.pauseInLowPower, Standard.pauseInLowPower)
+        // A word this version does not know (one written by a later version) reads as the standard.
+        effort = defaults.string(forKey: Key.effort).flatMap(Effort.init(rawValue:)) ?? Standard.effort
         quietDuringCalls = bool(Key.quietDuringCalls, Standard.quietDuringCalls)
         blinkBreakShortcut = defaults.string(forKey: Key.blinkBreakShortcut).flatMap(ShortcutChoice.init(rawValue:))
         largerText = bool(Key.largerText, Standard.largerText)

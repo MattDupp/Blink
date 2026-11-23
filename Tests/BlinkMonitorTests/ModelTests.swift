@@ -335,6 +335,19 @@ struct PreferencesTests {
         }
     }
 
+    @Test("The effort is Standard until chosen, is kept, and a word this version does not know reads as Standard")
+    func effort() {
+        withStore { store in
+            let preferences = Preferences(defaults: store)
+            #expect(preferences.effort == .standard && !preferences.hasChoices)
+            preferences.effort = .thorough
+            #expect(preferences.hasChoices)
+            #expect(Preferences(defaults: store).effort == .thorough)
+            store.set("extreme", forKey: "effort")
+            #expect(Preferences(defaults: store).effort == .standard)
+        }
+    }
+
     @Test("Reset to Defaults puts every choice back, and keeps what was measured or lived")
     func resetChoices() {
         withStore { store in
@@ -359,6 +372,7 @@ struct PreferencesTests {
             preferences.breakNudgesOn = true
             preferences.breakEndSound = false
             preferences.pauseOnBattery = true
+            preferences.effort = .light
             preferences.quietDuringCalls = true
             preferences.liveViewSound = true
             preferences.cameraID = "desk"
@@ -373,6 +387,7 @@ struct PreferencesTests {
                 #expect(read.floor == PublishedRates.startingFloor && !read.ownRateOfferAnswered)
                 #expect(read.breakPlan == BreakPlan.Preset.classic.plan && !read.breakNudgesOn && read.breakEndSound)
                 #expect(!read.pauseOnBattery && !read.quietDuringCalls && !read.liveViewSound && read.cameraID == nil)
+                #expect(read.effort == .standard)
                 // Kept.
                 #expect(read.reference == measured && read.welcomed)
                 #expect(read.pause == .paused(until: pausedUntil) && read.quietUntil == pausedUntil)
@@ -796,6 +811,26 @@ struct SettingsWordsTests {
         }
         #expect(EraseWords.history(startingLimit: 10).text.contains("goes back to 10"))
         #expect(EraseWords.captures(1).text.hasPrefix("1 capture of"))
+    }
+
+    @Test("Each effort says what it was measured to count, out of how many, and what it costs next to Standard")
+    func effortWords() {
+        #expect(Effort.allCases.map(EffortWords.name) == ["Light", "Standard", "Thorough"])
+        for effort in Effort.allCases {
+            let text = EffortWords.detail(effort), measured = effort.measured
+            #expect(text.contains("counted \(measured.found) of \(measured.marked) blinks"), "\(text)")
+            #expect(text.contains("\(effort.searchesASecond) times a second"), "\(text)")
+            // Nothing the graphics processor has a part in, so nothing said about it.
+            #expect(!text.lowercased().contains("graphics") && !text.contains("GPU"))
+        }
+        // The lower level says what it gives up beside what Standard counts; both others
+        // say what they cost beside it.
+        let standard = Effort.standard.measured.found
+        #expect(EffortWords.detail(.light).contains("where Standard counted \(standard)"))
+        #expect(EffortWords.detail(.light).contains("About 25% less processor work than Standard"))
+        #expect(EffortWords.detail(.thorough).contains("About 70% more processor work than Standard"))
+        #expect(!EffortWords.detail(.standard).contains("than Standard"))
+        #expect(EffortWords.whileResting.contains("the camera is off"))
     }
 
     @Test("Erasing the routine log empties it and keeps the routines")

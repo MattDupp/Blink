@@ -58,7 +58,8 @@ struct MonitorUpdate {
 ///
 /// THREE THINGS KEEP IT CHEAP IN THE BACKGROUND:
 ///   - Frames get only the work they need: `FrameSchedule` (inside the reader) searches
-///     for the eyes every other frame, and looks at one frame in six when nobody is there.
+///     for the eyes every other frame (more or less often with another `Effort`), and
+///     looks at one frame in six when nobody is there.
 ///   - A search looks for the face in the whole frame twice a second only; in between it
 ///     places the landmarks in the box where the face was (`EyeLocator.usual`).
 ///   - The rest of the app is only told what it needs. With no window open, an update is
@@ -77,6 +78,8 @@ final class MonitorPipeline: @unchecked Sendable {
         var tick = false
         /// Another model to read the eyes with, from the next frame on.
         var newJudge: EyeJudging?
+        /// Another level of effort, from the next frame on.
+        var newEffort: Effort?
         /// A blink break is running: see `setExercise`.
         var exercise = false
     }
@@ -84,9 +87,12 @@ final class MonitorPipeline: @unchecked Sendable {
     private let requests = Locked(Requests())
     /// Nil for a pipeline that is handed readings instead of frames (the demo).
     private var reader: EyeReader?
-    /// How the eyes are found. Kept, so that a model that takes over later (`setJudge`)
-    /// is given eyes found the same way.
+    /// The model, how the eyes are found and how often (`Effort`). Kept, so that when one
+    /// of the three changes (`setJudge`, `setEffort`) the reader is built again with the
+    /// two others as they were.
+    private var judge: EyeJudging?
     private let strategy: EyeLocator.Strategy
+    private var effort: Effort
     private var detector = BlinkDetector()
     private var stats = BlinkStats()
     private var minutes = MinuteAggregator()
@@ -101,19 +107,23 @@ final class MonitorPipeline: @unchecked Sendable {
     /// `classifier`: the model that reads the eyes. The one trained in the app
     /// (`EyeNetwork`) or a Core ML one made by the Python route (`EyeClassifier`).
     /// `strategy`: how the eyes are found (`EyeLocator.usual` unless asked otherwise at launch).
-    init(classifier: EyeJudging, strategy: EyeLocator.Strategy = EyeLocator.usual) {
+    /// `effort`: how often they are looked for, as chosen in Settings.
+    init(classifier: EyeJudging, strategy: EyeLocator.Strategy = EyeLocator.usual, effort: Effort = .standard) {
         self.strategy = strategy
-        reader = Self.reader(classifier, strategy)
+        self.effort = effort
+        judge = classifier
+        reader = Self.reader(classifier, strategy, effort)
     }
 
     /// A pipeline with no camera and no model behind it: see `process(_:time:)` for readings.
     init() {
         strategy = EyeLocator.usual
+        effort = .standard
         reader = nil
     }
 
-    private static func reader(_ classifier: EyeJudging, _ strategy: EyeLocator.Strategy) -> EyeReader {
-        EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy)))
+    private static func reader(_ classifier: EyeJudging, _ strategy: EyeLocator.Strategy, _ effort: Effort) -> EyeReader {
+        EyeReader(classifier: classifier, finder: EyeFinder(locator: EyeLocator(strategy: strategy), schedule: effort.schedule))
     }
 
     // MARK: - Requests from the main thread
@@ -140,6 +150,12 @@ final class MonitorPipeline: @unchecked Sendable {
     /// The counters and the minute in progress are kept; a closure in progress is dropped.
     func setJudge(_ judge: EyeJudging) {
         requests.withLock { $0.newJudge = judge }
+    }
+
+    /// Another level of effort, from the next frame on: it was chosen in Settings. Like a
+    /// new model, it keeps the counters and drops a closure in progress.
+    func setEffort(_ effort: Effort) {
+        requests.withLock { $0.newEffort = effort }
     }
 
     /// A blink break starts (true) or ends (false). WHILE IT RUNS, NOTHING GOES INTO THE
@@ -215,6 +231,7 @@ final class MonitorPipeline: @unchecked Sendable {
                 requests.reset = false
                 requests.tick = false
                 requests.newJudge = nil
+                requests.newEffort = nil
             }
             return requests
         }
@@ -222,9 +239,14 @@ final class MonitorPipeline: @unchecked Sendable {
             detector.reset()
             stats = BlinkStats()
         }
-        if let judge = asked.newJudge, reader != nil {
-            reader = Self.reader(judge, strategy)
-            detector.reset()
+        // A new model, or another level of effort: the eyes are read by a new reader.
+        if reader != nil, asked.newJudge != nil || (asked.newEffort != nil && asked.newEffort != effort) {
+            judge = asked.newJudge ?? judge
+            effort = asked.newEffort ?? effort
+            if let judge {
+                reader = Self.reader(judge, strategy, effort)
+                detector.reset()
+            }
         }
         return asked
     }
@@ -243,7 +265,7 @@ final class MonitorPipeline: @unchecked Sendable {
         // During a blink break the frame is "not read" as far as the count goes.
         let watched = stats.frame(time: time, eyesRead: reading.closed != nil && !asked.exercise)
         var newBlinks = 0
-        if let event = detector.update(time: time, closed: reading.closed) {
+        if let event = detector.update(time: time, reading: reading) {
             update.event = event
             if !asked.exercise {
                 stats.record(event)

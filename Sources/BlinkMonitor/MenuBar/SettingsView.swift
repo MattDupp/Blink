@@ -335,12 +335,20 @@ struct SettingsView: View {
         }
     }
 
-    /// What counting costs, and the two ways to spare a battery. Also quiet during calls:
-    /// the other thing the Mac's own state can decide.
+    /// What counting costs, how much of it to spend (`Effort`), and the two ways to spare
+    /// a battery. Also quiet during calls: the other thing the Mac's own state can decide.
     private var energyCard: some View {
         Card {
-            Row("Energy", detail: "While it reads your eyes, Blink Monitor keeps the camera on and uses about a third of one processor core. Pause, in the panel, stops both.") {
+            Row("Energy", detail: "While it reads your eyes, Blink Monitor keeps the camera on and part of one processor core at work. Pause, in the panel, stops both.") {
                 EmptyView()
+            }
+            Divider()
+            Row(EffortWords.row, detail: EffortWords.detail(preferences.effort) + " " + EffortWords.whileResting) {
+                Picker(EffortWords.row, selection: $preferences.effort) {
+                    ForEach(Effort.allCases, id: \.self) { Text(EffortWords.name($0)).tag($0) }
+                }
+                .labelsHidden()
+                .fixedSize()
             }
             Divider()
             Row("Rest on battery", detail: "The camera goes off while the Mac runs on its battery, and comes back when it is plugged in. Resume, in the panel, counts anyway.") {

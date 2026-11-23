@@ -150,6 +150,7 @@ final class MonitorModel: ObservableObject {
     private var paceOfDemo: AnyCancellable?
     private var lookOfDemo: AnyCancellable?
     private var exerciseWatch: AnyCancellable?
+    private var effortWatch: AnyCancellable?
     private let performanceLog = PerformanceLog()
     private let blinkSound = NSSound(named: "Pop")
     private var liveViewOpen = false
@@ -197,6 +198,10 @@ final class MonitorModel: ObservableObject {
         // The exercise is left out of the count for as long as it runs (`MonitorPipeline.setExercise`).
         exerciseWatch = blinkBreak.$exercise.sink { [weak self] exercise in
             self?.pipeline?.setExercise(exercise.map { !$0.isDone } ?? false)
+        }
+        // The effort chosen in Settings reaches the camera's thread at its next frame.
+        effortWatch = preferences.$effort.dropFirst().sink { [weak self] effort in
+            self?.pipeline?.setEffort(effort)
         }
         routines.session.onEndedLate = { [weak self] session in
             guard let self else { return }
@@ -297,7 +302,7 @@ final class MonitorModel: ObservableObject {
             fail(.model(trainedHere: trainedHere), detail: "The eye model could not be loaded.\n\(modelSource.remedy)\n\(error)")
             return
         }
-        let pipeline = MonitorPipeline(classifier: judge, strategy: Options.eyeSearch)
+        let pipeline = MonitorPipeline(classifier: judge, strategy: Options.eyeSearch, effort: preferences.effort)
         connect(pipeline)
         if !cameraLent { frames.withLock { $0 = .monitor(pipeline) } }
 

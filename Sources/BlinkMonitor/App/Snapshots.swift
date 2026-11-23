@@ -167,6 +167,9 @@ enum Snapshots {
             ("history-weeks-small-screen", AnyView(history(.watching, weeks: true).environment(\.screenRoom, 700))),
             ("settings-general", settings(.general)),
             ("settings-general-working-hours", settings(.general, scene: .outsideHours)),
+            // The two efforts that are not the standard: each says what it costs and counts.
+            ("settings-general-effort-light", settings(.general) { _, model in model.preferences.effort = .light }),
+            ("settings-general-effort-thorough", settings(.general) { _, model in model.preferences.effort = .thorough }),
             // A shortcut was chosen, and macOS refused it: said on the row, not swallowed.
             ("settings-general-shortcut-refused", settings(.general) { _, model in
                 model.preferences.blinkBreakShortcut = .controlOptionCommandB
