@@ -32,7 +32,7 @@ Everything goes through the `Makefile`; `make` alone lists the targets.
 | `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
 | `make monitor` | Install the app in `~/Applications` and start it |
 | `make evaluate` | Blink counting on the annotated captures (needs `data/`): judges the model and the counting rules |
-| `make replay` | Whole-frame captures through the eye finding again (needs `data/replay`): judges the stage before the model |
+| `make replay` | Whole-frame captures through the eye finding again (needs `data/replay`): judges the stage before the model, at each level of effort |
 | `make compare` | The app's trainer against the Python one, on the same pictures and splits |
 | `make recorder`, `make train`, `make improve` | The Python lab route: record into `data/raw`, train, convert to Core ML |
 
@@ -87,6 +87,15 @@ camera frame -> EyeFinder (Vision landmarks -> 64x64 eye crops) -> EyeReader (mo
 - Finding the eyes is most of a frame's cost. `FrameSchedule` searches on every other
   frame, and `EyeLocator` looks for the face in the whole frame only twice a second,
   placing the landmarks in the last face box in between (`EyeLocator.usual`).
+- The eye pictures are cut by `DirectCrop`: Core Image's own arithmetic, written out,
+  because the model learned from pictures Core Image made. `EyeCropper(way: .coreImage)`
+  stays as the reference and takes what cannot be cut exactly alike. A change to either
+  is judged by `BlinkReplay <captures> --crops`, and tests hold the two within one level of 255.
+- How often the eyes are searched is the one lever a person has: `Effort`
+  (`BlinkCore/Monitoring`), three levels, each with its `FrameSchedule` and the cost and
+  count it was measured with. Settings reads its sentences from those numbers
+  (`EffortWords`). Standard is `FrameSchedule()` unchanged. A new lever goes into
+  `Effort.schedule` with a new measurement, never into a second setting.
 - The model sits behind `EyeJudging`. There are two: `EyeClassifier` runs a Core ML model
   made by the Python route, `EyeNetwork` runs weights trained in the app. `ModelSource`
   picks, in order: one named at launch, the one trained in the app, one built into the
@@ -193,6 +202,13 @@ their numbers, and the file formats, across the two languages.
 - **Accuracy claims need a measurement.** The model and the counting rules are judged on
   `make evaluate`, the eye finding on `make replay`, the app's trainer on `make compare`.
   Without recordings that can measure a change, say so instead of guessing.
+- **So do claims about cost.** `BlinkReplay <captures> --cost=<stage>` reads processor
+  time, instructions, energy and graphics time for a pass over stored frames
+  (`docs/DEVELOPMENT.md`, "What a stage costs"). Compare two versions by their
+  instructions: the share of a core moves by a tenth between two passes of the same code.
+  What the app uses with a real camera is another number, which only its owner can measure.
+- **`make replay` writes into the captures' folders.** For recordings that must stay as
+  they are, pass `REPLAY_ARGS="--traces=<a folder of yours>"`.
 - **No medical claim.** The app reminds people of a routine they chose and reports what
   studies found. It does not advise on treatment, and its words must not start to.
   The evening note about how the eyes feel is stored and shown, never interpreted, and

@@ -178,6 +178,10 @@ and shipping it inside a real app.
   microphone. The app asks macOS whether the microphone is in use; it never listens.
 - **Rest on battery, or in Low Power Mode** (both off by default): the camera goes off and
   comes back by itself. Resume counts anyway.
+- **Effort** (Standard unless you choose): how often the app looks for your eyes while it
+  counts. Light does about 25% less processor work, and counted 70 of the 80 blinks of
+  the test recordings where Standard counted 72. Thorough does about 70% more, and
+  counted 73. Settings says so for each level, and Results has the table.
 
 <p align="center">
   <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the usual rate" width="270">
@@ -389,9 +393,61 @@ blinks the old one counts, and one more that is a real, marked blink. Two cautio
 with, not by me; and the setting was chosen on the recordings it is reported on.
 
 32% of a core is still more than a background app should use. Cutting the eye pictures out
-of the frame is now a third of a frame's cost, and the next thing to work on.
+of the frame was then a third of a frame's cost.
 [Lessons](docs/LESSONS.md), number 5, has the whole story. The app logs its cost once a
 minute to `~/Library/Application Support/BlinkMonitor/performance.csv`.
+
+**Then a frame's work was nearly halved, with the same blinks counted** (23 November
+2026). This time the cost was measured stage by stage before anything was changed, on
+the same three recordings, replayed at the camera's pace. The counting pipeline alone,
+with a model trained in the app, on a MacBook Pro (M5 Pro) running on its battery:
+
+| | Version 1.0 | Now |
+|---|---|---|
+| Cutting one eye picture | 2.1 million instructions | 0.4 million |
+| The model, one eye picture | 5.35 million instructions | 0.97 million |
+| The whole pipeline, each second | 785 million instructions | 417 million |
+| Its share of one core, in the replay | 12.9% (one pass) | 8.4% and 9.5% (two passes) |
+| The processor's power for it | 79 mW | 42 and 46 mW |
+| Blinks counted, of the 80 marked | 72, and 1 not marked | the same, blink by blink |
+
+Two stages were rewritten, and neither changes what is counted. The eye pictures were cut
+by Core Image, which is built for large pictures and spent its time getting ready for
+these small ones; the same arithmetic is now written out in the app. 6,755 eye pictures
+were cut both ways: 97.3% of their values are the same number, the others are one level
+of 255 apart. The network written in Swift moved 14,000 small pieces of memory for each
+picture; it now moves whole maps, and its answers are the same to the last bit. Four
+attempts at making Apple's Vision itself cheaper saved nothing and were dropped.
+[Lessons](docs/LESSONS.md), number 9.
+
+Three cautions. These are figures of the replay: they compare two versions well, and they
+are about half of what the app logs for itself with a camera. What the app itself uses
+now has not been measured: the 32% is from before. The share of a core moves by a tenth
+between two passes of the same code, so the versions are compared by their work. And
+everything was measured on the battery, nothing on the charger.
+
+The graphics processor has no part worth a setting: the app keeps it busy 0.4% of the
+time, before and after.
+
+**How much to spend is now a choice**: Settings > General > Effort. Finding the eyes is
+four fifths of what is left of a frame's work, so the levels differ in one thing, how
+often the eyes are looked for. Every level still shows every picture of the camera to
+the model. The same replay, the three levels within the same half hour:
+
+| Effort | Eyes looked for | Blinks counted, of 80 marked | Counted, not marked | Work each second | Of one core | Processor's power |
+|---|---|---|---|---|---|---|
+| Light | 10 times a second | 70 | 0 | 319 million instructions | 6.7% | 36 mW |
+| Standard | 15 times a second | 72 | 1 | 417 million | 8.4% | 46 mW |
+| Thorough | 30 times a second | 73 | 0 | 714 million | 13.3% | 75 mW |
+
+Standard is what the app did before the choice existed. Light reads squares that are up
+to two pictures old. When the head moves fast the eyes leave them, and the answers then
+look like a blink: 5 false blinks in the two seconds where I lean out of the picture. So
+Light forgets what it read whenever the next search finds the eyes more than half a
+square away. A blink made during such a move is lost, and none is invented: that is
+where its 2 missing blinks are. The one blink Standard counts without a mark is a real
+one, on frames where one eye was hidden. The cautions of the table above apply, and one
+more: the levels, and Light's limit, were set on the recordings they are reported on.
 
 ## Privacy
 
@@ -528,8 +584,8 @@ Sources/BlinkUI          the SwiftUI views and the voice that are not tied to on
 Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
-Tests/BlinkCoreTests     258 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  141 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
+Tests/BlinkCoreTests     272 tests of the rules and of the trainer (Swift Testing)
+Tests/BlinkMonitorTests  145 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 27 tests
 scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, the research on blink rates, lessons, development notes
@@ -542,7 +598,8 @@ docs/                    how it works, the research on blink rates, lessons, dev
 - **The setup has been through its tests and one real run.** Its pages, its failures and its whole run on painted eyes are tested. Its author went through it once with a camera: two sessions, a training of 9 seconds, 9 of 10 blinks in the test, under seven minutes from launch to counting. Nobody else has.
 - **Training in the app was measured on one Mac** (M5 Pro, macOS 27). The app shows the time left as it measures it; how long an older Mac takes is not known.
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.
-- **Processor use.** About 32% of one core while it watches you (see Results).
+- **Processor use.** About 32% of one core while it watches you, as measured in the app before a frame's work was nearly halved (see Results). The app has not been measured with a camera since, nor on the charger, nor on another Mac.
+- **The levels of effort were measured on two minutes of one person.** 80 marked blinks, three recordings. How many blinks Light loses in a day of ordinary movement is not known.
 - **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look. A break with your face in view is taken on trust. How far a head must turn before the camera loses the face has not been measured.
 - **The camera has to face you.** If you work on an external display with the MacBook to one side, its camera sees you in profile or not at all, and the panel says "No face". Settings > General > Camera chooses another one. Left on Automatic, the app uses the Mac's own camera and moves to another after 10 seconds without a picture, as with the lid closed. A model learned your eyes through one camera: test it again after changing. Choosing a camera and the automatic move have not been tried on a real second camera yet.
 - **Glasses.** A screen reflection covering the iris can read as a closed eye.

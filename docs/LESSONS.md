@@ -286,3 +286,38 @@ would say so is the one that was stopped.
 dangerous program. It gets a memory ceiling, a time limit, one job at a time, and the
 owner's agreement before it runs, or it does not run. And a strange error from a healthy
 program is sometimes the machine speaking.
+
+## 9. Three times, the cost was in getting ready
+
+Version 1.0 used a third of a processor core, and I had a list of clever ideas to bring
+that down. Before trying any, the cost was measured stage by stage, in instructions,
+on recorded frames (`BlinkReplay --cost`). Three things stood out, and they were the same
+thing.
+
+- **Cutting two pictures of 64x64 cost as much as finding a face.** Core Image is built
+  for large pictures on the graphics processor. For each small one it built a plan,
+  prepared the graphics processor and waited for it: 2.1 million instructions for 4,096
+  pixels. The arithmetic itself, written out, takes 0.4 million.
+- **The network written in Swift spent more on moving numbers than on multiplying them.**
+  It filled its columns one line at a time: 14,000 small copies a picture, each a call
+  with its own preparation. Moving whole maps took a picture from 5.35 million
+  instructions to 0.97, with the same answers to the last bit.
+- **The remedy did it again.** The first version of the written-out cutting handed its
+  conversion to a library that shares large jobs out among threads. For a picture this
+  small, the threads spent their time waiting for a share: a third of all the samples in
+  the profile. One flag keeps the work on one thread.
+
+None of the clever ideas was needed for this, and the four that aimed at Apple's Vision
+(another request handler, another revision, a pinned device, a cached list) saved nothing.
+
+**What I keep from it:** a small job done very often is where a general-purpose tool
+costs most, because its preparation is paid every time. Measure the stage alone, in
+instructions, before deciding what to make faster.
+
+The pictures had to stay the same, since the model learned from Core Image's. So the
+written-out cutting was not judged by eye: 6,755 eye pictures were cut both ways and
+compared number by number (97.3% identical, the others one level of 255 apart), and the
+model was asked about both. That comparison found something no reading of the
+documentation would have: Core Image halves a picture before it shrinks it, from a square
+of 148 pixels on. The first written-out version did not: for a face nearer than 40 cm, a
+fifth of its values were three levels or more away from Core Image's.

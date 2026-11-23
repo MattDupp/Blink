@@ -23,7 +23,7 @@ Run `make` to list them.
 | `make improve` | Label the captures recorded in Live View, train again, convert |
 | `make evaluate` | Blink-level accuracy on the annotated captures |
 | `make compare` | The app's own trainer against the Python route, on the same pictures and splits (see "Measuring the app's trainer") |
-| `make replay` | Run the captures that kept whole frames through the eye finding again, and count their blinks; `PACE=1` also reports the cost of each stage |
+| `make replay` | Run the captures that kept whole frames through the eye finding again, and count their blinks, at each level of effort; `PACE=1` also reports the cost of each stage |
 | `make uninstall` | Remove every installed copy of the app; history, recordings and model are kept |
 | `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
 | `make snapshots` | Render every screen, in every state worth looking at, to `build/screens` with made-up data; the pictures the docs show are copied to `docs/img` |
@@ -52,7 +52,8 @@ The app's launch options are listed at the top of `Sources/BlinkMonitor/App/Entr
 ```
 Sources/BlinkCore/
     Camera/      CameraCapture: the AVFoundation session, one callback per frame
-    Vision/      EyeLocator (landmarks -> eye squares), EyeCropper (square -> 64x64 buffer)
+    Vision/      EyeLocator (landmarks -> eye squares), EyeCropper (square -> 64x64 buffer),
+                 DirectCrop (the cutting written out, as Core Image does it)
     Model/       EyeClassifier (a Core ML model, from the Python route), EyeNetwork (the
                  network written in Swift, for the models trained in the app) and its
                  weights file, ModelStore (where the app's model is kept and replaced)
@@ -63,7 +64,8 @@ Sources/BlinkCore/
                  BlinkDetector, BlinkStats
     Monitoring/  MonitorStatus (what the monitor is doing, decided in one place),
                  PauseState, BreakSchedule (look-away breaks), BlinkBreak,
-                 ProofTest (the ten-tick test of the setup)
+                 ProofTest (the ten-tick test of the setup), Effort (how often the eyes
+                 are searched: three levels, each with what it was measured to cost)
     History/     minute records, the CSV stores, the reminder policy, Baseline (your
                  reference and the limit), Insights (rates by hour), PublishedRates
                  (what studies report, with its sources: the only place such a
@@ -74,11 +76,13 @@ Sources/BlinkCore/
                  demo and the tests); WholeFrames (a capture's frames as a movie),
                  CaptureReplay (those frames through the pipeline again),
                  RecordedCapture (a capture read back)
-    Support/     logging, PNG and CSV files, stage timings, launch options
+    Support/     logging, PNG and CSV files, stage timings, launch options, ProcessCost
+                 (what a process has used: processor, instructions, energy, graphics)
 Sources/BlinkUI/             the camera preview and its notes, RateReadout (the one way the
                              rate is written), Speaker (the voice), the screenshot renderer
 Sources/BlinkTrain/          the command-line tool behind `make compare`
-Sources/BlinkReplay/         the command-line tool behind `make replay`
+Sources/BlinkReplay/         the command-line tool behind `make replay`; also what a stage
+                             costs (Cost) and the two ways of cutting compared (Crops)
 Sources/BlinkMonitor/
     App/         entry point, MonitorModel (the facts), ModelSource (which model is used),
                  Preferences (every stored choice), the pipeline, one small controller
@@ -158,9 +162,10 @@ be run again from them:
    capture's `blinks.csv`, as for any capture. A long look down at the keyboard comes out
    as one candidate and can hold several blinks: write one line per blink in its place,
    with the first and last frame of each. `annotate.py` keeps lines cut by hand.
-3. `make replay`. For each capture it prints the blinks found, missed and false, three
-   times: as the app counted while recording, replayed with the eyes searched on every
-   frame, and replayed as the app runs.
+3. `make replay`. For each capture it prints the blinks found, missed and false: as the
+   app counted while recording, replayed with the eyes searched on every frame, replayed
+   as the app runs, and replayed at the two other levels of effort (Settings > General >
+   Effort).
 
 How to read it:
 
@@ -187,6 +192,38 @@ way of finding the face (`0`: in the whole frame at every search):
 ```bash
 make replay REPLAY_ARGS="--search-every=2,3 --detect-every=0,8,15"
 ```
+
+Each run's answers are written frame by frame beside the capture, in `replays/`. To leave
+the captures untouched (recordings kept in another checkout, read only), name a folder:
+
+```bash
+make replay DATA=/path/to/data MODELS=/path/to/models REPLAY_ARGS="--traces=$PWD/build/replays"
+```
+
+### What a stage costs
+
+`make replay` says what is counted. What the work costs the Mac is another pass of the
+same tool: processor time, instructions, the processor's energy and time on the graphics
+processor, read from macOS without an administrator (`ProcessCost`).
+
+```bash
+swift build -c release --product BlinkReplay
+.build/release/BlinkReplay data/replay --weights=models/eyenet.weights --cost=model
+```
+
+- `--cost=frames` reads the frames and does nothing, `find` adds the eye finding, `crop`
+  the cutting, `model` the model and the counting. A stage's cost is the difference
+  between two lines: the replay reads a movie, which the app never does.
+- A pass takes as long as the captures. `--flat-out` takes seconds and gives the
+  instructions only: they are the same at both paces within 2%, and the same from one
+  pass to the next within 1%. The share of a core is not: the same pass read 10.1% and
+  11.3% an hour apart, depending on the cores macOS chose. Compare two versions by their
+  instructions, and say on which power the Mac ran: every line does.
+- `--effort=light|standard|thorough` costs a level of effort; `--log=<file.csv>` keeps the lines.
+- `--cost-of=<pid> --seconds=60` watches a running copy of the app from outside: the
+  demo, or the app at work on a camera.
+- `--crops` compares the eye pictures cut on the processor with Core Image's, number by
+  number, and asks the model about both. Run it after any change to `DirectCrop`.
 
 Captures in `data/replay` are kept apart from `data/live` on purpose: `make evaluate` and
 `make improve` do not see them, so recording some changes neither the model nor the

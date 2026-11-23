@@ -5,7 +5,7 @@ learning, and it was made as small as possible on purpose.
 
 ```
 camera frame ──> 1. find the eyes ──> 2. crop to 64x64 ──> 3. open or closed? ──> 4. blink?
- 1920x1080        Apple Vision          Core Image           EyeNet (trained)      plain rules
+ 1920x1080        Apple Vision          plain arithmetic     EyeNet (trained)      plain rules
 ```
 
 The network is trained on the eyes of the person who uses it, and the app does that
@@ -77,6 +77,17 @@ of 72 real blinks depending on the session; on two, 60 to 72, and 69 on average.
 square's side is 0.7 x the distance between the eyes: that distance stays stable when an
 eye closes, while the eye's own outline collapses. `EyeCropper` resizes each square to
 64x64.
+
+The resizing is arithmetic written out in the app (`DirectCrop`). Each of the 64x64 points
+is a blend of the four camera pixels around it. A square of 148 pixels or more, which is
+a face nearer than about 40 cm, is halved first. Core Image did this work until
+23 November 2026, and the model learned from the pictures it made, so the arithmetic
+copies it step by step. The brightness curve is not a formula: Core Image itself is asked
+what it makes of each of the 256 levels, once. Measured on 6,755 eye pictures cut both
+ways: 97.3% of the values are the same number, the others are one level of 255 apart.
+What cannot be cut exactly alike still goes to Core Image: a square halved twice (a face
+nearer than about 20 cm), an enlarged eye at the very edge of the frame, a camera whose
+colours are not the screen's.
 
 When the head is turned far to one side, the far eye hides behind the nose and its
 square lands on the cheek, so only the near eye is used.
@@ -582,8 +593,20 @@ The app runs all day, so its cost matters as much as its accuracy.
 - A model trained in the app costs 0.24 ms per eye picture on its own, a Core ML one
   0.10 ms. In the app's log the model stage went from 0.8 to 1.9 ms a frame (one minute
   logged so far), small beside the 11 ms a frame takes, but worth tuning.
+- The eye pictures are cut by arithmetic written out in the app, not by Core Image
+  (step 2): 0.4 million instructions a picture instead of 2.1, for the same pictures.
+  Core Image is built for large pictures; for one of 64x64 it spent its time getting ready.
+- Since 23 November 2026 the network written in Swift does a picture in 0.97 million
+  instructions instead of 5.35, with the same answers to the last bit: it moves whole
+  maps where it moved 14,000 small pieces a picture. The pipeline with it now does less
+  work than with the Core ML model.
 - The eyes are searched for every other frame; the frame in between reads the same squares.
   This saved 15% of a frame's cost, not the 40% expected: each search got slower. The README has the numbers.
+- How often the eyes are searched is the one lever left, and a choice: Settings > General >
+  Effort (`Effort`). Light searches one frame in 3 and forgets what it read in squares
+  the eyes had left; Standard is every other frame; Thorough is every frame. Each level
+  carries what it was measured to cost and to count, and Settings reads its numbers from
+  there. No level changes what happens at an empty chair. The README has the table.
 - The face is looked for twice a second; the other searches only place the landmarks in
   its box (step 2). Whether this changed what is counted was measured before it shipped, on
   captures replayed from their whole frames. In the app's log a frame went from 14.7 ms to
@@ -592,3 +615,6 @@ The app runs all day, so its cost matters as much as its accuracy.
 - With no window open, the interface is updated on change and once a second.
 - The camera picture is only prepared while the Live View window shows it.
 - The pipeline times its own stages and logs them every minute.
+- What a stage costs the Mac (processor, graphics processor, energy) is measured on
+  recorded frames, not guessed: `BlinkReplay --cost` ([Development](DEVELOPMENT.md)).
+  The graphics processor is busy 0.4% of the time, which is why no setting speaks of it.
