@@ -181,7 +181,8 @@ and shipping it inside a real app.
 - **Effort** (Standard unless you choose): how often the app looks for your eyes while it
   counts. Light does about 25% less processor work, and counted 70 of the 80 blinks of
   the test recordings where Standard counted 72. Thorough does about 70% more, and
-  counted 73. Settings says so for each level, and Results has the table.
+  counted 73. Settings says so for each level, and Results has the table. It is a choice
+  about processor work: at the battery, the Mac drew the same on Light as on Thorough.
 
 <p align="center">
   <img src="docs/img/panel-low-light.png" alt="The panel when the rate is low: 6 blinks a minute, the blink break highlighted, and 23% under the usual rate" width="270">
@@ -421,14 +422,47 @@ attempts at making Apple's Vision itself cheaper saved nothing and were dropped.
 [Lessons](docs/LESSONS.md), number 9.
 
 Three cautions. These are figures of the replay: they compare two versions well, and they
-are about half of what the app logs for itself with a camera. What the app itself uses
-now has not been measured: the 32% is from before. The share of a core can differ by a quarter
+are less than what the app uses with a camera (below). The share of a core can differ by a quarter
 between two passes of the same code (Thorough read 13.3% and 17.2%), where the work
 differs by 2% at most: so the versions and the levels are compared by their work. And
 everything was measured on the battery, nothing on the charger.
 
-The graphics processor has no part worth a setting: the app keeps it busy under 1% of
-the time, before and after (0.05% to 0.75% over all the passes).
+**With a real camera** (the same day, the same Mac on its battery, me in front of it, the
+app watched from outside for three or four minutes with `BlinkReplay --cost-of`):
+
+| | Version 1.0 | Now, on Standard |
+|---|---|---|
+| The app's work, each second | 915 million instructions | 600 million |
+| Its share of one efficiency core | 34% | 26% |
+| The graphics processor, busy | 4.0% of the time | 0.2% to 0.7% |
+| The processor's energy for it | 65 mW | 49 to 52 mW |
+
+The app does a third less work, and has all but left the graphics processor, which
+version 1.0 woke for every eye picture. (In the replay the graphics processor was busy
+under 1% of the time before and after: only the camera showed the 4%. No setting speaks
+of it, since nothing is left to choose.) macOS's own camera process adds about 15% of a
+core while the camera is on. That part is Apple's.
+
+**None of it shows at the battery.** A Mac reports what it draws as a whole, about once
+a minute. Recorded in phases of five minutes, with me in view and nothing touched
+(`scripts/whole-mac-draw.sh`):
+
+| | Counting | Paused | Difference |
+|---|---|---|---|
+| Version 1.0 | 6.7 W | 4.9 W | 1.8 W |
+| Now, on Standard | 6.5 W | 4.8 W | 1.7 W |
+| Now, on Thorough | 6.6 W | 4.5 W | 2.1 W |
+| Now, on Light | 6.7 W | 4.5 W | 2.2 W |
+
+Counting costs the Mac about 2 W while a face is in view: in version 1.0 as now, on
+Light as on Thorough (those two share one run and one pause). With the camera on and
+nobody in view, the Mac drew what it draws paused. The processor's part of those 2 W is
+0.05 W. So this work made the app lighter on the processor. It did not make a battery
+last longer, and no level of effort does. What the 2 W are made of is not known: it
+happens only when the eyes are found, and neither the processor's counters nor the
+graphics processor's see it. One run for each line, on one Mac that was doing nothing
+else: while you work, the difference is probably smaller.
+[Lessons](docs/LESSONS.md), number 10.
 
 **How much to spend is now a choice**: Settings > General > Effort. Finding the eyes is
 four fifths of what is left of a frame's work, so the levels differ in one thing, how
@@ -600,7 +634,8 @@ docs/                    how it works, the research on blink rates, lessons, dev
 - **The setup has been through its tests and one real run.** Its pages, its failures and its whole run on painted eyes are tested. Its author went through it once with a camera: two sessions, a training of 9 seconds, 9 of 10 blinks in the test, under seven minutes from launch to counting. Nobody else has.
 - **Training in the app was measured on one Mac** (M5 Pro, macOS 27). The app shows the time left as it measures it; how long an older Mac takes is not known.
 - **The model trained in the app has only seen held poses.** Frames of real blinks (`make improve`) are a Python-route step for now, and they were what took the first model from 79% to 93%.
-- **Processor use.** About 32% of one core while it watches you, as measured in the app before a frame's work was nearly halved (see Results). The app has not been measured with a camera since, nor on the charger, nor on another Mac.
+- **Processor use.** About 26% of one efficiency core while it watches you (34% in version 1.0), measured with a camera on one Mac, on its battery (see Results). Not measured on the charger, nor on another Mac.
+- **What counting costs a battery is not explained.** The whole Mac draws about 2 W more while the app counts a face in view than while it is paused, whatever the level of effort. Lighter code did not change it, and where it goes is not known.
 - **The levels of effort were measured on two minutes of one person.** 80 marked blinks, three recordings. How many blinks Light loses in a day of ordinary movement is not known.
 - **Screen breaks are inferred.** The camera knows whether a face is in view, not where the eyes look. A break with your face in view is taken on trust. How far a head must turn before the camera loses the face has not been measured.
 - **The camera has to face you.** If you work on an external display with the MacBook to one side, its camera sees you in profile or not at all, and the panel says "No face". Settings > General > Camera chooses another one. Left on Automatic, the app uses the Mac's own camera and moves to another after 10 seconds without a picture, as with the lid closed. A model learned your eyes through one camera: test it again after changing. Choosing a camera and the automatic move have not been tried on a real second camera yet.

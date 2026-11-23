@@ -321,3 +321,37 @@ model was asked about both. That comparison found something no reading of the
 documentation would have: Core Image halves a picture before it shrinks it, from a square
 of 148 pixels on. The first written-out version did not: for a face nearer than 40 cm, a
 fifth of its values were three levels or more away from Core Image's.
+
+## 10. The saving that never reached the battery
+
+The work of lesson 9 was judged in instructions, and by that measure it was a success: a
+frame's work nearly halved, the same blinks counted. I had not asked what the saving was
+for. A person who worries about what the app costs means the battery, and nobody had
+measured that.
+
+A Mac reports what it draws as a whole, about once a minute (`scripts/whole-mac-draw.sh`
+reads it; no administrator is needed). On 23 November 2026 it was recorded in phases of
+five minutes, with me in front of the Mac and nothing else touched:
+
+- Counting, the Mac drew about 6.7 W; paused, about 4.8 W. **About 2 W for counting.**
+- The lighter code drew the same as version 1.0: 1.7 W more than paused, against 1.8 W.
+- Thorough, which does 60% more work than Light, drew the same as Light.
+- With the camera on and nobody in view, the Mac drew what it draws paused.
+
+The processor's energy for the app, read from its own counter, is 0.05 W: a fortieth of
+the difference. The graphics processor was not it either: the new code leaves it alone
+(busy 4% of the time before, under 1% now) and the draw did not move. Whatever costs the
+2 W happens only when the eyes are found, and no counter I had looks at it.
+
+**What I keep from it:** measure the thing a person will feel, before optimising the
+thing that is easy to count. Instructions told two versions apart to within 2%, and said
+nothing about a battery. The work is still worth having: a third less of a processor core
+is a third less. But it is not what the README would have claimed had I stopped at the
+replay, and the setting that came with it (Effort) trades blinks for processor work, not
+for hours of battery.
+
+The first recording taught a smaller lesson. Its phases were three minutes long, the
+battery gave three figures in each, and two pauses read 4.0 and 1.9 W for reasons that
+had nothing to do with the app. Only the next runs could be trusted: five minutes a
+phase, with the counting phases on both sides of the pause. And the Mac's resting level
+moved between runs, from 1.9 to 5.1 W: only differences within one run mean anything.

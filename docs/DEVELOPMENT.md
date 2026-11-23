@@ -226,6 +226,21 @@ swift build -c release --product BlinkReplay
 - `--crops` compares the eye pictures cut on the processor with Core Image's, number by
   number, and asks the model about both. Run it after any change to `DirectCrop`.
 
+What the app costs a battery is not in those numbers: the processor's energy for the app
+is 0.05 W, and the Mac draws about 2 W more while it counts (MEASURED 23 November 2026).
+`scripts/whole-mac-draw.sh` records what the whole Mac draws while the app is in one
+state, then in another:
+
+```bash
+scripts/whole-mac-draw.sh counting paused counting
+```
+
+It reads the battery's own figure (about one a minute, no administrator), says when to
+change the app's state, which you do by hand, and prints each phase's mean. Use it on
+the battery, with the same windows in front throughout, and touch nothing else: the
+screen is the largest consumer. Compare within one run only: the Mac's resting level
+moves between runs.
+
 Captures in `data/replay` are kept apart from `data/live` on purpose: `make evaluate` and
 `make improve` do not see them, so recording some changes neither the model nor the
 figures of the README.

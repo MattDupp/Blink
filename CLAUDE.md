@@ -202,6 +202,12 @@ their numbers, and the file formats, across the two languages.
 - **Accuracy claims need a measurement.** The model and the counting rules are judged on
   `make evaluate`, the eye finding on `make replay`, the app's trainer on `make compare`.
   Without recordings that can measure a change, say so instead of guessing.
+- **A claim about the battery is judged at the battery**, not on instructions or a share
+  of a core: `scripts/whole-mac-draw.sh counting paused counting`, run by the owner, who
+  changes the app's state by hand. Measured 2026-11-23: counting draws about 2 W more
+  than paused, the app's processor energy is 0.05 W of it, and neither lighter code nor
+  the level of effort moved it (`docs/LESSONS.md`, number 10). Never write that a change
+  saves battery from a count of instructions.
 - **So do claims about cost.** `BlinkReplay <captures> --cost=<stage>` reads processor
   time, instructions, energy and graphics time for a pass over stored frames
   (`docs/DEVELOPMENT.md`, "What a stage costs"). Compare two versions by their

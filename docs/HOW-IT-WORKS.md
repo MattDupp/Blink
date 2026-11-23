@@ -618,3 +618,11 @@ The app runs all day, so its cost matters as much as its accuracy.
 - What a stage costs the Mac (processor, graphics processor, energy) is measured on
   recorded frames, not guessed: `BlinkReplay --cost` ([Development](DEVELOPMENT.md)).
   The graphics processor is busy under 1% of the time, which is why no setting speaks of it.
+  (With a real camera, version 1.0 kept it busy 4% of the time: it cut the eye pictures on it.)
+- What the app costs a battery is another question, with another measure: what the whole
+  Mac draws, counting against paused (`scripts/whole-mac-draw.sh`). MEASURED 23 November
+  2026: about 2 W more while a face is in view, the same in version 1.0 and now, the same
+  on Light and on Thorough, and nothing more than paused with the camera on and nobody in
+  view. The processor's part of it is 0.05 W. Everything in this list makes the app
+  lighter on the processor; none of it was seen at the battery, and what the 2 W are made
+  of is not known ([Lessons](LESSONS.md), number 10).
