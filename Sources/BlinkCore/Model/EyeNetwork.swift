@@ -106,7 +106,7 @@ public struct EyeNetWeights: Equatable {
 /// MEASURED (2026-11-20, 908 real pictures, one at a time on the processor): 0.24 ms a
 /// picture, against 0.10 ms for the Core ML model; the answers are within 0.000001 of the
 /// trainer's own. A frame has two eyes and about 12 ms of other work. Since 2026-11-23 it
-/// is 0.13 ms a picture: see `answer`.
+/// does a picture in less than half the work of that first version: see `answer`.
 ///
 /// One instance belongs to one thread: it keeps its working memory between calls.
 public final class EyeNetwork: EyeJudging {
@@ -120,8 +120,13 @@ public final class EyeNetwork: EyeJudging {
     private var columns: [[Float]] = []
     private var detected: [[Float]] = []
     private var pooled: [[Float]] = []
-    /// Each pixel paired with its right-hand neighbour: half of the largest stage's maps.
+    /// Each line paired with the line under it: half of the largest stage's maps.
     private var pairs = [Float](repeating: 0, count: EyeNetWeights.channels[1] * EyeNetwork.pixels / 2)
+    /// The left-hand and the right-hand pixel of every pair, side by side.
+    private var sides = [Float](repeating: 0, count: EyeNetWeights.channels[1] * EyeNetwork.pixels / 2)
+    /// Per stage, each output map's bias repeated for every position of the pooled map:
+    /// one addition then covers all the maps of a stage.
+    private var biasPlanes: [[Float]] = []
 
     public init(weights: EyeNetWeights) {
         self.weights = weights
@@ -130,6 +135,7 @@ public final class EyeNetwork: EyeJudging {
             columns.append([Float](repeating: 0, count: EyeNetWeights.channels[stage] * 9 * area))
             detected.append([Float](repeating: 0, count: EyeNetWeights.channels[stage + 1] * area))
             pooled.append([Float](repeating: 0, count: EyeNetWeights.channels[stage + 1] * area / 4))
+            biasPlanes.append(weights.biases[stage].flatMap { [Float](repeating: $0, count: area / 4) })
         }
     }
 
@@ -183,11 +189,23 @@ public final class EyeNetwork: EyeJudging {
     ///   - the whole pipeline in the replay: 630 to 637 million instructions a second
     ///     instead of 838, and the model stage 0.60 to 0.68 ms a frame instead of 1.2 to 1.3.
     ///
+    /// A SECOND PASS, the same day. What was left was mostly the number of small calls:
+    /// the columns were filled a line at a time (14,000 copies a picture) and the lines
+    /// were compared in pieces of 4 to 32 numbers. Now a whole map is moved in one copy,
+    /// whole lines are compared, and the pixels of a pair are first sorted into two
+    /// halves so that they are compared several at a time:
+    ///
+    ///   - one picture: 0.97 million instructions instead of 2.11;
+    ///   - the whole pipeline in the replay: 460 to 463 million instructions a second
+    ///     instead of 526, the model stage 0.52 ms a frame instead of 0.69. That is less
+    ///     work than the same pipeline with the Core ML model (484).
+    ///
     /// THE ANSWERS ARE THE SAME, TO THE LAST BIT: every product and every sum is the one
-    /// it was, in the order it was. On those 1,500 pictures, with a trained model's
-    /// weights and with made-up ones, not one answer of the two versions differed, and
-    /// the replay counts the same 77 blinks. What is left is the matrix product itself
-    /// (`cblas_sgemm` gives the same count as `vDSP_mmul`).
+    /// it was, in the order it was, and "the strongest of four" does not depend on which
+    /// two are compared first. On 1,500 pictures, with a trained model's weights and with
+    /// made-up ones, not one answer of a new version differed from the one before, both
+    /// times, and the replay counts the same 77 blinks. What is left is the matrix product
+    /// itself (`cblas_sgemm` gives the same count as `vDSP_mmul`).
     private func answer() -> Float {
         1 / (1 + expf(-score()))
     }
@@ -221,32 +239,24 @@ public final class EyeNetwork: EyeJudging {
             //
             // Row (i, ky, kx) of the columns is input map i moved by one pixel: up or
             // down for ky, left or right for kx, with zeros where the move leaves the
-            // picture. So each line of it is a line of the map, copied in one go.
+            // picture. So the whole map is copied in one go, a little further on or a
+            // little earlier; what that brings in from the other side of an edge (the
+            // end of one line landing at the start of the next) is then set to zero.
             (stage == 0 ? gray : pooled[stage - 1]).withUnsafeBufferPointer { source in
                 columns[stage].withUnsafeMutableBufferPointer { column in
                     for i in 0..<inputs {
                         let map = source.baseAddress! + i * area
                         for ky in 0..<3 { for kx in 0..<3 {
                             let row = column.baseAddress! + ((i * 3 + ky) * 3 + kx) * area
-                            for y in 0..<side {
-                                let line = row + y * side
-                                let sy = y + ky - 1
-                                if sy < 0 || sy >= side {
-                                    vDSP_vclr(line, 1, vDSP_Length(side))       // beyond the edge: zero
-                                    continue
-                                }
-                                let from = map + sy * side
-                                switch kx {
-                                case 0:                                          // the pixel to the left
-                                    line[0] = 0
-                                    (line + 1).update(from: from, count: side - 1)
-                                case 1:
-                                    line.update(from: from, count: side)
-                                default:                                         // the pixel to the right
-                                    line.update(from: from + 1, count: side - 1)
-                                    line[side - 1] = 0
-                                }
-                            }
+                            let shift = (ky - 1) * side + (kx - 1)
+                            let first = max(0, -shift), last = min(area, area - shift)
+                            (row + first).update(from: map + first + shift, count: last - first)
+                            // The line beyond the top or the bottom edge.
+                            if ky == 0 { vDSP_vclr(row, 1, vDSP_Length(side)) }
+                            if ky == 2 { vDSP_vclr(row + area - side, 1, vDSP_Length(side)) }
+                            // The pixel beyond the left or the right edge, on every line.
+                            if kx == 0 { vDSP_vclr(row, vDSP_Stride(side), vDSP_Length(side)) }
+                            if kx == 2 { vDSP_vclr(row + side - 1, vDSP_Stride(side), vDSP_Length(side)) }
                         } }
                     }
                 }
@@ -255,29 +265,33 @@ public final class EyeNetwork: EyeJudging {
                       vDSP_Length(outputs), vDSP_Length(area), vDSP_Length(inputs * 9))
             // The strongest of every 2x2 square, then the bias and "negative means zero"
             // (ReLU). The strongest of four is the stronger of two pairs: first each
-            // pixel with its right-hand neighbour, over all the maps at once, then each
-            // line of those with the line under it.
+            // line with the line under it, a whole line at a time (the lines of all the
+            // maps follow each other, two by two), then each pixel of the result with
+            // its right-hand neighbour, over all the maps at once.
             let half = side / 2
+            let pooledCount = vDSP_Length(outputs * half * half)
             detected[stage].withUnsafeBufferPointer { map in
                 pairs.withUnsafeMutableBufferPointer { pair in
-                    pooled[stage].withUnsafeMutableBufferPointer { out in
-                        vDSP_vmax(map.baseAddress!, 2, map.baseAddress! + 1, 2, pair.baseAddress!, 1,
-                                  vDSP_Length(outputs * area / 2))
-                        var zero: Float = 0
-                        for o in 0..<outputs {
-                            let lines = pair.baseAddress! + o * side * half
-                            let strongest = out.baseAddress! + o * half * half
-                            for y in 0..<half {
-                                vDSP_vmax(lines + 2 * y * half, 1, lines + (2 * y + 1) * half, 1,
-                                          strongest + y * half, 1, vDSP_Length(half))
-                            }
-                            var bias = weights.biases[stage][o]
-                            vDSP_vsadd(strongest, 1, &bias, strongest, 1, vDSP_Length(half * half))
-                            vDSP_vthres(strongest, 1, &zero, strongest, 1, vDSP_Length(half * half))
+                    for line in 0..<(outputs * half) {
+                        vDSP_vmax(map.baseAddress! + 2 * line * side, 1, map.baseAddress! + (2 * line + 1) * side, 1,
+                                  pair.baseAddress! + line * side, 1, vDSP_Length(side))
+                    }
+                    // Neighbours two by two: the pixels at even places go to one half of
+                    // `sides`, those at odd places to the other, and the two halves are
+                    // compared. (Asking for every second number directly gives the same
+                    // result, one number at a time.)
+                    sides.withUnsafeMutableBufferPointer { side in
+                        var split = DSPSplitComplex(realp: side.baseAddress!, imagp: side.baseAddress! + Int(pooledCount))
+                        pair.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: Int(pooledCount)) {
+                            vDSP_ctoz($0, 2, &split, 1, pooledCount)
                         }
+                        vDSP_vmax(split.realp, 1, split.imagp, 1, &pooled[stage], 1, pooledCount)
                     }
                 }
             }
+            var zero: Float = 0
+            vDSP_vadd(pooled[stage], 1, biasPlanes[stage], 1, &pooled[stage], 1, pooledCount)
+            vDSP_vthres(pooled[stage], 1, &zero, &pooled[stage], 1, pooledCount)
         }
         // Average each of the 64 maps over its 4x4 positions, then one weighted sum.
         var score = weights.bias
