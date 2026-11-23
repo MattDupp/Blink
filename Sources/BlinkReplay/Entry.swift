@@ -13,6 +13,13 @@ import BlinkCore
 ///                                            (0: find the face on every search)
 ///       --still-box                          ... without moving that box with the eyes
 ///     With both, every rhythm is tried with every way of finding the face.
+///       --weights=<eyenet.weights>           ask the network written in Swift (a model trained
+///                                            in the app) instead of the Core ML model
+///
+///     BlinkReplay <folder> --cost=<stage>    what a stage costs the Mac: processor, graphics
+///                                            processor, energy (Cost.swift)
+///     BlinkReplay --cost-of=<pid>            what a running copy of the app costs, watched
+///       [--seconds=60]                       from outside
 ///
 /// For each capture it prints how many of the blinks a person marked (blinks.csv) are
 /// counted: as the app counted them while recording, then replayed from the stored frames
@@ -41,6 +48,11 @@ enum Entry {
     }
 
     static func run() async throws {
+        // A running program's cost, watched from outside: no capture is read.
+        if let pid = LaunchArguments.value(of: "cost-of").flatMap({ Int32($0) }) {
+            Cost.watch(pid: pid, seconds: LaunchArguments.value(of: "seconds").flatMap { Double($0) } ?? 60)
+            return
+        }
         let roots = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("--") }
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
         guard !roots.isEmpty else {
@@ -49,7 +61,17 @@ enum Entry {
         }
         let paced = LaunchArguments.has("pace")
         let model = LaunchArguments.folder("model") ?? URL(fileURLWithPath: "models/EyeNet.mlmodelc", isDirectory: true)
-        let classifier = try EyeClassifier(compiledModel: model)
+        // A model trained in the app is run by the network written in Swift: named
+        // with --weights, it is asked instead of the Core ML model.
+        let classifier: EyeJudging
+        let judge: String
+        if let weights = LaunchArguments.value(of: "weights") {
+            classifier = EyeNetwork(weights: try EyeNetWeights(contentsOf: URL(fileURLWithPath: weights)))
+            judge = "the network written in Swift"
+        } else {
+            classifier = try EyeClassifier(compiledModel: model)
+            judge = "Core ML"
+        }
 
         var captures: [RecordedCapture] = []
         for folder in roots.flatMap(RecordedCapture.folders(in:)) {
@@ -72,6 +94,23 @@ enum Entry {
             print("No capture with whole frames in \(roots.map(\.path).joined(separator: ", ")).")
             print("Record some: make monitor WHOLE_FRAMES=1, then the capture buttons of the Live View window.")
             exit(1)
+        }
+
+        // What a stage costs the Mac, instead of what it counts: see Cost.swift.
+        if let asked = LaunchArguments.value(of: "cost") {
+            guard let stage = Cost.Stage(rawValue: asked) else {
+                print("--cost= takes frames, find, crop or model")
+                exit(2)
+            }
+            func number(_ name: String) -> Int? { LaunchArguments.value(of: name).flatMap { Int($0) } }
+            var schedule = FrameSchedule()
+            if let every = number("search-every"), every >= 1 { schedule.searchEvery = every }
+            var strategy = EyeLocator.usual
+            if let every = number("detect-every") {
+                strategy = every == 0 ? .wholeFrame : .faceBox(detectEvery: every, follow: !LaunchArguments.has("still-box"))
+            }
+            try await Cost.run(stage, captures: captures, classifier: classifier, judge: judge, schedule: schedule, strategy: strategy)
+            return
         }
 
         let seconds = captures.reduce(0) { $0 + RecordedCapture.seconds(of: $1.trace) }

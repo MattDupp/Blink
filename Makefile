@@ -61,7 +61,9 @@ demo: App/AppIcon.icns  ## Try the whole app in a minute: made-up blinks, no cam
 
 # For filming: the demo opens its main screens one after the other, in a fixed order
 # (Tour.swift). Start the screen recording first. PACE is the seconds of one beat.
-PACE ?= 4
+# (Set for this target only: as a variable of the whole file it also reached `make replay`,
+# whose PACE=1 means something else, and every replay ran at the camera's pace.)
+demo-tour: PACE ?= 4
 demo-tour: App/AppIcon.icns  ## The demo walks through its own screens, to be filmed (PACE=4 seconds a beat)
 	@scripts/doctor.sh mac swift
 	DEMO=1 scripts/bundle.sh BlinkMonitor
