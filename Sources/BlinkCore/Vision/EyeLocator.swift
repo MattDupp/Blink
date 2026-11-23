@@ -62,6 +62,15 @@ public struct LocatedEyes {
         return yaw > 0 ? [left] : [right]
     }
 
+    /// How far the eye that moved most is from where it was at an earlier search, in
+    /// distances between the eyes (of that earlier search).
+    public func moved(since earlier: LocatedEyes) -> Double {
+        guard earlier.interocularDistance > 0 else { return 0 }
+        func apart(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot(a.x - b.x, a.y - b.y) }
+        return Double(max(apart(left.center, earlier.left.center), apart(right.center, earlier.right.center))
+                      / earlier.interocularDistance)
+    }
+
     public init(faceRect: CGRect, left: EyeRegion, right: EyeRegion, interocularDistance: CGFloat,
                 roll: Double?, yaw: Double?) {
         self.faceRect = faceRect

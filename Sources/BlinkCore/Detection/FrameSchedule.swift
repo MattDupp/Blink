@@ -37,6 +37,28 @@ public struct FrameSchedule {
     /// While it is empty, look at one frame in this many.
     public var idleStride = 6
 
+    /// How far an eye may be from the middle of its old square, in distances between the
+    /// eyes, before the frames that read that square are said not to have read the eye
+    /// (`strayed`). Nil: squares one frame old are trusted as they are, which is what
+    /// searching on every other frame was measured with (above).
+    ///
+    /// WHY IT EXISTS. With a search on one frame in 3, the squares are up to two frames
+    /// old. A head that moves fast leaves them: the model is shown a cheek, answers
+    /// "closed", and when the next search puts the squares back on the eyes it answers
+    /// "open". That is the pattern of a blink, and it is counted. The next search knows
+    /// better: it sees how far the eyes are from where the squares were. Past the limit,
+    /// what was read in between is forgotten (`BlinkDetector.update(time:reading:)`): a
+    /// blink that really happened during such a move is lost, none is invented.
+    ///
+    /// MEASURED 2026-11-23 on three captures replayed from their whole frames (121 s, 80
+    /// blinks marked), a search on one frame in 3. Without a limit: 72 found, 5 false, all
+    /// five in the two seconds where the person leans out of view. With a limit of 0.10:
+    /// 61 found, none false (the eyes of a head that merely turns move that much); 0.15:
+    /// 66; 0.20: 68; from 0.25 to 0.40: 70, none false; 0.50: 71, none false; 0.70: 71 and
+    /// 1 false. `Effort.light` takes 0.35, the middle of the flat stretch: it is half the
+    /// side of a square (`EyeLocator.cropScale`), so the eye's middle has left its square.
+    public var strayBeyond: Double?
+
     private var frame = 0
     private var framesSinceSearch = 0
     private var searchesWithoutFace = 0
@@ -55,6 +77,13 @@ public struct FrameSchedule {
             return .reuseSquares
         }
         return .search
+    }
+
+    /// Have the eyes left the squares that the frames since the last search read?
+    /// `moved`: how far the eye that moved most is from the middle of its old square,
+    /// in distances between the eyes (`LocatedEyes.moved(since:)`).
+    public func strayed(moved: Double) -> Bool {
+        strayBeyond.map { moved > $0 } ?? false
     }
 
     /// Call after a search, with whether it found the eyes. A search that finds no face

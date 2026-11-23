@@ -2,8 +2,10 @@ import Foundation
 
 /// Should counting rest to save energy?
 ///
-/// The app reads the camera all day and uses about a third of one processor core while it
-/// does. On mains power nobody notices; on a battery it is a choice the user should have.
+/// The app reads the camera all day and keeps part of one processor core at work while it
+/// does (a third of one, measured in the app on 2026-11-22, before the work of a frame
+/// was made lighter: `DirectCrop`, `EyeNetwork`). On mains power nobody notices; on a
+/// battery it is a choice the user should have. How much is spent while it counts is another choice: `Effort`.
 /// Two switches, both off unless chosen: rest on battery, and rest while Low Power Mode
 /// is on. Like a pause, resting turns the camera off; unlike one, it ends by itself when
 /// the reason goes.

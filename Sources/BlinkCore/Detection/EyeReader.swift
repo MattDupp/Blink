@@ -23,6 +23,9 @@ public struct FoundEyes {
     public let located: LocatedEyes
     /// One crop per usable eye that could be cut (an eye too near the frame's edge is missing).
     public let crops: [EyeCrop]
+    /// This search found the eyes out of the squares that the frames before it read
+    /// (`FrameSchedule.strayBeyond`): what those frames said was not about the eyes.
+    public var strayed = false
 
     /// Every usable eye was cut cleanly.
     public var isComplete: Bool {
@@ -44,6 +47,8 @@ public final class EyeFinder {
     private let cropper: EyeCropper
     private var schedule: FrameSchedule
     private var lastLocated: LocatedEyes?
+    /// Frames in a row that read the squares of an earlier search.
+    private var reused = 0
 
     /// The apps take the defaults. A replay passes its own to try another way of finding
     /// the eyes, another rhythm, or another way of cutting them out, on frames that were
@@ -58,16 +63,23 @@ public final class EyeFinder {
     /// `everyFrame`: search on this frame whatever the schedule says.
     /// The time spent is added to `cost`.
     public func find(in pixelBuffer: CVPixelBuffer, everyFrame: Bool = false, cost: inout FrameCost) throws -> Outcome {
+        var strayed = false
         switch schedule.next(everyFrame: everyFrame) {
         case .skip:
             return .skipped
         case .search:
             // Every frame read in full: nothing is taken from the frame before.
             if everyFrame { locator.forget() }
+            let earlier = lastLocated
             lastLocated = try FrameCost.measure(into: &cost.findEyes) { try locator.locate(in: pixelBuffer) }
             schedule.searched(found: lastLocated != nil)
+            // Frames have read the old squares since: were the eyes still in them?
+            if reused > 0, let earlier, let now = lastLocated {
+                strayed = schedule.strayed(moved: now.moved(since: earlier))
+            }
+            reused = 0
         case .reuseSquares:
-            break
+            reused += 1
         }
         guard let located = lastLocated else { return .noFace }
 
@@ -76,7 +88,7 @@ public final class EyeFinder {
                 cropper.cropBuffer(pixelBuffer, rect: eye.cropRect).map { EyeCrop(region: eye, picture: $0) }
             }
         }
-        return .found(FoundEyes(located: located, crops: crops))
+        return .found(FoundEyes(located: located, crops: crops, strayed: strayed))
     }
 
     /// The whole frame, made smaller, for showing in a window.
@@ -114,8 +126,26 @@ public struct FrameReading {
     public var headTurned = false
     /// The two eyes' answers combined into one (`EyeFusion`); nil when no eye was readable.
     public var closed: Double?
+    /// The frames before this one read squares the eyes had left (`FoundEyes.strayed`):
+    /// what they said is to be forgotten. This frame's own answer is good.
+    public var strayed = false
 
     public init() {}
+}
+
+extension BlinkDetector {
+    /// Feed one frame's reading: its answer, after forgetting what came before when the
+    /// frames before it did not read the eyes (`FrameReading.strayed`). A closure in
+    /// progress is then dropped, like one that the face was lost in the middle of (the
+    /// detector's rule 4): nobody knows what the eyes did.
+    ///
+    /// The counting rules themselves are not touched: this decides what they are fed.
+    /// The Python copy (`training/detector.py`) has nothing to mirror, since it judges
+    /// captures, whose eyes are searched on every frame: no square is ever old there.
+    public mutating func update(time: Double, reading: FrameReading) -> Event? {
+        if reading.strayed { reset() }
+        return update(time: time, closed: reading.closed)
+    }
 }
 
 /// Combines the answers of the two eyes into the one number the blink detector follows.
@@ -165,6 +195,7 @@ public final class EyeReader {
             break
         case .found(let found):
             reading.faceFound = true
+            reading.strayed = found.strayed
             reading.eyeRects = found.located.usableEyes.map(\.cropRect)
             reading.headTurned = found.located.usableEyes.count < found.located.eyes.count
             reading.eyes = try FrameCost.measure(into: &cost.model) {

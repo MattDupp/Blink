@@ -115,6 +115,13 @@ enum Entry {
             }
             func number(_ name: String) -> Int? { LaunchArguments.value(of: name).flatMap { Int($0) } }
             var schedule = FrameSchedule()
+            if let asked = LaunchArguments.value(of: "effort") {
+                guard let effort = Effort(rawValue: asked) else {
+                    print("--effort= takes \(Effort.allCases.map(\.rawValue).joined(separator: ", "))")
+                    exit(2)
+                }
+                schedule = effort.schedule
+            }
             if let every = number("search-every"), every >= 1 { schedule.searchEvery = every }
             var strategy = EyeLocator.usual
             if let every = number("detect-every") {
@@ -143,6 +150,12 @@ enum Entry {
             Variant(name: "app", title: "Replayed as the app runs: \(describe(FrameSchedule(), EyeLocator.usual))",
                     strategy: EyeLocator.usual),
         ]
+        // The other levels of effort a person can choose in Settings (`Effort`).
+        for effort in Effort.allCases where effort != .standard {
+            variants.append(Variant(name: effort.rawValue,
+                                    title: "Replayed as the app runs with its effort on \(effort.rawValue): \(describe(effort.schedule, EyeLocator.usual))",
+                                    schedule: effort.schedule, strategy: EyeLocator.usual))
+        }
         // Other ways, asked for on the command line: every rhythm with every strategy.
         func numbers(_ name: String) -> [Int]? {
             LaunchArguments.value(of: name).map { $0.split(separator: ",").compactMap { Int($0) }.filter { $0 >= 0 } }
@@ -257,12 +270,15 @@ enum Entry {
         case 2: rhythm = "the eyes searched on every other frame"
         default: rhythm = "the eyes searched on one frame in \(schedule.searchEvery)"
         }
+        let forgetting = schedule.strayBeyond.map {
+            String(format: "; what was read in squares the eyes had left by more than %.2f of their distance is forgotten", $0)
+        } ?? ""
         switch strategy {
         case .wholeFrame:
-            return rhythm
+            return rhythm + forgetting
         case .faceBox(let detectEvery, let follow):
             return rhythm + ", the face found on one search in \(detectEvery) and its box "
-                + (follow ? "moved with the eyes" : "left where it was") + " in between"
+                + (follow ? "moved with the eyes" : "left where it was") + " in between" + forgetting
         }
     }
 

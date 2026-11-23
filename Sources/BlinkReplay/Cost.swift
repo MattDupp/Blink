@@ -12,6 +12,7 @@ import BlinkCore
 ///       model      ... and ask the model, then count: the whole pipeline, as the app runs it
 ///       --weights=<eyenet.weights>   ask the network written in Swift (a model trained in
 ///                                    the app) instead of the Core ML model
+///       --effort=light|standard|thorough        the pipeline at a level of effort (`Effort`)
 ///       --search-every=<n> --detect-every=<n>   another way of finding the eyes
 ///       --core-image-crops                      the eye pictures cut by Core Image
 ///       --log=<file.csv> --label=<word>         also add the line to a file
@@ -88,6 +89,7 @@ enum Cost {
         }
         let power = onBattery ? "battery" : "charger"
         let way = stage == .frames ? "-" : "search \(schedule.searchEvery) \(describe(strategy))"
+            + (schedule.strayBeyond.map { String(format: " forget %.2f", $0) } ?? "")
         var text = String(format: "cost %@ (%@, %@, on %@%@): %.0f s of video | work %.1f million instructions a second | ",
                           stage.rawValue, stage == .model ? judge : "no model", way, power, flatOut ? ", flat out" : "", seconds,
                           used.instructions / seconds / 1_000_000)

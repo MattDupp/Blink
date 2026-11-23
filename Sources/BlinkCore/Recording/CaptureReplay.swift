@@ -76,7 +76,7 @@ public enum CaptureReplay {
                     reading = read.reading
                     timings.record(read.cost)
                 }
-                let event = detector.update(time: frame.time, closed: reading.closed)
+                let event = detector.update(time: frame.time, reading: reading)
 
                 var bySide: [EyeRegion.Side: Double] = [:]
                 for eye in reading.eyes { bySide[eye.side] = eye.closed }
