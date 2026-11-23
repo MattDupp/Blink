@@ -117,6 +117,73 @@ struct TrainingTests {
         #expect(TrainingSet.gray(contentsOf: folder.appendingPathComponent("missing.png")) == nil)
     }
 
+    /// The network as it was first written: one number at a time, in plain loops. Slow,
+    /// and easy to check against training/model.py by reading it. `EyeNetwork` now moves
+    /// whole rows and maps instead, and must give this version's numbers.
+    private func plainScore(_ weights: EyeNetWeights, gray picture: [Float]) -> Float {
+        var input = picture
+        let mean = input.reduce(0, +) / Float(input.count)
+        input = input.map { $0 - mean }
+        let power = input.map { $0 * $0 }.reduce(0, +) / Float(input.count)
+        input = input.map { $0 * (1 / (power.squareRoot() + 1e-4)) }
+
+        for stage in 0..<EyeNetWeights.stages {
+            let side = 64 >> stage, area = side * side, half = side / 2
+            let inputs = EyeNetWeights.channels[stage], outputs = EyeNetWeights.channels[stage + 1]
+            var pooled = [Float](repeating: 0, count: outputs * half * half)
+            for o in 0..<outputs {
+                var map = [Float](repeating: 0, count: area)
+                for y in 0..<side { for x in 0..<side {
+                    var sum: Float = 0
+                    for i in 0..<inputs { for ky in 0..<3 { for kx in 0..<3 {
+                        let sy = y + ky - 1, sx = x + kx - 1
+                        guard sy >= 0, sy < side, sx >= 0, sx < side else { continue }
+                        sum += weights.kernels[stage][(o * inputs + i) * 9 + ky * 3 + kx] * input[i * area + sy * side + sx]
+                    } } }
+                    map[y * side + x] = sum
+                } }
+                for y in 0..<half { for x in 0..<half {
+                    let p = 2 * y * side + 2 * x
+                    let strongest = max(max(map[p], map[p + 1]), max(map[p + side], map[p + side + 1]))
+                    pooled[o * half * half + y * half + x] = max(strongest + weights.biases[stage][o], 0)
+                } }
+            }
+            input = pooled
+        }
+        var score = weights.bias
+        for o in 0..<64 {
+            score += input[(o * 16)..<(o * 16 + 16)].reduce(0, +) / 16 * weights.linear[o]
+        }
+        return score
+    }
+
+    @Test("The network gives the numbers of the same network written one number at a time")
+    func sameAsPlainLoops() throws {
+        var random = SeededRandom(seed: 23)
+        // Small weights: with larger ones the numbers grow from stage to stage, and the
+        // comparison would be between two infinities.
+        let weights = try EyeNetWeights(flat: (0..<60_289).map { _ in random.uniform(-0.08, 0.08) })
+        let network = EyeNetwork(weights: weights)
+        var pictures = try [PaintedEye(openness: 0.8), PaintedEye(openness: 0)]
+            .map { try #require($0.buffer().flatMap(TrainingSet.gray(of:))) }
+        // And pictures of nothing: every pixel its own value, edges included.
+        for _ in 0..<2 { pictures.append((0..<EyeNetwork.pixels).map { _ in random.uniform(0, 1) }) }
+
+        var scores: [Float] = []
+        for picture in pictures {
+            let fast = picture.withUnsafeBufferPointer { network.score(ofGray: $0.baseAddress!) }
+            let plain = plainScore(weights, gray: picture)
+            scores.append(fast)
+            // The two add the same products in another order (a matrix product does not
+            // sum as a loop does), so the last digits may differ: a few millionths of
+            // the number, nothing a threshold at 0.6 can feel.
+            #expect(abs(fast - plain) <= 2e-5 * max(1, abs(plain)), "\(fast) and \(plain)")
+        }
+        // The pictures must not all get one number: that would compare nothing.
+        #expect(Set(scores).count == pictures.count)
+        #expect(scores.allSatisfy { $0.isFinite && abs($0) < 50 })
+    }
+
     @Test("A picture of the wrong size is refused, not silently resized")
     func wrongSize() throws {
         let network = EyeNetwork(weights: try silentWeights(bias: 0))
