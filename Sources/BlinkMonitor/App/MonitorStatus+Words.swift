@@ -82,8 +82,8 @@ extension MonitorStatus {
     /// and is not the name.
     func spoken(_ said: String, limit: Int) -> String {
         if let rate { return "Blink. \(Int(rate.rounded())) blinks a minute. " + said }
-        let tooltip = tooltip(limit: limit)
-        return tooltip.hasPrefix("Blink ") || tooltip.hasPrefix("Blink:") ? said : "Blink. " + said
+        let shown = tooltip(limit: limit)
+        return shown.hasPrefix("Blink ") || shown.hasPrefix("Blink:") ? said : "Blink. " + said
     }
 
     /// One or two words, for the pill in the panel.
