@@ -15,7 +15,7 @@ import os.path
 # dmgbuild runs this file with one extra global, `defines`: the -D name=value pairs of
 # its command line.
 given = globals()["defines"]
-app = given["app"]  # build/dmg/Blink Monitor.app
+app = given["app"]  # build/dmg/Blink.app
 app_name = os.path.basename(app)
 
 # --- What is on the disk ---------------------------------------------------------------

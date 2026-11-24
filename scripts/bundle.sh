@@ -7,7 +7,7 @@
 #
 #   DEMO=1 scripts/bundle.sh BlinkMonitor             build/BlinkMonitorDemo.app: the same
 #                                                     program under another identity (below)
-#   BUNDLE="build/dmg/Blink Monitor.app" scripts/...  put the app there instead (scripts/dmg.sh)
+#   BUNDLE="build/dmg/Blink.app" scripts/...          put the app there instead (scripts/dmg.sh)
 #   SIGN_IDENTITY="Developer ID Application: ..."     sign with that certificate instead of ad hoc
 #
 # WHY AN APP AND NOT JUST THE PROGRAM. macOS gives the camera to an APP, identified by its

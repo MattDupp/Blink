@@ -29,7 +29,7 @@ Everything goes through the `Makefile`; `make` alone lists the targets.
 | `make demo` | Build and open the app on made-up eyes: no camera, nothing recorded |
 | `make demo-tour` | The demo walks through its own screens by itself, for filming (`Tour.swift`). It opens windows on this Mac: the owner runs it |
 | `make snapshots` | Render every screen and state, light and dark, to `build/screens` |
-| `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
+| `make dmg` | Build the installer, `build/Blink.dmg`, and check what is inside |
 | `make monitor` | Install the app in `~/Applications` and start it |
 | `make evaluate` | Blink counting on the annotated captures (needs `data/`): judges the model and the counting rules |
 | `make replay` | Whole-frame captures through the eye finding again (needs `data/replay`): judges the stage before the model, at each level of effort |
@@ -235,8 +235,9 @@ their numbers, and the file formats, across the two languages.
   word. What macOS keys on keeps the old name: the bundle ids `local.blinkmonitor.*`, the
   log subsystem, the data folder `BlinkMonitor` and the executable. Renaming one of them
   resets the settings and the camera permission, or leaves the history and the model
-  behind. The app's file name and the disk image still say Blink Monitor until a release
-  renames them.
+  behind. The disk image is `Blink.dmg` and holds `Blink.app`. `make monitor` installs
+  `BlinkMonitor.app`: the Makefile tells the two copies apart by their file names
+  (`DRAGGED`, which also lists version 1.0's `Blink Monitor.app`).
 - **A fact said in several places is one sentence.** The low rate is `LowRateWords`, for
   the panel, the banner and the tooltip. The camera's sentences are in `CameraNote`, worded
   by `CameraPlace`: a lid is named only on a portable Mac, for the Mac's own camera.

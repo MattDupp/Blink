@@ -25,7 +25,7 @@ Run `make` to list them.
 | `make compare` | The app's own trainer against the Python route, on the same pictures and splits (see "Measuring the app's trainer") |
 | `make replay` | Run the captures that kept whole frames through the eye finding again, and count their blinks, at each level of effort; `PACE=1` also reports the cost of each stage |
 | `make uninstall` | Remove every installed copy of the app; history, recordings and model are kept |
-| `make dmg` | Build the installer, `build/BlinkMonitor.dmg`, and check what is inside |
+| `make dmg` | Build the installer, `build/Blink.dmg`, and check what is inside |
 | `make snapshots` | Render every screen, in every state worth looking at, to `build/screens` with made-up data; the pictures the docs show are copied to `docs/img` |
 | `make icon` | Draw the app icon |
 | `make clean` | Remove build products. Never touches `data/` or `models/` |
@@ -375,7 +375,7 @@ changes. `SourceTests` fails if a stored `Date()` comes back.
 
 ## The installer
 
-`make dmg` builds `build/BlinkMonitor.dmg`. The name carries no version, so the README's download link never changes. The version comes from
+`make dmg` builds `build/Blink.dmg`. The name carries no version, so the README's download link stays the same from one version to the next. It changed once, with the app's name: version 1.0 was `BlinkMonitor.dmg`. The version comes from
 `CFBundleShortVersionString` in `App/BlinkMonitor-Info.plist`: change it there, and
 `CFBundleVersion` with it, before a new release.
 
@@ -387,7 +387,7 @@ the other. There is no installer program, and nothing is written anywhere else.
 
 | File | What it is |
 |---|---|
-| `Blink Monitor.app` | The app, with no model inside |
+| `Blink.app` | The app, with no model inside |
 | `Applications` | A symbolic link to `/Applications` |
 | `.DS_Store` | Finder's notes on the window: its size, where each icon sits, the picture behind them |
 | `.background.tiff` | That picture, at two resolutions |
@@ -417,7 +417,7 @@ directly is what lets the image be built with nobody at the screen, and in CI.
 **No model, ever, in the public image.** The app that the image installs has no model, so
 it runs as the demo (`Options.demo`) and says how to train one. For your own second Mac
 there is `make dmg WITH_MODEL=models/EyeNet.mlmodelc`. It writes
-`build/BlinkMonitor-with-my-model.dmg`, under another name so that it cannot be
+`build/Blink-with-my-model.dmg`, under another name so that it cannot be
 taken for the public one. Publishing that file publishes the model.
 
 ### What a downloaded app meets
@@ -437,7 +437,7 @@ taken for the public one. Publishing that file publishes the model.
 To see Gatekeeper's verdict without downloading anything:
 
 ```bash
-cp -R "/Volumes/Blink Monitor/Blink Monitor.app" /tmp/ && xattr -w com.apple.quarantine "0083;$(printf %x $(date +%s));Safari;" "/tmp/Blink Monitor.app" && spctl --assess --type execute -v "/tmp/Blink Monitor.app"
+cp -R /Volumes/Blink/Blink.app /tmp/ && xattr -w com.apple.quarantine "0083;$(printf %x $(date +%s));Safari;" /tmp/Blink.app && spctl --assess --type execute -v /tmp/Blink.app
 ```
 
 It answers `rejected`. `codesign --verify --deep --strict` on the same copy says the
@@ -446,7 +446,9 @@ signature itself is valid: the app is intact, and its author is unknown to Apple
 ### One installed copy
 
 A copy dragged to `/Applications` and the copy `make monitor` puts in `~/Applications` are
-the same app to macOS: one identifier. Three rules keep that from going wrong.
+the same app to macOS: one identifier. The Makefile tells them apart by their file names:
+`Blink.app` for a dragged copy (`Blink Monitor.app` in version 1.0, see `DRAGGED`), and
+`BlinkMonitor.app` for its own. Three rules keep that from going wrong.
 
 - **One copy runs.** A copy that starts while another runs from somewhere else quits, after
   asking the running one to open its panel. See `Installation.start`.
@@ -489,20 +491,22 @@ it was written on.
 
 `make dmg` prints the image's SHA-256. The image is never committed (`.gitignore`). It is
 attached to a GitHub release, and the README's download link points to the latest one.
-Until a release exists, that link shows an empty page.
+Until a release exists, that link shows an empty page. The same holds when the file's
+name changes, as it did after 1.0: the README links to `Blink.dmg` from the moment
+`main` is pushed, so publish the release right after.
 
 Once `main` is pushed, in a browser:
 
 1. Open `https://github.com/MattDupp/Blink/releases/new`.
 2. In *Choose a tag*, type `v1.0` and pick *Create new tag on publish*. The target is `main`.
 3. Give it the title `Blink 1.0` and a few words: a demo, and macOS stops the first opening.
-4. Drop `build/BlinkMonitor.dmg` on *Attach binaries*.
+4. Drop `build/Blink.dmg` on *Attach binaries*.
 5. *Save draft* to look at it first, or *Publish release*.
 
 Or with GitHub's command-line tool (`brew install gh`, then `gh auth login`):
 
 ```bash
-gh release create v1.0 build/BlinkMonitor.dmg --title "Blink 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
+gh release create v1.0 build/Blink.dmg --title "Blink 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
 ```
 
 Either way this creates the tag `v1.0` on GitHub at the tip of `main`, and a public page

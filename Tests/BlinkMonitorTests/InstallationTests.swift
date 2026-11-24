@@ -7,7 +7,7 @@ import Testing
 @Suite("Where the app is installed")
 struct InstallationTests {
 
-    private let applications = URL(fileURLWithPath: "/Applications/Blink Monitor.app", isDirectory: true)
+    private let applications = URL(fileURLWithPath: "/Applications/Blink.app", isDirectory: true)
     private let ownApplications = URL(fileURLWithPath: "/Users/someone/Applications/BlinkMonitor.app", isDirectory: true)
 
     @Test("With no other copy running, the app starts")
@@ -28,13 +28,13 @@ struct InstallationTests {
     func replacedOnDisk() {
         #expect(Installation.start(own: applications, running: [applications]) == .replacing)
         // The same place written another way is the same place.
-        let roundabout = URL(fileURLWithPath: "/Applications/../Applications/Blink Monitor.app/", isDirectory: true)
+        let roundabout = URL(fileURLWithPath: "/Applications/../Applications/Blink.app/", isDirectory: true)
         #expect(Installation.start(own: applications, running: [roundabout]) == .replacing)
     }
 
     @Test("A copy still running from the disk image gives way to the one installed since")
     func diskImageCopyGivesWay() {
-        let image = URL(fileURLWithPath: "/Volumes/Blink Monitor/Blink Monitor.app", isDirectory: true)
+        let image = URL(fileURLWithPath: "/Volumes/Blink/Blink.app", isDirectory: true)
         let onImage: (URL) -> Bool = { $0.path.hasPrefix("/Volumes/") }
         // Opened from Applications while the disk image's copy runs: the new one stays.
         #expect(Installation.start(own: applications, running: [image], onReadOnlyDisk: onImage) == .replacing)

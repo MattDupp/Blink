@@ -17,8 +17,8 @@ and nothing is sent anywhere.
 
 ## Try it
 
-**[Download the disk image](https://github.com/MattDupp/Blink/releases/latest/download/BlinkMonitor.dmg)**
-(`BlinkMonitor.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
+**[Download the disk image](https://github.com/MattDupp/Blink/releases/latest/download/Blink.dmg)**
+(`Blink.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
 No terminal.
 
 1. Open the file. A window shows Blink next to a shortcut to your Applications folder.
@@ -62,7 +62,9 @@ Apple has not scanned it. All of its code is in this repository.
 ### Update it, remove it
 
 - **Update:** quit Blink (click the eye, then *Quit*). Open the new disk image, drag
-  again, and choose *Replace*.
+  again, and choose *Replace*. Version 1.0 was called Blink Monitor, and dragging does not
+  replace it: move *Blink Monitor* from Applications to the Trash, so that macOS knows one
+  copy only.
 - **Remove:** Settings > Privacy > *Delete Everything and Quit…* removes the recordings, the
   model, the history, the routine log, the break log, your eye notes and every setting, after
   one question. Then drag the
@@ -601,6 +603,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | *"Blink" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |
 | The panel says "Running from the disk image" | You opened the app inside the image's window. Quit it, drag it onto Applications, and open it from there. |
 | Opening the app only opens its panel | It was already running. It has no window: the panel under the eye is the app. |
+| *Blink Monitor* is still in Applications | That is version 1.0, under its old name. Quit it if it runs, and move it to the Trash: macOS should know one copy only. |
 | `make monitor` says the app is already installed | A copy from the disk image is in Applications. Quit it and move it to the Trash, then run `make monitor` again. |
 | macOS asks for the camera again | The permission belongs to one build. A rebuilt app is a new app to macOS: allow it again. |
 | "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink, and open it again. |

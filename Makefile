@@ -32,9 +32,10 @@ QUIET := 2>&1 | { grep -v "ld: warning: search path" || true; }
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 # Where the app is when it was dragged out of the disk image (make dmg), as opposed to
-# installed by `make monitor`. It has another file name there: "Blink Monitor", as people
-# read it in Finder.
-DRAGGED := "/Applications/Blink Monitor.app" "$(HOME)/Applications/Blink Monitor.app"
+# installed by `make monitor`. It has another file name there: "Blink", as people read it
+# in Finder. Version 1.0 was "Blink Monitor", and dragging the new one does not replace it.
+DRAGGED := "/Applications/Blink.app" "$(HOME)/Applications/Blink.app" \
+           "/Applications/Blink Monitor.app" "$(HOME)/Applications/Blink Monitor.app"
 
 # Recipes run in bash, and a failing command fails its recipe even when its output is filtered.
 SHELL := /bin/bash

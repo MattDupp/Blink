@@ -143,7 +143,7 @@ func background(scale: Int) -> CGImage {
         NSAttributedString(string: words, attributes: [.font: font, .foregroundColor: color])
     }
 
-    write(text("Install Blink Monitor", font(25, .bold, rounded: true), ink), centredAt: 42)
+    write(text("Install Blink", font(25, .bold, rounded: true), ink), centredAt: 42)
     write(text("Drag the app onto the Applications folder", font(13.5, .regular), softInk), centredAt: 70)
 
     if notarized {
@@ -171,7 +171,7 @@ func background(scale: Int) -> CGImage {
 
     if mock {
         // Stand-ins for what Finder adds: the two icons, and their names in black.
-        let icons = [(appX, NSImage(contentsOfFile: "App/AppIcon.icns"), "Blink Monitor"),
+        let icons = [(appX, NSImage(contentsOfFile: "App/AppIcon.icns"), "Blink"),
                      (applicationsX, Optional(NSWorkspace.shared.icon(forFile: "/Applications")), "Applications")]
         for (x, icon, name) in icons {
             icon?.draw(in: CGRect(x: x - iconSize / 2, y: fromTop(iconY) - iconSize / 2, width: iconSize, height: iconSize))

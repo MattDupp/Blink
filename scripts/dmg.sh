@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the installer:   scripts/dmg.sh     (or: make dmg)
 #
-#   build/BlinkMonitor.dmg               one file to download: opening it shows the app
+#   build/Blink.dmg                      one file to download: opening it shows the app
 #                                        next to a shortcut to Applications
 #
 # A DISK IMAGE (.dmg) is one file that holds a small disk. Opening it "mounts" the disk:
@@ -27,17 +27,19 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-}"
 WITH_MODEL="${WITH_MODEL:-}"
 export SIGN_IDENTITY
 
-VOLUME="Blink Monitor"                  # the disk's name, in Finder and in the window's title
+VOLUME="Blink"                          # the disk's name, in Finder and in the window's title,
+                                        # and the app's file name in it (Blink.app)
 WORK="build/dmg"                        # everything this script makes on the way
 APP="$WORK/$VOLUME.app"
 MOUNT="$WORK/mount"
 # The version is written once, in the app's Info.plist; the file name follows it.
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' App/BlinkMonitor-Info.plist)"
 # The file's name carries no version, on purpose: the README links straight to
-# releases/latest/download/BlinkMonitor.dmg, and that link then never changes. The
-# version is in the app (Get Info), in the release's title and in the check of step 5.
-DMG="build/BlinkMonitor.dmg"
-[ -z "$WITH_MODEL" ] || DMG="build/BlinkMonitor-with-my-model.dmg"
+# releases/latest/download/Blink.dmg, and that link then stays the same from one version
+# to the next. It changed once, with the app's name: version 1.0 was BlinkMonitor.dmg.
+# The version is in the app (Get Info), in the release's title and in the check of step 5.
+DMG="build/Blink.dmg"
+[ -z "$WITH_MODEL" ] || DMG="build/Blink-with-my-model.dmg"
 
 step() { printf '\n== %s\n' "$1"; }
 stop() { printf '\nNot built: %s\n' "$1" >&2; exit 1; }
