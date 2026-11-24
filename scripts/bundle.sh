@@ -41,8 +41,8 @@ cp "App/$PRODUCT-Info.plist" "$APP/Contents/Info.plist"
 if [ "${DEMO:-}" = 1 ]; then
     plist() { /usr/libexec/PlistBuddy -c "$1" "$APP/Contents/Info.plist"; }
     plist "Set :CFBundleIdentifier local.blinkmonitor.demo"
-    plist "Set :CFBundleName Blink Monitor Demo"
-    plist "Set :CFBundleDisplayName Blink Monitor Demo"
+    plist "Set :CFBundleName Blink Demo"
+    plist "Set :CFBundleDisplayName Blink Demo"
     plist "Add :BlinkMonitorDemo bool true"
 fi
 for resource in "$@"; do

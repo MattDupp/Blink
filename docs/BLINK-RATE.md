@@ -1,6 +1,6 @@
 # What is a healthy blink rate?
 
-This page is the research behind the range Blink Monitor shows. It was written on
+This page is the research behind the range Blink shows. It was written on
 21 November 2026 from the published studies themselves, and extended the same day with
 studies from 2024 to 2026. Each number below comes from a
 source that was opened, and each source says how it was read:
@@ -11,7 +11,7 @@ source that was opened, and each source says how it was read:
 - **Through a review**: the paper itself could not be opened. Its figures are given as an
   open review reports them, and the review is named.
 
-Blink Monitor is not a medical device. This page reports what studies found. It does not
+Blink is not a medical device. This page reports what studies found. It does not
 diagnose anything.
 
 ## The answer
@@ -81,7 +81,7 @@ Two things, from two kinds of study.
 
 **What a rate does: one experiment.** Chai 2025 is the only study that changed the rate
 and measured the eyes. For people with dry eye symptoms, 10 blinks a minute was worse
-than 20 or than their own rate. Blink Monitor takes it as its main source: its limit
+than 20 or than their own rate. Blink takes it as its main source: its limit
 starts at 10, the rate that did harm. It does not use 20, the threshold the authors name,
 as a limit: nothing between 10 and 20 was tested, the people were not at a screen, and
 healthy adults at a screen average 5 to 15.
@@ -106,7 +106,7 @@ How sure is this?
 | Incomplete blinks are linked to dry eye signs | Good. Two studies of 154 and 453 people, and several smaller ones. They show a link, not a cause. |
 | Reminders to blink more reduce symptoms | Mixed. Five studies all raised the rate. Three of them improved symptoms, and only in the short term (TFOS 2023). |
 
-### How Blink Monitor's number differs from a study's
+### How Blink's number differs from a study's
 
 - **It counts complete closures only.** A blink is counted when the model says the eyes are
   closed. Most studies count every lid movement, incomplete blinks included. The share of
@@ -149,7 +149,7 @@ Rates are in blinks a minute. "±" is the standard deviation unless said otherwi
 
 | Study | Who and how | What they found | Limits | Read as |
 |---|---|---|---|---|
-| Freudenthaler 2003 | 51 healthy volunteers. Video analysed by computer. **Complete blinks only.** 10 minutes of conversation, then 10 minutes at a screen. | Conversation 15.5 ± 13.7. At the screen 5.3 ± 4.5. Individuals at the screen: 0.4 to 18.9. Three patterns at the screen: very low (0 to 2 a minute), moderate (1.2 to 8.5) and high (6.8 to 18.9). No link between rate and tear break-up time. | A screen of 2003. The closest study to what Blink Monitor counts. | Abstract |
+| Freudenthaler 2003 | 51 healthy volunteers. Video analysed by computer. **Complete blinks only.** 10 minutes of conversation, then 10 minutes at a screen. | Conversation 15.5 ± 13.7. At the screen 5.3 ± 4.5. Individuals at the screen: 0.4 to 18.9. Three patterns at the screen: very low (0 to 2 a minute), moderate (1.2 to 8.5) and high (6.8 to 18.9). No link between rate and tear break-up time. | A screen of 2003. The closest study to what Blink counts. | Abstract |
 | Argilés 2015 | 50 adults aged 18 to 74 (34 ± 16) without dry eye symptoms, not told that blinks were counted. Face filmed at 60 frames a second, or by a webcam at 30. Two examiners counted. A blink was complete when none of the cornea stayed visible. | Looking at a picture 2 m away: median 15.5. Reading on a computer: 6.5. On a tablet: 6. A book: 5. The computer text enlarged: 11.5. Incomplete blinks: 9% to 14.5% on screens, 0% to 5% on paper. Women blinked more than men in almost every condition. | The spread is wide. The authors say 80 people were needed to be sure about incomplete blinks. | Full text |
 | Talens-Estarelles 2022 | 32 healthy adults aged 20 to 26. Infrared camera at 250 frames a second. 150 seconds per condition. | Looking at a cross 3 m away: 20.4 (95% interval 16.2 to 24.5). Laptop 9.8 (6.9 to 12.8). Tablet 10.2. E-reader 9.7. Phone 11.1. Incomplete blinks: 56% on the laptop, 38% looking at the cross. | Very short recordings. A chin rest. | Full text |
 | Portello 2013 | 21 people reading on a desktop computer for 15 minutes, filmed. | 11.6 ± 7.8. Incomplete blinks 16.1% ± 15.7, from 0.9% to 56.5%. More incomplete blinks went with more symptoms. A sound that raised the rate to 23.5 did not change symptoms. | Small. | Abstract |

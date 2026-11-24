@@ -147,7 +147,7 @@ detach
 trap - EXIT
 
 # The app that went into the image is not left lying in build/. macOS notices every app
-# it comes across and files it under its identifier; a second "Blink Monitor" known to
+# it comes across and files it under its identifier; a second copy of the app known to
 # macOS is how Notification Centre loses the icon of the installed one (see `make monitor`).
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 "$LSREGISTER" -u "$PWD/$APP" >/dev/null 2>&1 || true

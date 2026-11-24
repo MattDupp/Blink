@@ -39,7 +39,7 @@ enum TrainingFailureWords {
 
     static let advice = "Quit apps that work the graphics processor hard (games, video editing), or restart the Mac, then try again."
     /// Where a problem is reported. The browser opens it: the app itself connects to nothing.
-    static let reportPage = URL(string: "https://github.com/MattDupp/blink-monitor/issues/new")
+    static let reportPage = URL(string: "https://github.com/MattDupp/Blink/issues/new")
 }
 
 /// The setup window: one page per step, and above them where you are.
@@ -207,7 +207,7 @@ private struct WelcomePage: View {
                     .frame(width: 60, height: 60)
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Blink Monitor")
+                    Text("Blink")
                         .textStyle(.largeTitle, weight: .bold, design: .rounded)
                     Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
@@ -422,9 +422,9 @@ private struct CameraTrouble {
     init?(_ state: SetupModel.CameraState) {
         switch state {
         case .refused:
-            title = String(CameraNote.blocked(appName: "Blink Monitor").dropLast())
-            text = CameraNote.unblock(appName: "Blink Monitor") + " macOS may then ask to quit and reopen "
-                + "Blink Monitor: say yes, the setup goes on from this page."
+            title = String(CameraNote.blocked(appName: "Blink").dropLast())
+            text = CameraNote.unblock(appName: "Blink") + " macOS may then ask to quit and reopen "
+                + "Blink: say yes, the setup goes on from this page."
             refused = true
         case .failed(let reason):
             title = "The camera could not be started"
@@ -485,7 +485,7 @@ private struct SetupCamera: View {
         if model.isDemo { return "Demo: there is no camera picture. The eyes on the right are painted." }
         switch model.camera {
         case .asking: return "macOS is asking for the camera…"
-        case .refused: return CameraNote.blocked(appName: "Blink Monitor")
+        case .refused: return CameraNote.blocked(appName: "Blink")
         case .failed: return "The camera could not be started."
         case .off, .on: return model.cameraSilent ? CameraNote.silent : "Starting the camera…"
         }
@@ -866,7 +866,7 @@ private struct TrainPage: View {
                         }
                         if let page = TrainingFailureWords.reportPage {
                             Button("Report It") { NSWorkspace.shared.open(page) }
-                                .help("Opens the project's page in your browser. Blink Monitor itself sends nothing.")
+                                .help("Opens the project's page in your browser. Blink itself sends nothing.")
                         }
                     }
                 }
@@ -1121,7 +1121,7 @@ struct DonePage: View {
                 MenuBarSketch()
                 VStack(alignment: .leading, spacing: 2) {
                     Text("From now on, look up").fontWeight(.semibold)
-                    Text("Blink Monitor has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye.")
+                    Text("Blink has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1178,10 +1178,10 @@ struct DonePage: View {
     /// whether or not counting had started.
     static func title(for status: MonitorStatus) -> String {
         switch status {
-        case .watching, .low, .noFace: return "Blink Monitor is counting your blinks"
-        case .paused: return "Blink Monitor is ready, and paused"
+        case .watching, .low, .noFace: return "Blink is counting your blinks"
+        case .paused: return "Blink is ready, and paused"
         case .cameraRefused, .cameraSilent, .failed: return "Your model is ready, but the camera is not"
-        case .starting, .needsSetup, .settingUp: return "Blink Monitor is ready"
+        case .starting, .needsSetup, .settingUp: return "Blink is ready"
         }
     }
 
@@ -1212,7 +1212,7 @@ private struct NotificationPoint: View {
         case .refused:
             VStack(alignment: .leading, spacing: 6) {
                 WelcomePoint(symbol: "bell.slash", title: "Notifications are not allowed",
-                             text: "Reminders then only show in the menu bar and the panel, and a look-away break is a sound with no words. You can allow them in System Settings > Notifications > Blink Monitor.")
+                             text: "Reminders then only show in the menu bar and the panel, and a look-away break is a sound with no words. You can allow them in System Settings > Notifications > Blink.")
                 Button("Open Notification Settings") { actions.openNotificationSettings() }
                     .padding(.leading, 42)
             }
@@ -1234,7 +1234,7 @@ private struct LoginPoint: View {
                     .frame(width: 30)
                 Toggle(isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) })) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Start Blink Monitor when I log in").fontWeight(.semibold)
+                        Text("Start Blink when I log in").fontWeight(.semibold)
                         Text(loginItem.problem ?? "Without this, it is gone after a restart until you open it again. You can change it in Settings > General.")
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)

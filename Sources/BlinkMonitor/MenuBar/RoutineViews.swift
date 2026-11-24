@@ -463,7 +463,7 @@ enum RoutineWords {
 
     /// Under the list. Two sentences: the long footnote carried rules nobody read, and
     /// each routine's line now says how its own reminders come.
-    static let footnote = "Blink Monitor reminds you of routines that you, or your eye-care professional, chose. "
+    static let footnote = "Blink reminds you of routines that you, or your eye-care professional, chose. "
         + "It does not say what to use or how often."
 
     /// Under the day chips of a weekly routine. "3" times beside seven chips looked like a

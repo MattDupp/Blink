@@ -64,7 +64,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             button.imagePosition = .imageLeading
             // Digits of equal width: the item does not twitch when 9 becomes 10.
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-            button.setAccessibilityLabel("Blink Monitor")
+            button.setAccessibilityLabel("Blink")
         }
         refresh()
 
@@ -121,7 +121,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let status = model.status()
         // Reduce Motion: no eye closing 15 times a minute at the edge of vision.
         guard model.preferences.blinkBack, !Comfort.reduceMotion, status.isCameraOn || status == .settingUp(.testing),
-              let closed = NSImage(systemSymbolName: "eye.half.closed", accessibilityDescription: "Blink Monitor") else { return }
+              let closed = NSImage(systemSymbolName: "eye.half.closed", accessibilityDescription: "Blink") else { return }
         closed.isTemplate = true
         item.button?.image = closed
         eyeClosedUntil = Date().addingTimeInterval(0.16)
@@ -142,8 +142,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let drawn = Drawn(status: status, withRate: withRate, orange: model.preferences.orangeRateWhenLow && status.isLow, marks: marks)
         guard drawn != shown, let button = item.button else { return }
         shown = drawn
-        let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "Blink Monitor")
-            ?? NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink Monitor")
+        let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: "Blink")
+            ?? NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink")
         // A "template" image is drawn by macOS in the menu bar's own colour: black on a
         // light bar, white on a dark one.
         image?.isTemplate = true
@@ -171,11 +171,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let tooltip = status.tooltip(limit: model.preferences.limit)
         let said = marks.tooltip(after: tooltip)
         button.toolTip = (model.isDemo ? "Demo, on made-up eyes. " : "") + said
-        // VoiceOver heard "Blink Monitor" whatever the rate or the state.
-        button.setAccessibilityLabel(tooltip.hasPrefix("Blink Monitor") ? said : "Blink Monitor. " + said)
-        if let rate = status.rate {
-            button.setAccessibilityLabel("Blink Monitor. \(Int(rate.rounded())) blinks a minute. " + said)
-        }
+        button.setAccessibilityLabel(status.spoken(said, limit: model.preferences.limit))
     }
 
     @objc private func clicked() {
@@ -193,7 +189,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         let status = model.status()
         if status == .needsSetup {
-            add("Set Up Blink Monitor…", #selector(menuSetup))
+            add("Set Up Blink…", #selector(menuSetup))
         } else {
             add("Blink Break", #selector(menuBlinkBreak), enabled: status.isCameraOn)
             if model.showsResume {
@@ -211,7 +207,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         add("Settings…", #selector(menuSettings))
         menu.addItem(.separator())
-        add("Quit Blink Monitor", #selector(menuQuit))
+        add("Quit Blink", #selector(menuQuit))
         // Shown once, then taken away again: with a menu set, the left click would open it too.
         item.menu = menu
         item.button?.performClick(nil)

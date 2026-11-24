@@ -1,5 +1,5 @@
 #!/bin/bash
-# What the whole Mac draws while Blink Monitor is in one state, then in another.
+# What the whole Mac draws while Blink is in one state, then in another.
 #
 #   scripts/whole-mac-draw.sh counting paused counting
 #   scripts/whole-mac-draw.sh thorough light thorough paused

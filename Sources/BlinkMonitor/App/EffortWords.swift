@@ -26,7 +26,7 @@ enum EffortWords {
             return "Looks for your eyes \(effort.searchesASecond) times a second, and forgets what it read while your head moved fast. "
                 + "About \(share(effort)) less processor work than Standard. \(counted), where Standard counted \(standard.found)."
         case .standard:
-            return "Looks for your eyes \(effort.searchesASecond) times a second: what Blink Monitor does unless you choose otherwise. \(counted)."
+            return "Looks for your eyes \(effort.searchesASecond) times a second: what Blink does unless you choose otherwise. \(counted)."
         case .thorough:
             return "Looks for your eyes in every picture of the camera, \(effort.searchesASecond) times a second. "
                 + "About \(share(effort)) more processor work than Standard. \(counted), where Standard counted \(standard.found)."

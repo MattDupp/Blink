@@ -19,7 +19,7 @@ struct WelcomeView: View {
                     .frame(width: 60, height: 60)
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Blink Monitor")
+                    Text("Blink")
                         .textStyle(.largeTitle, weight: .bold, design: .rounded)
                     Text(AppWords.tagline)
                         .foregroundStyle(.secondary)
@@ -42,7 +42,7 @@ struct WelcomeView: View {
                 MenuBarSketch()
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Afterwards, look up").fontWeight(.semibold)
-                    Text("Blink Monitor has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye. To watch it work, open Live View from there.")
+                    Text("Blink has no window and no Dock icon. It lives in the menu bar, at the top right of the screen: click the eye. To watch it work, open Live View from there.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

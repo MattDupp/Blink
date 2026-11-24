@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Blink Monitor is a macOS menu-bar app for digital eye strain. It counts blinks through the
+Blink is a macOS menu-bar app for digital eye strain. It counts blinks through the
 webcam with a small neural network trained on each user's own eyes, inside the app, and it
 carries an eye-care routine around that: look-away breaks, and reminders on a schedule.
 
@@ -231,6 +231,12 @@ their numbers, and the file formats, across the two languages.
   "recording", "reminder", "at the screen", "blinks a minute", "Quiet", "Show in Finder".
   `SourceTests` fails when a retired word returns in a quoted string. Names in the code
   may differ (`reference`, `floor`, `session`).
+- **The app is called Blink.** It was Blink Monitor until 24 November 2026, now a retired
+  word. What macOS keys on keeps the old name: the bundle ids `local.blinkmonitor.*`, the
+  log subsystem, the data folder `BlinkMonitor` and the executable. Renaming one of them
+  resets the settings and the camera permission, or leaves the history and the model
+  behind. The app's file name and the disk image still say Blink Monitor until a release
+  renames them.
 - **A fact said in several places is one sentence.** The low rate is `LowRateWords`, for
   the panel, the banner and the tooltip. The camera's sentences are in `CameraNote`, worded
   by `CameraPlace`: a lid is named only on a portable Mac, for the Mac's own camera.

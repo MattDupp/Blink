@@ -20,7 +20,7 @@ final class LoginItem: ObservableObject {
         if demo || Bundle.main.bundleIdentifier == nil {
             unavailable = "Not in the demo."
         } else if onDiskImage {
-            unavailable = "Not from the disk image: drag Blink Monitor onto Applications and open it from there."
+            unavailable = "Not from the disk image: drag Blink onto Applications and open it from there."
         } else {
             unavailable = nil
         }

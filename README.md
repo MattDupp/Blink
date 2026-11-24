@@ -1,6 +1,6 @@
-# Blink Monitor
+# Blink
 
-[![CI](https://github.com/MattDupp/blink-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/MattDupp/blink-monitor/actions/workflows/ci.yml)
+[![CI](https://github.com/MattDupp/Blink/actions/workflows/ci.yml/badge.svg)](https://github.com/MattDupp/Blink/actions/workflows/ci.yml)
 
 A macOS menu-bar app that counts your blinks through the webcam, with a small neural
 network **it trains on your own eyes**: two recordings of two minutes, a few seconds of
@@ -17,16 +17,16 @@ and nothing is sent anywhere.
 
 ## Try it
 
-**[Download the disk image](https://github.com/MattDupp/blink-monitor/releases/latest/download/BlinkMonitor.dmg)**
+**[Download the disk image](https://github.com/MattDupp/Blink/releases/latest/download/BlinkMonitor.dmg)**
 (`BlinkMonitor.dmg`, a few MB). It needs a Mac with an Apple chip and macOS 14 or later.
 No terminal.
 
-1. Open the file. A window shows Blink Monitor next to a shortcut to your Applications folder.
-2. Drag Blink Monitor onto Applications. Do this before you open it.
-3. Open Blink Monitor from Applications. The first time, macOS stops it: see
+1. Open the file. A window shows Blink next to a shortcut to your Applications folder.
+2. Drag Blink onto Applications. Do this before you open it.
+3. Open Blink from Applications. The first time, macOS stops it: see
    [If macOS stops it](#if-macos-stops-it).
 4. An eye appears in the menu bar, at the top right of the screen, and the setup window opens.
-   While the setup is open, Blink Monitor also has an icon in the Dock.
+   While the setup is open, Blink also has an icon in the Dock.
 
 **The app comes without a model, and makes one with you.** It counts blinks with a model
 trained on one person's eyes. That model is personal, so none comes with the app. The
@@ -37,20 +37,20 @@ first page offers a demo on made-up blinks, with the camera off.
 
 ### If macOS stops it
 
-The first time you open it, macOS shows a window titled ***"Blink Monitor" Not Opened***. It
+The first time you open it, macOS shows a window titled ***"Blink" Not Opened***. It
 says that Apple could not verify the app, and it has two buttons: **Done** and
 **Move to Trash**.
 
 **Press Done. Do not press Move to Trash.** Then, on macOS 15 and later:
 
 1. Open **System Settings > Privacy & Security**.
-2. Scroll down to *Security*. A line says that Blink Monitor was blocked.
+2. Scroll down to *Security*. A line says that Blink was blocked.
 3. Press **Open Anyway** beside that line. The button stays for about an hour after the
-   refusal. If it is gone, open Blink Monitor once more and come back.
+   refusal. If it is gone, open Blink once more and come back.
 4. Press **Open Anyway** again in the window that follows, then give your password or
    Touch ID.
 
-On macOS 14 the window has no such button. Hold Control and click Blink Monitor in
+On macOS 14 the window has no such button. Hold Control and click Blink in
 Applications, choose **Open**, then **Open** again.
 
 You do this once per version. After an update, macOS asks again.
@@ -61,7 +61,7 @@ Apple has not scanned it. All of its code is in this repository.
 
 ### Update it, remove it
 
-- **Update:** quit Blink Monitor (click the eye, then *Quit*). Open the new disk image, drag
+- **Update:** quit Blink (click the eye, then *Quit*). Open the new disk image, drag
   again, and choose *Replace*.
 - **Remove:** Settings > Privacy > *Delete Everything and Quit…* removes the recordings, the
   model, the history, the routine log, the break log, your eye notes and every setting, after
@@ -76,7 +76,7 @@ Apple's Command Line Tools (`xcode-select --install`), it builds in about a minu
 asks nothing then: an app built on your own Mac was not downloaded.
 
 ```bash
-git clone https://github.com/MattDupp/blink-monitor.git && cd blink-monitor
+git clone https://github.com/MattDupp/Blink.git && cd Blink
 ```
 
 ```bash
@@ -90,7 +90,7 @@ when the 20 seconds are over. The third break is a long one, of one minute.
 It never opens the camera and keeps its settings and history apart from the real app's.
 *See the Setup*, in its panel, goes through the setup on painted eyes: they are recorded,
 a model is really trained on them, and it is really tested.
-To use Blink Monitor on your own eyes, [download it](#try-it), or
+To use Blink on your own eyes, [download it](#try-it), or
 [build it yourself](#build-it-yourself).
 
 ## Why
@@ -286,7 +286,7 @@ Three more things the studies say shaped the app:
   and they never move your limit: it shows them next to it.
 - **Complete blinks count for more than the rate.** In a study of 453 people the share of
   incomplete blinks predicted dry eye disease, and the rate was linked to nothing measured
-  on the eye surface (Wang 2025). Blink Monitor counts complete blinks and does not
+  on the eye surface (Wang 2025). Blink counts complete blinks and does not
   measure incomplete ones yet.
 - **Healthy people at a screen average about 5 complete blinks a minute** (Freudenthaler
   2003), from 0.4 to 18.9 from one person to the next. A limit of 10 calls many of them
@@ -545,7 +545,7 @@ make monitor
 This builds the app, installs it in `~/Applications` and starts it. It has no model yet,
 so it opens the setup described above.
 
-If you also installed Blink Monitor from the disk image, quit that copy and move it to the
+If you also installed Blink from the disk image, quit that copy and move it to the
 Trash first. macOS should know one copy only. `make monitor` checks, and tells you if the
 other copy is still there.
 
@@ -593,20 +593,20 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 
 | What you see | Why, and what to do |
 |---|---|
-| "Setup" in the panel, and "!" in the menu bar | The app has no model of your eyes yet. *Set Up Blink Monitor* (or *Continue Setup*) in the panel opens the window where you left it. |
+| "Setup" in the panel, and "!" in the menu bar | The app has no model of your eyes yet. *Set Up Blink* (or *Continue Setup*) in the panel opens the window where you left it. |
 | "No face found" in the setup | The camera in use has to face you. With more than one camera, the camera page of the setup and Settings > General let you choose. |
 | "The camera lost your face for about 42% of that recording" | Your face left the picture during some poses. The recording is not kept: record it again. |
 | "The training stopped" | Press *Try Again*. Your recordings are untouched and no half-made model is installed. If it stops a second time, the window shows what the trainer said. |
 | The test counts fewer than 8 of 10 | Test again first: a missed tick is the usual reason. If it fails twice, record one more where you sit now: the model then learns from eyes in that light. |
-| *"Blink Monitor" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |
+| *"Blink" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |
 | The panel says "Running from the disk image" | You opened the app inside the image's window. Quit it, drag it onto Applications, and open it from there. |
 | Opening the app only opens its panel | It was already running. It has no window: the panel under the eye is the app. |
 | `make monitor` says the app is already installed | A copy from the disk image is in Applications. Quit it and move it to the Trash, then run `make monitor` again. |
 | macOS asks for the camera again | The permission belongs to one build. A rebuilt app is a new app to macOS: allow it again. |
-| "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink Monitor, and open it again. |
+| "No camera" in the panel | The camera was refused. Press *Open Camera Settings* in the panel, allow Blink, and open it again. |
 | "No picture" in the panel | The camera is on but sends nothing: the lid is closed, or the camera failed. Counting resumes by itself. |
 | No eye in the menu bar | On a MacBook with many menu-bar items, the notch can hide it. Quit a few, or use a menu-bar manager. |
-| No reminder ever shows | Settings > Blink Rate > *Send a Test Reminder*. If nothing appears, allow notifications for Blink Monitor in System Settings. |
+| No reminder ever shows | Settings > Blink Rate > *Send a Test Reminder*. If nothing appears, allow notifications for Blink in System Settings. |
 | A banner with a blank icon after reinstalling | Notification Centre kept the old one. Run `killall NotificationCenter`; macOS restarts it. |
 | The linker prints "search path ... not found" | Harmless: two folders that only exist inside Xcode. `make` hides them. |
 
@@ -621,7 +621,7 @@ Sources/BlinkMonitor     the menu-bar app: its setup, its windows, and its demo
 Sources/BlinkTrain       the tool that runs the app's trainer on the comparison's trainings
 Sources/BlinkReplay      the tool that replays recorded frames through the eye finding, and counts
 Tests/BlinkCoreTests     272 tests of the rules and of the trainer (Swift Testing)
-Tests/BlinkMonitorTests  145 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
+Tests/BlinkMonitorTests  146 tests of the app itself: its model, its setup, its choices, its words, its clock, its breaks, its routines, the demo, where it is installed
 training/                PyTorch training, Core ML conversion, labelling, evaluation and comparison tools, 27 tests
 scripts/                 app bundling, the installer's disk image, prerequisite check, icon drawing, manifest repair
 docs/                    how it works, the research on blink rates, lessons, development notes
@@ -646,7 +646,7 @@ docs/                    how it works, the research on blink rates, lessons, dev
 
 ## Not a medical device
 
-Blink Monitor is a personal project and a learning exercise. Its numbers are not a
+Blink is a personal project and a learning exercise. Its numbers are not a
 diagnosis, and its limits (10 blinks a minute to start with, then 70% of your own usual
 rate) are starting points, not medical ones. The ranges it shows are what studies report
 as typical, not targets, and nobody with clinical training reviewed that reading. If your

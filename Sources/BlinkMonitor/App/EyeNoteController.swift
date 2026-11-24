@@ -111,7 +111,7 @@ final class EyeNoteController: ObservableObject {
 /// reads as a finding: no "better", no "worse", no "because".
 enum EyeNoteWords {
     static let question = "How do your eyes feel?"
-    static let bannerBody = "One tap, from the buttons of this banner. It is your own note: Blink Monitor keeps it on this Mac and shows it in History."
+    static let bannerBody = "One tap, from the buttons of this banner. It is your own note: Blink keeps it on this Mac and shows it in History."
 
     static func name(_ feeling: EyeFeeling) -> String {
         switch feeling {
@@ -129,7 +129,7 @@ enum EyeNoteWords {
 
     /// The rows in Settings.
     static let row = "An evening question"
-    static let detail = "Once a day, a silent banner asks how your eyes feel: one tap on Fine, A little tired, Tired or Very tired. It is your own note. Blink Monitor keeps it on this Mac, shows it under the week in History, and does nothing else with it."
+    static let detail = "Once a day, a silent banner asks how your eyes feel: one tap on Fine, A little tired, Tired or Very tired. It is your own note. Blink keeps it on this Mac, shows it under the week in History, and does nothing else with it."
     static let hourRow = "Hour of the question"
     static let hourDetail = "The banner comes at the first minute counted from this hour on. You can also note it in History, where it can be changed."
 

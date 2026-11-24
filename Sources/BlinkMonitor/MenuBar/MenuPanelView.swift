@@ -122,7 +122,7 @@ private struct DemoBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Label(actions.leaveDemo == nil
-                    ? "Demo: the blinks are made up and the camera is off. To use it on your own eyes, open Blink Monitor itself."
+                    ? "Demo: the blinks are made up and the camera is off. To use it on your own eyes, open Blink itself."
                     : "Demo: the blinks are made up and the camera is off.",
                   systemImage: "sparkles")
                 .textStyle(.callout)
@@ -150,13 +150,13 @@ private struct DiskImageBanner: View {
         VStack(alignment: .leading, spacing: 7) {
             // At the size of the panel's other sentences: it was the smallest text on it,
             // and it is the one a new user most needs to read.
-            Label("Running from the disk image. To keep Blink Monitor: quit it, drag it onto Applications, and open it from there.",
+            Label("Running from the disk image. To keep Blink: quit it, drag it onto Applications, and open it from there.",
                   systemImage: "externaldrive")
                 .textStyle(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) }
                 .smallControl()
-                .help("Shows Blink Monitor in the disk image's window, beside the Applications folder to drag it onto")
+                .help("Shows Blink in the disk image's window, beside the Applications folder to drag it onto")
         }
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
@@ -232,7 +232,7 @@ private struct NowSection: View {
             // An app that cannot count yet says what to do about it, here where you look.
             if status == .needsSetup {
                 HStack(spacing: 8) {
-                    Button(begun ? "Continue Setup…" : "Set Up Blink Monitor…") { actions.openSetup() }
+                    Button(begun ? "Continue Setup…" : "Set Up Blink…") { actions.openSetup() }
                         .mainButton()
                     // Once the setup was begun, its first page and the demo on it were out of reach.
                     if let tryDemo = actions.tryDemo {
@@ -372,7 +372,7 @@ private struct Notes: View {
             lines.append(("checkmark.circle", tally, .secondary))
         }
         if reminders.notificationsRefused, preferences.remindersOn || preferences.breakNudgesOn {
-            lines.append(("bell.slash", "Notifications are off for Blink Monitor: reminders only show here and in the menu bar. Settings says how to allow them.", .warningText))
+            lines.append(("bell.slash", "Notifications are off for Blink: reminders only show here and in the menu bar. Settings says how to allow them.", .warningText))
         }
         guard preferences.automaticLimit else { return lines }
         if let reference = preferences.reference {
@@ -644,7 +644,7 @@ private struct FooterRow: View {
                 if cameraOn && !model.isDemo {
                     Label("Camera on", systemImage: "circle.fill")
                         .labelStyle(CameraOnStyle())
-                        .help("The green light beside the camera is Blink Monitor counting your blinks. Pause turns it off.")
+                        .help("The green light beside the camera means Blink is counting your blinks. Pause turns it off.")
                 } else {
                     // The app's name is on the Quit button's tooltip and in Settings:
                     // here it took the room that sets Quit apart.
@@ -674,9 +674,9 @@ private struct FooterRow: View {
                 }
                 // Quit sat 14 points from Live View: twice the room now sets it apart. Its
                 // whole name is said where there is room for it, and in its tooltip.
-                Button(bare ? "Quit Blink Monitor" : "Quit") { actions.quit() }
-                    .help("Quit Blink Monitor: counting and every reminder stop until you open it again")
-                    .accessibilityLabel("Quit Blink Monitor")
+                Button(bare ? "Quit Blink" : "Quit") { actions.quit() }
+                    .help("Quit Blink: counting and every reminder stop until you open it again")
+                    .accessibilityLabel("Quit Blink")
                     .padding(.leading, bare ? 0 : 14)
             }
             // Drawn as buttons, at a size one can read: they were three grey words.

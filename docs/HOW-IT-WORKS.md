@@ -1,6 +1,6 @@
 # How it works
 
-Blink Monitor is four small problems chained together. Only one of them is machine
+Blink is four small problems chained together. Only one of them is machine
 learning, and it was made as small as possible on purpose.
 
 ```

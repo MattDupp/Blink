@@ -493,16 +493,16 @@ Until a release exists, that link shows an empty page.
 
 Once `main` is pushed, in a browser:
 
-1. Open `https://github.com/MattDupp/blink-monitor/releases/new`.
+1. Open `https://github.com/MattDupp/Blink/releases/new`.
 2. In *Choose a tag*, type `v1.0` and pick *Create new tag on publish*. The target is `main`.
-3. Give it the title `Blink Monitor 1.0` and a few words: a demo, and macOS stops the first opening.
+3. Give it the title `Blink 1.0` and a few words: a demo, and macOS stops the first opening.
 4. Drop `build/BlinkMonitor.dmg` on *Attach binaries*.
 5. *Save draft* to look at it first, or *Publish release*.
 
 Or with GitHub's command-line tool (`brew install gh`, then `gh auth login`):
 
 ```bash
-gh release create v1.0 build/BlinkMonitor.dmg --title "Blink Monitor 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
+gh release create v1.0 build/BlinkMonitor.dmg --title "Blink 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
 ```
 
 Either way this creates the tag `v1.0` on GitHub at the tip of `main`, and a public page

@@ -261,16 +261,16 @@ struct HistoryTests {
 
         // No routine was ever shown: its log does not exist, and that is not an error.
         var copies = try DataExport.copy(items, to: chosen)
-        #expect(copies.map(\.lastPathComponent) == ["Blink Monitor history.csv"])
+        #expect(copies.map(\.lastPathComponent) == ["Blink - history.csv"])
 
         try "minute,blinks\n1,12\n".write(to: history, atomically: true, encoding: .utf8)
         try "at,routine\n".write(to: log, atomically: true, encoding: .utf8)
         copies = try DataExport.copy(items, to: chosen)
-        #expect(copies.map(\.lastPathComponent) == ["Blink Monitor history.csv", "Blink Monitor routine log.csv"])
+        #expect(copies.map(\.lastPathComponent) == ["Blink - history.csv", "Blink - routine log.csv"])
         try "at,what,note\n".write(to: breaks, atomically: true, encoding: .utf8)
-        #expect(try DataExport.copy(items, to: chosen).map(\.lastPathComponent).last == "Blink Monitor break log.csv")
+        #expect(try DataExport.copy(items, to: chosen).map(\.lastPathComponent).last == "Blink - break log.csv")
         try "day,at,feeling\n".write(to: notes, atomically: true, encoding: .utf8)
-        #expect(try DataExport.copy(items, to: chosen).map(\.lastPathComponent).last == "Blink Monitor eye notes.csv")
+        #expect(try DataExport.copy(items, to: chosen).map(\.lastPathComponent).last == "Blink - eye notes.csv")
         #expect(try String(contentsOf: copies[0], encoding: .utf8).hasSuffix("1,12\n"), "the earlier export was replaced")
         // The app's own files are where they were.
         #expect(FileManager.default.fileExists(atPath: history.path) && FileManager.default.fileExists(atPath: log.path))

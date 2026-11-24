@@ -62,17 +62,28 @@ extension MonitorStatus {
     /// `limit`: the limit in force, said when the rate is under it.
     func tooltip(limit: Int) -> String {
         switch self {
-        case .starting: return "Blink Monitor is starting"
-        case .needsSetup: return "Blink Monitor: setup is not finished"
-        case .settingUp: return "Blink Monitor is being set up"
-        case .cameraRefused: return "Blink Monitor: camera access refused"
-        case .failed(let reason): return "Blink Monitor: \(reason)"
-        case .paused(let until): return "Blink Monitor is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
-        case .cameraSilent: return "Blink Monitor: the camera is not sending pictures"
-        case .noFace: return "Blink Monitor: no face in view"
+        case .starting: return "Blink is starting"
+        case .needsSetup: return "Blink: setup is not finished"
+        case .settingUp: return "Blink is being set up"
+        case .cameraRefused: return "Blink: camera access refused"
+        case .failed(let reason): return "Blink: \(reason)"
+        case .paused(let until): return "Blink is paused" + (until.map { " until " + Format.pauseEnd($0) } ?? "")
+        case .cameraSilent: return "Blink: the camera is not sending pictures"
+        case .noFace: return "Blink: no face in view"
         case .watching: return "Blinks a minute, over the last minute"
         case .low: return "Low: " + LowRateWords.fact(limit: limit)
         }
+    }
+
+    /// What VoiceOver says for the menu-bar item: the app's name, the rate when there is
+    /// one, then `said` (the tooltip and what is going on). VoiceOver used to hear the name
+    /// alone, whatever the rate or the state. A tooltip that starts with the name ("Blink
+    /// is paused") does not get it twice; "Blinks a minute" starts with the same letters
+    /// and is not the name.
+    func spoken(_ said: String, limit: Int) -> String {
+        if let rate { return "Blink. \(Int(rate.rounded())) blinks a minute. " + said }
+        let tooltip = tooltip(limit: limit)
+        return tooltip.hasPrefix("Blink ") || tooltip.hasPrefix("Blink:") ? said : "Blink. " + said
     }
 
     /// One or two words, for the pill in the panel.
@@ -139,7 +150,7 @@ extension MonitorStatus {
         case .starting:
             return "Starting the camera."
         case .needsSetup:
-            return "Blink Monitor has not learned your eyes yet, so nothing is counted. Setup takes about 8 minutes."
+            return "Blink has not learned your eyes yet, so nothing is counted. Setup takes about 8 minutes."
         case .settingUp(.checkingCamera):
             return "Setup is checking the camera. Nothing is counted meanwhile."
         case .settingUp(.recording):
@@ -149,8 +160,8 @@ extension MonitorStatus {
         case .settingUp(.testing):
             return "Setup is testing your model. Nothing is counted meanwhile."
         case .cameraRefused:
-            return CameraNote.blocked(appName: "Blink Monitor") + " " + CameraNote.unblock(appName: "Blink Monitor")
-                + " If nothing changes after that, quit Blink Monitor and open it again."
+            return CameraNote.blocked(appName: "Blink") + " " + CameraNote.unblock(appName: "Blink")
+                + " If nothing changes after that, quit Blink and open it again."
         case .failed(let reason):
             return reason
         case .paused(let until):

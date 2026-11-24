@@ -316,7 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             : SetupModel.Parts(monitor: model, store: model.modelStore, sessionsRoot: Options.sessionsRoot,
                                ownSessions: Options.ownSessions)
         let setupModel = SetupModel(parts: parts)
-        let setup = WindowController(title: "Blink Monitor Setup", text: preferences, remembersPosition: false) { [weak self] in
+        let setup = WindowController(title: "Blink Setup", text: preferences, remembersPosition: false) { [weak self] in
             SetupView(model: setupModel, actions: SetupActions(
                 // Offered where there is something to leave: not in the demo itself.
                 tryDemo: demo ? nil : { self?.switchTo(demo: true) },
@@ -361,7 +361,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsState = SettingsState()
         let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions,
                                        capturesRoot: demo ? nil : Options.ownCaptureRoot)
-        let settings = WindowController(title: "Blink Monitor Settings", text: preferences) { [weak self] in
+        let settings = WindowController(title: "Blink Settings", text: preferences) { [weak self] in
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
                          loginItem: model.loginItem, shortcut: model.shortcut, state: settingsState, files: recordings,
                          actions: SettingsActions(startBlinkBreak: { blinkBreak.show() },
@@ -432,7 +432,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await model.start() }
         } else {
             // A model is built in: say what the app does BEFORE macOS asks for the camera.
-            let welcome = WindowController(title: "Welcome to Blink Monitor", text: preferences, remembersPosition: false) { [weak self] in
+            let welcome = WindowController(title: "Welcome to Blink", text: preferences, remembersPosition: false) { [weak self] in
                 WelcomeView { self?.running?.welcome?.close() }      // Start = close the window
             }
             // Closing the window IS starting, whichever way it is closed: by the Start
@@ -509,9 +509,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// panel yet, and the setup would take six minutes in the wrong place. True to go on.
     private static func continueFromDiskImage() -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Blink Monitor is running from its disk image"
+        alert.messageText = "Blink is running from its disk image"
         alert.informativeText = """
-            Move it to Applications first: quit, drag Blink Monitor onto the Applications \
+            Move it to Applications first: quit, drag Blink onto the Applications \
             folder in the disk image's window, and open it from there.
 
             It works from here, for a look. But this copy goes away when the disk image \

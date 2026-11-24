@@ -658,10 +658,13 @@ struct SourceTests {
         // comment lines are skipped.
         let retired = ["your reference", "the reference", "Never under", "your floor", "nudge", "on target", "trainer",
                        "analysed)", "is analysed", "blinks per minute", "Blinks per minute", "Snooze", "watched\"",
-                       "...\"", "Blink Monitor - ", "Session \\(", " Session\"",
+                       "...\"", "Session \\(", " Session\"",
                        // Tier 3 of the same audit.
                        "\"--\"", "Show the Files", "Show Data File", "Go Back to the Model", "forget to.\"", "read as an abstract",
-                       "Your own\""]
+                       "Your own\"",
+                       // The app's name until 24 November 2026. It also holds "Blink Monitor - ",
+                       // the old window titles.
+                       "Blink Monitor"]
         var offenders: [String] = []
         for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
             let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
@@ -908,10 +911,20 @@ struct MenuBarMarksTests {
         #expect(MonitorStatus.paused(until: nil).menuBarText.isEmpty && MonitorStatus.needsSetup.menuBarText == "!")
     }
 
+    @Test("VoiceOver hears the app's name once, and \"Blinks a minute\" is not taken for it")
+    func spokenName() {
+        let paused = MonitorStatus.paused(until: nil)
+        #expect(paused.spoken(paused.tooltip(limit: 10), limit: 10) == "Blink is paused")
+        // No reading yet: the tooltip starts with the letters of the name, not with the name.
+        let noRate = MonitorStatus.watching(rate: nil), said = noRate.tooltip(limit: 10)
+        #expect(said.hasPrefix("Blinks") && noRate.spoken(said, limit: 10) == "Blink. " + said)
+        #expect(MonitorStatus.watching(rate: 12.6).spoken(said, limit: 10) == "Blink. 13 blinks a minute. " + said)
+    }
+
     @Test("Each thing going on has its symbol, and the tooltip says each in words")
     func marks() {
         #expect(MenuBarMarks().symbols.isEmpty)
-        #expect(MenuBarMarks().tooltip(after: "Blink Monitor is paused") == "Blink Monitor is paused")
+        #expect(MenuBarMarks().tooltip(after: "Blink is paused") == "Blink is paused")
 
         let drops = MenuBarMarks.Routine(title: "Eye drops", symbol: "drop")
         var marks = MenuBarMarks(waiting: [drops])

@@ -11,12 +11,12 @@ enum MainMenu {
     /// `settings`: the selector `target` performs for "Settings…".
     static func make(target: AnyObject, settings: Selector) -> NSMenu {
         let app = NSMenu()
-        app.addItem(withTitle: "About Blink Monitor", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+        app.addItem(withTitle: "About Blink", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                     keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Settings…", action: settings, keyEquivalent: ",").target = target
         app.addItem(.separator())
-        app.addItem(withTitle: "Quit Blink Monitor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: "Quit Blink", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         // THE EDIT MENU. Cmd-V, Cmd-C, Cmd-A and Cmd-Z are menu shortcuts like the others:
         // without these items, nothing could be pasted into a routine's name.

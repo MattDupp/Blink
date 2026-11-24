@@ -27,7 +27,7 @@ enum GoodToKnow {
         ("Does it count someone else's blinks?",
          "It reads one face: the largest in view, which is the one at the keyboard. Someone behind you is not counted. Someone who sits in your place is: the app does not know whose eyes they are."),
         ("Does it work during a video call?",
-         "Yes. macOS lets several apps use the camera together, and the call does not see what Blink Monitor does. For no reminders meanwhile, use Quiet in the panel, or Quiet during calls in General."),
+         "Yes. macOS lets several apps use the camera together, and the call does not see what Blink does. For no reminders meanwhile, use Quiet in the panel, or Quiet during calls in General."),
         ("New glasses, a new desk, a new camera?",
          "Your model learned your eyes as they looked when you recorded them. After a change, test it under Model. If it counts fewer than 8 of 10, add a recording there."),
         ("Why is my rate lower than what I read elsewhere?",
@@ -42,9 +42,9 @@ enum GoodToKnow {
 enum TestReminderWords {
     static let send = "Send a Test Reminder"
     static let openSettings = "Open Notification Settings"
-    static let refused = "Notifications are off for Blink Monitor, so a test has nothing to show. "
-        + "Allow them in System Settings > Notifications > Blink Monitor, then send the test."
-    static let asksFirst = "macOS first asks whether Blink Monitor may show notifications: choose Allow."
+    static let refused = "Notifications are off for Blink, so a test has nothing to show. "
+        + "Allow them in System Settings > Notifications > Blink, then send the test."
+    static let asksFirst = "macOS first asks whether Blink may show notifications: choose Allow."
 
     /// The sentence beside the button. `usual`: what the test shows when it can.
     static func detail(_ usual: String, notifications: ReminderController.Notifications) -> String {
@@ -83,16 +83,16 @@ enum CameraWords {
 
     /// In the panel, after Automatic moved to another camera.
     static func moved(to name: String) -> String {
-        "The Mac's own camera sent no picture, so Blink Monitor is using “\(name)”. "
+        "The Mac's own camera sent no picture, so Blink is using “\(name)”. "
             + "Your model learned your eyes on another camera: test it again in Settings > Model."
     }
 }
 
 /// The project's pages. The app itself connects to nothing: these open in the browser.
 enum ProjectLinks {
-    static let home = URL(string: "https://github.com/MattDupp/blink-monitor")!
-    static let problems = URL(string: "https://github.com/MattDupp/blink-monitor/issues")!
-    static let newVersion = URL(string: "https://github.com/MattDupp/blink-monitor/releases/latest")!
+    static let home = URL(string: "https://github.com/MattDupp/Blink")!
+    static let problems = URL(string: "https://github.com/MattDupp/Blink/issues")!
+    static let newVersion = URL(string: "https://github.com/MattDupp/Blink/releases/latest")!
 }
 
 /// What each erasing action of Settings asks before it acts (`Confirm`): what goes, in
@@ -148,7 +148,7 @@ enum EraseWords {
     static let everything = Confirm.Question(
         title: "Delete everything and quit?",
         text: "The recordings of your eyes, your model, the history, the routine log, the break log, your eye notes and every setting are removed from this Mac, "
-            + "and Blink Monitor quits. Afterwards, move Blink Monitor itself to the Trash. This cannot be undone.",
+            + "and Blink quits. Afterwards, move Blink itself to the Trash. This cannot be undone.",
         button: "Delete Everything and Quit")
 }
 
@@ -300,9 +300,9 @@ struct SettingsView: View {
                 .foregroundStyle(.orange)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 6) {
-                Text("Notifications are off for Blink Monitor")
+                Text("Notifications are off for Blink")
                     .fontWeight(.semibold)
-                Text("Reminders cannot show their banner or their buttons. A look-away break then starts and ends with a sound only; the blink reminder and routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink Monitor. There, the style Alerts keeps a banner on screen until you answer it.")
+                Text("Reminders cannot show their banner or their buttons. A look-away break then starts and ends with a sound only; the blink reminder and routines only show in the menu bar and the panel. Allow them in System Settings > Notifications > Blink. There, the style Alerts keeps a banner on screen until you answer it.")
                     .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -339,7 +339,7 @@ struct SettingsView: View {
     /// a battery. Also quiet during calls: the other thing the Mac's own state can decide.
     private var energyCard: some View {
         Card {
-            Row("Energy", detail: "While it reads your eyes, Blink Monitor keeps the camera on and part of one processor core at work. Pause, in the panel, stops both.") {
+            Row("Energy", detail: "While it reads your eyes, Blink keeps the camera on and part of one processor core at work. Pause, in the panel, stops both.") {
                 EmptyView()
             }
             Divider()
@@ -359,7 +359,7 @@ struct SettingsView: View {
                 Toggle("Rest in Low Power Mode", isOn: $preferences.pauseInLowPower)
             }
             Divider()
-            Row("Quiet during calls", detail: "No reminder, no look-away break and no sound while an app uses the microphone. Blink Monitor only asks macOS whether it is in use: it never listens.") {
+            Row("Quiet during calls", detail: "No reminder, no look-away break and no sound while an app uses the microphone. Blink only asks macOS whether it is in use: it never listens.") {
                 Toggle("Quiet during calls", isOn: $preferences.quietDuringCalls)
             }
         }
@@ -439,7 +439,7 @@ struct SettingsView: View {
     private var generalCard: some View {
         Card {
             Row("Start at login", detail: loginItem.unavailable ?? loginItem.problem
-                    ?? "Blink Monitor opens by itself when you log in.") {
+                    ?? "Blink opens by itself when you log in.") {
                 // macOS refused: the list it keeps is where that can be mended.
                 if loginItem.problem != nil {
                     Button("Open Login Items") { actions.openLoginItems() }
@@ -706,7 +706,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 VStack(alignment: .leading, spacing: 8) {
-                    DataPoint(symbol: "light.beacon.max", text: "The green light beside the camera is Blink Monitor counting. Pause, in the menu-bar panel, turns the camera and the light off.")
+                    DataPoint(symbol: "light.beacon.max", text: "The green light beside the camera means Blink is counting. Pause, in the menu-bar panel, turns the camera and the light off.")
                     DataPoint(symbol: "tablecells", text: "Kept: one line per minute, with the seconds counted and the number of blinks.")
                     DataPoint(symbol: "eye", text: "Kept from setup: the small pictures of your eyes it recorded, and the model trained on them. You can see and delete them under Model.")
                     DataPoint(symbol: "checklist", text: "Kept with a routine switched on: one line each time a reminder is shown, done, postponed or missed.")
@@ -779,7 +779,7 @@ struct SettingsView: View {
             // Dragging the app to the Trash leaves all of the above behind.
             if let deleteEverything = actions.deleteEverythingAndQuit {
                 Card {
-                    Row("Remove Blink Monitor from this Mac",
+                    Row("Remove Blink from this Mac",
                         detail: "Deletes the recordings, the model, the history, the routine log, the break log, your eye notes and every setting, then quits. Afterwards, move the app itself to the Trash.") {
                         Button("Delete Everything and Quit…") {
                             if Confirm.destructive(EraseWords.everything) { deleteEverything() }
@@ -884,7 +884,7 @@ struct SettingsView: View {
         case .none:
             return state.onDisk.untested
                 ? "Your model is trained but not tested yet. Until then nothing is counted."
-                : "Blink Monitor learns your eyes before it can count. Setup takes about 8 minutes."
+                : "Blink learns your eyes before it can count. Setup takes about 8 minutes."
         }
     }
 
@@ -904,8 +904,8 @@ struct SettingsView: View {
             : "The model trained here. The recordings are in a folder named at launch and are left alone."
         if isTrainedHere {
             text += FileManager.default.fileExists(atPath: ModelSource.builtInModel.path)
-                ? " Blink Monitor goes back to the model built into it."
-                : " Blink Monitor stops counting until it is set up again."
+                ? " Blink goes back to the model built into it."
+                : " Blink stops counting until it is set up again."
         }
         return text
     }
@@ -996,7 +996,7 @@ struct SettingsView: View {
                 .frame(width: 42, height: 42)
                 .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Blink Monitor \(AppInfo.version)")
+                Text("Blink \(AppInfo.version)")
                     .fontWeight(.semibold)
                 Text("A personal project, not a medical device: its numbers are not a diagnosis. If your eyes hurt, see an eye-care professional.")
                     .textStyle(.callout)

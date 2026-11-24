@@ -95,7 +95,7 @@ struct BlinkBreakView: View {
         case .cameraSilent:
             return CameraNote.silent + " Nothing is counted."
         case .needsSetup, .settingUp:
-            return "Blink Monitor is not set up yet, so nothing is counted."
+            return "The setup is not finished, so nothing is counted."
         case .starting, .cameraRefused, .failed:
             return "The camera is not running, so nothing is counted."
         }

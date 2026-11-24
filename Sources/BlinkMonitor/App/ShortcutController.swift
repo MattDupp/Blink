@@ -72,7 +72,7 @@ enum ShortcutWords {
 
     static func detail(chosen: ShortcutChoice?, refused: ShortcutChoice?) -> String {
         if let refused, refused == chosen {
-            return "macOS did not give \(refused.symbols) to Blink Monitor: another app is probably using it. Choose another one. Nothing is registered now."
+            return "macOS did not give \(refused.symbols) to Blink: another app is probably using it. Choose another one. Nothing is registered now."
         }
         if let chosen {
             return "\(chosen.symbols) starts a blink break from any app. With the camera off, it opens the menu-bar panel instead."

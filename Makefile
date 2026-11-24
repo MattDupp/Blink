@@ -142,7 +142,7 @@ monitor: one-copy monitor-app  ## Install the menu-bar app in ~/Applications and
 	@$(LSREGISTER) -u "$(CURDIR)/build/BlinkMonitor.app" >/dev/null 2>&1; true
 	@$(LSREGISTER) -f "$(INSTALL_DIR)/BlinkMonitor.app" >/dev/null 2>&1; true
 	open "$(INSTALL_DIR)/BlinkMonitor.app" --args "--capture-dir=$(DATA)/live" $(WHOLE_FRAMES_ARGS) $(OPEN_ARGS)
-	@echo "Blink Monitor is running: look for the eye in the menu bar, at the top right of the screen."
+	@echo "Blink is running: look for the eye in the menu bar, at the top right of the screen."
 	@echo "macOS asks for the camera the first time, and again after each rebuild."
 	@# Which model it uses: the one trained in the app when there is one, else the one built in.
 	@if [ -f "$(HOME)/Library/Application Support/BlinkMonitor/model/eyenet.weights" ] && [ -d "$(MODEL)" ]; then \
@@ -170,7 +170,7 @@ monitor-app: App/AppIcon.icns
 one-copy:
 	@for app in $(DRAGGED); do \
 		[ -e "$$app" ] || continue; \
-		echo "Blink Monitor is already installed from the disk image: $$app"; \
+		echo "Blink is already installed from the disk image: $$app"; \
 		echo "macOS should know one copy only. Quit that one and move it to the Trash,"; \
 		echo "then run 'make monitor' again. (Or: make uninstall, which removes every copy.)"; \
 		exit 1; \
