@@ -51,11 +51,26 @@ enum Entry {
     }
 }
 
+/// The app's windows, by the names `--open=` takes.
+enum WindowName: String, CaseIterable {
+    case setup, history, settings
+    case liveView = "live-view"
+    case blinkBreak = "blink-break"
+    case routineTimer = "routine-timer"
+}
+
 enum Options {
     static var noCamera: Bool { LaunchArguments.has("no-camera") }
-    /// The windows to open at launch, by name.
-    static var windowsToOpen: [String] {
-        (LaunchArguments.value(of: "open") ?? "").split(separator: ",").map(String.init)
+    /// The windows to open at launch. A name that is no window is said in the log: it used
+    /// to be passed over without a word.
+    static var windowsToOpen: [WindowName] {
+        (LaunchArguments.value(of: "open") ?? "").split(separator: ",").compactMap { name in
+            guard let window = WindowName(rawValue: String(name)) else {
+                Log.app.error("--open: no window is named \(name, privacy: .public)")
+                return nil
+            }
+            return window
+        }
     }
 
     /// The demo: the whole app on made-up eyes, for trying it before setting it up.
@@ -122,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let model: MonitorModel
         let statusItem: StatusItemController
         let setup: SetupModel
-        let windows: [String: WindowController]
+        let windows: [WindowName: WindowController]
         /// What the History and Settings windows show: the tour turns their pages.
         let historyState: HistoryState
         let settingsState: SettingsState
@@ -202,11 +217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         launch(demo: Options.demo)
-        for name in Options.windowsToOpen where name != "routine-timer" {
-            if name == "setup" { showSetup(.resume) } else { running?.windows[name]?.show() }
+        for name in Options.windowsToOpen where name != .routineTimer {
+            if name == .setup { showSetup(.resume) } else { running?.windows[name]?.show() }
         }
         // The timer's window is opened by a timer starting, not by hand.
-        if Options.windowsToOpen.contains("routine-timer"), let routines = running?.model.routines,
+        if Options.windowsToOpen.contains(.routineTimer), let routines = running?.model.routines,
            let timed = routines.routines.first(where: { $0.sessionMinutes != nil }) {
             routines.startSession(timed.id)
         }
@@ -229,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Left the demo, or quit, in the middle of a take: the tour stops.
             guard let running, running.isDemo else { return }
             let windows = running.windows
-            func only(_ name: String?) {
+            func only(_ name: WindowName?) {
                 running.statusItem.closePanel()
                 for (other, window) in windows where other != name { window.close() }
                 if let name { windows[name]?.show() }
@@ -239,19 +254,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .panel:
                 only(nil)
                 running.statusItem.showPanel()
-            case .blinkBreak: only("blink-break")
-            case .history: only("history")
+            case .blinkBreak: only(.blinkBreak)
+            case .history: only(.history)
             case .historyEarlierWeek: running.historyState.week = 2
             case .historyBack: running.historyState.week = 0
             case .settingsGeneral:
-                only("settings")
+                only(.settings)
                 running.settingsState.tab = .general
             case .settingsBlinkRate: running.settingsState.tab = .reminders
             case .settingsBreaks: running.settingsState.tab = .breaks
             case .settingsRoutines: running.settingsState.tab = .routines
             case .settingsPrivacy: running.settingsState.tab = .data
             case .settingsAbout: running.settingsState.tab = .sources
-            case .liveView: only("live-view")
+            case .liveView: only(.liveView)
             case .end:
                 only(nil)
                 running.statusItem.showPanel()
@@ -299,7 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // and the exercise ending closes the window.
         let blinkBreak = WindowController(title: "Blink Break", text: preferences) {
             BlinkBreakView(model: model, blinkBreak: model.blinkBreak,
-                           stop: { [weak self] in self?.running?.windows["blink-break"]?.close() })
+                           stop: { [weak self] in self?.running?.windows[.blinkBreak]?.close() })
         }
         blinkBreak.onVisibilityChange = { open in
             if open { model.blinkBreak.start() } else { model.blinkBreak.stop() }
@@ -310,6 +325,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // In the demo no banner can say that a break began: the panel opens and says it.
         if demo { model.reminders.onBreakUnannounced = { [weak self] in self?.running?.statusItem.showPanel() } }
 
+        // In a demo entered from the setup window, the way back is offered. The app that
+        // `make demo` builds is a demo for good: its banner points at the real one.
+        let leaveDemo: (() -> Void)? = demo && !Options.demo ? { [weak self] in self?.switchTo(demo: false) } : nil
+
         // The setup. In the demo it runs on painted eyes and writes to a temporary folder.
         let parts = demo ? SampleData.demoSetupParts(monitor: model)
             : SetupModel.Parts(monitor: model, store: model.modelStore, sessionsRoot: Options.sessionsRoot,
@@ -319,21 +338,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SetupView(model: setupModel, actions: SetupActions(
                 // Offered where there is something to leave: not in the demo itself.
                 tryDemo: demo ? nil : { self?.switchTo(demo: true) },
-                leaveDemo: demo && !Options.demo ? { self?.switchTo(demo: false) } : nil,
+                leaveDemo: leaveDemo,
                 openCameraSettings: Self.openCameraSettings,
                 showFiles: { NSWorkspace.shared.activateFileViewerSelecting([parts.store.base]) },
-                close: { self?.running?.windows["setup"]?.close() },
+                close: { self?.running?.windows[.setup]?.close() },
                 // The window closing leaves nothing on screen, and the eye may be hidden
                 // behind the notch: Done shows where the app lives from now on.
                 done: {
-                    self?.running?.windows["setup"]?.close()
+                    self?.running?.windows[.setup]?.close()
                     self?.running?.statusItem.showPanel()
                 },
                 watchItCount: {
-                    self?.running?.windows["setup"]?.close()
-                    self?.running?.windows["live-view"]?.show()
+                    self?.running?.windows[.setup]?.close()
+                    self?.running?.windows[.liveView]?.show()
                 },
-                openSettings: { self?.running?.windows["settings"]?.show() },
+                openSettings: { self?.running?.windows[.settings]?.show() },
                 openNotificationSettings: Self.openNotificationSettings))
         }
         // The window opening starts (or resumes) the setup; its closing stops whatever
@@ -385,9 +404,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // In a demo entered from the setup window, the way back is offered. The app that
-        // `make demo` builds is a demo for good: its banner points at the real one.
-        let leaveDemo: (() -> Void)? = demo && !Options.demo ? { [weak self] in self?.switchTo(demo: false) } : nil
         let statusItem = StatusItemController(model: model, actions: PanelActions(
             startBlinkBreak: { blinkBreak.show() }, openHistory: { history.show() }, openSettings: { settings.show() },
             openLiveView: { liveView.show() }, openCameraSettings: Self.openCameraSettings,
@@ -401,8 +417,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         var running = Running(model: model, statusItem: statusItem, setup: setupModel,
-                              windows: ["history": history, "live-view": liveView, "blink-break": blinkBreak,
-                                        "settings": settings, "setup": setup, "routine-timer": routineTimer],
+                              windows: [.history: history, .liveView: liveView, .blinkBreak: blinkBreak,
+                                        .settings: settings, .setup: setup, .routineTimer: routineTimer],
                               historyState: historyState, settingsState: settingsState,
                               welcome: nil, isDemo: demo)
 
@@ -457,7 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             running.setup.close()
             running.setup.open(purpose)
         }
-        running.windows["setup"]?.show()
+        running.windows[.setup]?.show()
     }
 
     /// Enters or leaves the demo while the app runs: everything built around the model
@@ -481,7 +497,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
-        running?.windows["settings"]?.show()
+        running?.windows[.settings]?.show()
     }
 
     /// The app was opened while it is already running: from Finder, from Spotlight, or by

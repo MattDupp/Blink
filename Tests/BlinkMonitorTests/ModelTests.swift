@@ -1294,6 +1294,15 @@ struct EyeNoteControllerTests {
 @Suite("The tour")
 struct TourTests {
 
+    @Test("--open= takes the window names the docs give, and those only")
+    func windowNames() throws {
+        #expect(Set(WindowName.allCases.map(\.rawValue))
+                    == ["setup", "live-view", "history", "settings", "blink-break", "routine-timer"])
+        let guide = try String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("CLAUDE.md"), encoding: .utf8)
+        #expect(guide.contains("--open=" + ["setup", "live-view", "history", "settings", "blink-break", "routine-timer"].joined(separator: ",")))
+    }
+
     @Test("A fixed order: the panel, the blink break, History, Settings tab by tab, Live View, the panel")
     func order() {
         let steps = Tour.plan().map(\.step.rawValue)
