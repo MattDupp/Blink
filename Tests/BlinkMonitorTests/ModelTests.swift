@@ -358,6 +358,29 @@ struct PreferencesTests {
         body(store)
     }
 
+    @Test("What was stored is read back through each choice's own rule, and what cannot be read stays at the standard")
+    func storedChoicesReadBack() {
+        withStore { store in
+            store.set("controlShiftCommandB", forKey: "blinkBreakShortcut")
+            store.set(30, forKey: "summaryHour")                // out of the day: the last hour
+            store.set(-4, forKey: "eyeNoteHour")                // the first
+            store.set([0, 2, 9, 6], forKey: "workingHoursDays") // only the days of a week
+            store.set(8 * 60 + 45, forKey: "workingHoursStart")
+            store.set("turbo", forKey: "effort")                // a word of a later version
+            store.set("desk", forKey: "cameraID")
+            let read = Preferences(defaults: store)
+            #expect(read.blinkBreakShortcut == .controlShiftCommandB)
+            #expect(read.summaryHour == 23 && read.eyeNoteHour == 0)
+            #expect(read.workDays == [2, 6])
+            #expect(read.workStart == TimeOfDay(hour: 8, minute: 45))
+            #expect(read.effort == .standard)
+            #expect(read.cameraID == "desk")
+            #expect(read.hasChoices)
+            read.resetChoices()
+            #expect(!read.hasChoices && read.blinkBreakShortcut == nil && read.cameraID == nil)
+        }
+    }
+
     @Test("An install starts at the floor the experiment gives, welcomed or not")
     func startingFloor() {
         withStore { store in

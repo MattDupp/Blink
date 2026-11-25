@@ -179,9 +179,11 @@ their numbers, and the file formats, across the two languages.
   `routines.csv`, `breaks.csv` (the break log, `CareStore`), `eye-notes.csv` (the answers
   to the evening question), the sessions the setup recorded and the model trained from them.
 - **A new record is a file of its own**, never a new column: `history.csv` is read by the
-  Python side. It gets a row in the Privacy tab with Show in Finder and Erase, a line in
-  `DataExport.items`, a mention in `EraseWords.everything`, and a scratch copy for the
-  demo, the screenshots and the tests (`CareController.scratch`).
+  Python side. Its line type conforms to `RecordLine` and is stored in a `RecordFile`
+  (BlinkCore). It gets one entry in `MonitorModel.keptRecords` (`KeptRecords.swift`), which
+  gives it its row in the Privacy tab, its copy in Export and its name in "Delete
+  Everything"; and a scratch copy for the demo, the screenshots and the tests
+  (`CareController.scratch`).
 - The installer never holds a model: `scripts/dmg.sh` checks the app before packing and
   the image afterwards.
 - Pictures in `docs/img` may show 64x64 eye crops and rendered screens, never a whole face.
@@ -244,9 +246,10 @@ their numbers, and the file formats, across the two languages.
 - **Numbers and times go through `Format`** (`count`, `duration`, `rate`, `hour`), never
   through a hand-made plural or `"%d:00"`. A missing number is `Format.none`, a real dash.
 - **A stored choice has its default in `Preferences.Standard`**, read by the first launch
-  and by "Reset to Defaults". A new choice gets a line there, in `resetChoices` and in
-  `hasChoices`. The reset never touches what was measured or lived: the usual rate, the
-  history, the model, the routines and their log.
+  and by "Reset to Defaults". A new choice gets a line there and one in
+  `Preferences.choices`, which `init`, `resetChoices` and `hasChoices` all read. The reset
+  never touches what was measured or lived: the usual rate, the history, the model, the
+  routines and their log.
 - **A window's main button is `.mainButton()`** (BlinkUI), not
   `.keyboardShortcut(.defaultAction)`: the pictures then draw it tinted. `SourceTests` holds it.
 - **Nothing changes the screen's light while a pose is recorded.** The screen lights the
