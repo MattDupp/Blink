@@ -140,7 +140,7 @@ public final class SessionPipeline: @unchecked Sendable {
                         let image = eye.picture.flatMap(EyeCropper.image(from:))
                         if eye.side == .imageLeft { update.leftCrop = image } else { update.rightCrop = image }
                     }
-                    count(reading.closed, into: &update)
+                    count(reading.closed, eyes: reading.eyeLevel, into: &update)
                 }
             } else {
                 // Recording, and the check before it: the eyes are searched for on every
@@ -179,7 +179,7 @@ public final class SessionPipeline: @unchecked Sendable {
             if let judge {
                 do {
                     let answers = try found.crops.map { try judge.closedProbability(of: $0.picture) }
-                    count(EyeFusion.combine(answers), into: &update)
+                    count(EyeFusion.combine(answers), eyes: EyeLevel(found.located), into: &update)
                 } catch {
                     update.error = "\(error)"
                 }
@@ -187,14 +187,14 @@ public final class SessionPipeline: @unchecked Sendable {
                 save(found, to: recording, update: &update)
             }
         } else if judge != nil {
-            count(nil, into: &update)
+            count(nil, eyes: nil, into: &update)
         }
         onUpdate?(update)
     }
 
-    private func count(_ closed: Double?, into update: inout SessionFrame) {
+    private func count(_ closed: Double?, eyes: EyeLevel?, into update: inout SessionFrame) {
         update.closed = closed
-        if case .blink(let blink) = detector.update(time: update.time, closed: closed) { update.blink = blink }
+        if case .blink(let blink) = detector.update(time: update.time, closed: closed, eyes: eyes) { update.blink = blink }
         if case .closed = detector.state { update.eyesClosed = true }
     }
 

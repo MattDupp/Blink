@@ -71,6 +71,62 @@ struct DetectionTests {
         #expect(Fixture.events(Fixture.frames(closed, 5) + Fixture.frames(open, 10)).isEmpty)
     }
 
+    // MARK: Rule 5: a lid, not a head
+
+    /// Answers with where the eyes were: the height of the point between them, eyes 150
+    /// pixels apart. 30 frames a second.
+    private func events(_ stream: [(closed: Double, height: Double)]) -> [BlinkDetector.Event] {
+        var detector = BlinkDetector()
+        return stream.enumerated().compactMap { frame, answer in
+            detector.update(time: Double(frame) / 30, closed: answer.closed,
+                            eyes: EyeLevel(height: answer.height, apart: 150))
+        }
+    }
+
+    /// The pattern of the nods recorded on 2026-11-25: the head goes down, the eyes look
+    /// closed from the camera, the head comes back up and they look open again, in 0.3 s.
+    @Test("A nod that looks like closing eyes is not a blink")
+    func nod() {
+        let down: [Double] = [520, 550, 580, 600, 600, 580, 550, 520]
+        let stream = Array(repeating: (open, 500.0), count: 10) + down.map { (closed, $0) }
+            + Array(repeating: (open, 500.0), count: 5)
+        #expect(events(stream).isEmpty)
+    }
+
+    /// Vision's outline follows the lid down, so the eyes seem to move a little.
+    /// MEASURED on 151 marked blinks: 0.06 of the distance between the eyes at the median.
+    @Test("A blink with the head still is counted, though the closing lid moves the eyes a little")
+    func blinkWithTheHeadStill() {
+        let lid: [Double] = [504, 509, 509, 505]
+        let stream = Array(repeating: (open, 500.0), count: 10) + lid.map { (closed, $0) }
+            + Array(repeating: (open, 501.0), count: 5)
+        #expect(events(stream).count == 1)
+    }
+
+    @Test("The limit is 0.15 of the distance between the eyes, up or down")
+    func upDownLimit() {
+        func count(movingBy pixels: Double) -> Int {
+            let stream = Array(repeating: (open, 500.0), count: 10) + [(closed, 500 - pixels), (closed, 500 - pixels)]
+                + Array(repeating: (open, 500.0), count: 5)
+            return events(stream).count
+        }
+        #expect(count(movingBy: 22) == 1)     // 0.147 of 150 pixels
+        #expect(count(movingBy: 23) == 0)     // 0.153
+        #expect(count(movingBy: -23) == 0)
+    }
+
+    @Test("Readings without a place for the eyes are counted as before (the demo)")
+    func noPlaceNoRule() {
+        var detector = BlinkDetector()
+        var reading = FrameReading()
+        var counted = 0
+        for frame in 0..<20 {
+            reading.closed = (10..<13).contains(frame) ? closed : open
+            if case .blink = detector.update(time: Double(frame) / 30, reading: reading) { counted += 1 }
+        }
+        #expect(counted == 1)
+    }
+
     // MARK: Combining the two eyes
 
     @Test("No readable eye gives no answer; one eye gives its own")

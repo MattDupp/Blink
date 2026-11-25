@@ -25,7 +25,9 @@ public final class CaptureWriter {
     private let movie: WholeFrameWriter?
     public private(set) var frames = 0
 
-    public static let header = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick"
+    /// `eyes_y` and `eyes_apart`: where the eyes were (`EyeLevel`), which the counting
+    /// rules ask since 2026-11-25. A trace written before has neither column.
+    public static let header = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick,eyes_y,eyes_apart"
 
     public init(root: URL, name: String, wholeFrames: Bool = false) throws {
         folder = root.appendingPathComponent(name, isDirectory: true)
@@ -70,6 +72,7 @@ public final class CaptureWriter {
         for eye in reading.eyes { bySide[eye.side] = eye }
 
         func number(_ value: Double?) -> String { value.map { String(format: "%.4f", $0) } ?? "" }
+        func pixels(_ value: Double?) -> String { value.map { String(format: "%.2f", $0) } ?? "" }
         let stateName: String
         switch state {
         case .unknown: stateName = "unknown"
@@ -87,6 +90,7 @@ public final class CaptureWriter {
             number(bySide[.imageLeft]?.closed), number(bySide[.imageRight]?.closed), number(reading.closed),
             number(bySide[.imageLeft]?.openness), number(bySide[.imageRight]?.openness),
             stateName, eventName, tick ? "1" : "",
+            pixels(reading.eyeLevel?.height), pixels(reading.eyeLevel?.apart),
         ]
     }
 }

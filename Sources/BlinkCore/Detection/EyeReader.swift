@@ -126,6 +126,9 @@ public struct FrameReading {
     public var headTurned = false
     /// The two eyes' answers combined into one (`EyeFusion`); nil when no eye was readable.
     public var closed: Double?
+    /// Where the eyes were, from the squares this frame read: what the blink detector's
+    /// rule 5 asks. Nil without a face, and for made-up readings (the demo).
+    public var eyeLevel: EyeLevel?
     /// The frames before this one read squares the eyes had left (`FoundEyes.strayed`):
     /// what they said is to be forgotten. This frame's own answer is good.
     public var strayed = false
@@ -144,7 +147,17 @@ extension BlinkDetector {
     /// captures, whose eyes are searched on every frame: no square is ever old there.
     public mutating func update(time: Double, reading: FrameReading) -> Event? {
         if reading.strayed { reset() }
-        return update(time: time, closed: reading.closed)
+        return update(time: time, closed: reading.closed, eyes: reading.eyeLevel)
+    }
+}
+
+extension EyeLevel {
+    /// Both eyes, even when the head is turned and only one is read (`usableEyes`):
+    /// Vision still places the far one, close enough to say where the head is, and the
+    /// point between them does not jump when the near eye is read alone.
+    public init(_ eyes: LocatedEyes) {
+        self.init(height: Double(eyes.left.center.y + eyes.right.center.y) / 2,
+                  apart: Double(eyes.interocularDistance))
     }
 }
 
@@ -206,6 +219,7 @@ public final class EyeReader {
                 }
             }
             reading.closed = EyeFusion.combine(reading.eyes.map(\.closed))
+            reading.eyeLevel = EyeLevel(found.located)
         }
         cost.total = StageTimings.now() - start
         return (reading, cost)

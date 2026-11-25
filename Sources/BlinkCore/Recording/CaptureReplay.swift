@@ -33,25 +33,35 @@ public enum CaptureReplay {
     ///   between does not cost what it costs flat out (MEASURED 2026-11-20 on Apple
     ///   Vision alone: 5 ms a call flat out, 10 ms at the camera's pace).
     /// - `trace`: every line is also written there, in the format of trace.csv.
+    /// - `squares`: where the eye squares were on each frame is written there
+    ///   (`squaresHeader`). Two runs' squares compared frame by frame say how far one
+    ///   run's squares were from the eyes that the other found on the same frame.
     public static func run(_ frames: WholeFrameReader, reader: EyeReader, everyFrame: Bool = false,
-                           atCameraPace: Bool = false, trace: CSVAppender? = nil) throws -> Outcome {
+                           atCameraPace: Bool = false, trace: CSVAppender? = nil,
+                           squares: CSVAppender? = nil) throws -> Outcome {
         guard atCameraPace else {
-            return try play(frames, reader: reader, everyFrame: everyFrame, paced: false, trace: trace)
+            return try play(frames, reader: reader, everyFrame: everyFrame, paced: false, trace: trace, squares: squares)
         }
         // The camera's frames arrive on a queue of "utility" priority (`CameraCapture`);
         // so do these.
         var result: Result<Outcome, Error>?
         let done = DispatchSemaphore(value: 0)
         DispatchQueue(label: "blink.replay.frames", qos: .utility).async {
-            result = Result { try play(frames, reader: reader, everyFrame: everyFrame, paced: true, trace: trace) }
+            result = Result { try play(frames, reader: reader, everyFrame: everyFrame, paced: true, trace: trace, squares: squares) }
             done.signal()
         }
         done.wait()
         return try result!.get()
     }
 
+    /// One line per frame of the `squares` file: the middles of the squares in frame
+    /// pixels, origin at the top-left, in the order of `FrameReading.eyeRects` (the
+    /// image-left eye first), and their side. `eyes` names the eyes read ("LR", or one
+    /// letter when the head is turned); a frame without a face has only its number and time.
+    public static let squaresHeader = "frame,time,x1,y1,x2,y2,side,eyes"
+
     private static func play(_ frames: WholeFrameReader, reader: EyeReader, everyFrame: Bool,
-                             paced: Bool, trace: CSVAppender?) throws -> Outcome {
+                             paced: Bool, trace: CSVAppender?, squares: CSVAppender?) throws -> Outcome {
         var outcome = Outcome()
         var detector = BlinkDetector()
         var timings = StageTimings()
@@ -86,6 +96,17 @@ public enum CaptureReplay {
                                                right: bySide[.imageRight], mean: reading.closed, blink: counted))
                 trace?.append(CaptureWriter.fields(frame: frame.number, time: frame.time, reading: reading,
                                                    state: detector.state, event: event, tick: false))
+                if let squares {
+                    let rects = reading.eyeRects.prefix(2)
+                    var fields = [String(frame.number), String(format: "%.4f", frame.time)]
+                    for index in 0..<2 {
+                        let rect = index < rects.count ? rects[rects.startIndex + index] : nil
+                        fields += rect.map { [String(format: "%.1f", $0.midX), String(format: "%.1f", $0.midY)] } ?? ["", ""]
+                    }
+                    fields.append(rects.first.map { String(format: "%.0f", $0.width) } ?? "")
+                    fields.append(reading.eyes.map(\.side.rawValue).joined())
+                    squares.append(fields)
+                }
                 return true
             }
             if !more { break }

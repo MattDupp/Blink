@@ -19,6 +19,8 @@ import BlinkCore
 ///                                            did until 2026-11-23, instead of on the processor
 ///       --traces=<folder>                    write each run's answers there, frame by frame,
 ///                                            instead of in the capture's own folder
+///       --squares                            beside each run's answers, where its eye squares
+///                                            were on each frame (<run>-squares.csv)
 ///
 ///     BlinkReplay <folder> --cost=<stage>    what a stage costs the Mac: processor, graphics
 ///                                            processor, energy (Cost.swift)
@@ -196,8 +198,15 @@ enum Entry {
                 let file = LaunchArguments.folder("traces")?.appendingPathComponent("\(capture.name)-\(variant.name).csv")
                     ?? capture.folder.appendingPathComponent("replays/\(variant.name).csv")
                 try? FileManager.default.removeItem(at: file)
+                var squares: CSVAppender?
+                if LaunchArguments.has("squares") {
+                    let squaresFile = file.deletingPathExtension().appendingPathExtension("squares.csv")
+                    try? FileManager.default.removeItem(at: squaresFile)
+                    squares = try CSVAppender(url: squaresFile, header: CaptureReplay.squaresHeader)
+                }
                 let outcome = try CaptureReplay.run(frames, reader: reader, everyFrame: variant.everyFrame, atCameraPace: paced,
-                                                    trace: try CSVAppender(url: file, header: CaptureWriter.header))
+                                                    trace: try CSVAppender(url: file, header: CaptureWriter.header),
+                                                    squares: squares)
                 replays.append((capture, outcome.lines))
                 if let timings = outcome.timings {
                     costs.append((timings, Double(outcome.lines.count) * timings.analysedShare))

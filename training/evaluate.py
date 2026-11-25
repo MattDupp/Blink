@@ -64,7 +64,10 @@ class Rule:
     def count(self, capture: Capture, left: list[float], right: list[float]) -> list[int]:
         combine = max if self.fusion == "maximum" else (lambda a, b: (a + b) / 2)
         return count_blinks(
-            capture.times, [combine(a, b) for a, b in zip(left, right, strict=True)], self.settings
+            capture.times,
+            [combine(a, b) for a, b in zip(left, right, strict=True)],
+            self.settings,
+            capture.levels,
         )
 
 
@@ -153,7 +156,10 @@ def as_counted_live(captures: list[Capture], truths: dict[str, list[Truth]]) -> 
         # app recorded has to count the very blinks the app counted. A capture made
         # before 2026-11-20 was counted with the first rules, a later one with today's.
         recorded = [frame.mean for frame in capture.frames]
-        replays = (count_blinks(capture.times, recorded), count_blinks(capture.times, recorded, FIRST_RULES))
+        replays = (
+            count_blinks(capture.times, recorded, levels=capture.levels),
+            count_blinks(capture.times, recorded, FIRST_RULES),
+        )
         if live not in replays:
             raise SystemExit(f"{capture.name}: the Python rules do not reproduce the app's count")
         result = score(capture, truths[capture.name], live)

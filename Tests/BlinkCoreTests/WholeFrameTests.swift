@@ -236,8 +236,8 @@ struct ReplayTests {
 
         let text = try String(contentsOf: file, encoding: .utf8).split(separator: "\n").map(String.init)
         #expect(text.count == 41 && text[0] == CaptureWriter.header)
-        #expect(text[11] == "110,5.3333,0.9500,0.9500,0.9500,0.2500,0.2500,closed,,")
-        #expect(text[14] == "113,5.4333,0.0500,0.0500,0.0500,0.2500,0.2500,open,blink,")
+        #expect(text[11] == "110,5.3333,0.9500,0.9500,0.9500,0.2500,0.2500,closed,,,168.00,200.00")
+        #expect(text[14] == "113,5.4333,0.0500,0.0500,0.0500,0.2500,0.2500,open,blink,,168.00,200.00")
         let read = try RecordedCapture.readTrace(file)
         #expect(read.map(\.frame) == outcome.lines.map(\.frame))
         #expect(read.map(\.mean) == outcome.lines.map(\.mean))

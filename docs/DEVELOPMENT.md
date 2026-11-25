@@ -200,6 +200,13 @@ the captures untouched (recordings kept in another checkout, read only), name a 
 make replay DATA=/path/to/data MODELS=/path/to/models REPLAY_ARGS="--traces=$PWD/build/replays"
 ```
 
+`--squares` also writes where each run's eye squares were on every frame
+(`<run>.squares.csv`, beside its answers). Set beside the squares of the run that searches
+on every frame, they say how far a run's squares were from the eyes, frame by frame: that
+is how the blinks counted during nods were traced (`docs/LESSONS.md`, number 11).
+Since 2026-11-25 every trace also says where the eyes were (`eyes_y`, `eyes_apart`), which
+the counting rules ask.
+
 ### What a stage costs
 
 `make replay` says what is counted. What the work costs the Mac is another pass of the

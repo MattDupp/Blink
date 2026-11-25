@@ -15,7 +15,7 @@ from pathlib import Path
 from paths import LIVE
 
 # The columns CaptureWriter.swift writes (a test checks the two lists are the same).
-TRACE_HEADER = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick"
+TRACE_HEADER = "frame,time,p_left,p_right,p_mean,open_left,open_right,state,event,tick,eyes_y,eyes_apart"
 SIDES = ("L", "R")
 
 
@@ -32,6 +32,9 @@ class Frame:
     outline_right: float
     counted: bool  # the app counted a blink at this frame
     tick: bool  # a cue sound was played just before this frame
+    # Where the eyes were: height of the point between them and their distance apart, in
+    # pixels (`EyeLevel`). None in a trace written before 2026-11-25, which has no such columns.
+    level: tuple[float, float] | None = None
 
     def answer(self, side: str) -> float:
         return self.left if side == "L" else self.right
@@ -61,6 +64,7 @@ class Capture:
                     outline_right=float(row["open_right"]),
                     counted=row["event"] == "blink",
                     tick=row["tick"] == "1",
+                    level=(float(row["eyes_y"]), float(row["eyes_apart"])) if row.get("eyes_y") else None,
                 )
                 for row in csv.DictReader(handle)
                 if row["p_left"] and row["p_right"]  # a frame with one eye unread is left out
@@ -74,6 +78,11 @@ class Capture:
     @property
     def times(self) -> list[float]:
         return [frame.time for frame in self.frames]
+
+    @property
+    def levels(self) -> list[tuple[float, float] | None]:
+        """Where the eyes were on each frame, for the counting rules (`count_blinks`)."""
+        return [frame.level for frame in self.frames]
 
     @property
     def seconds(self) -> float:

@@ -167,6 +167,7 @@ struct RecordingTests {
         both.eyes = [EyeReading(side: .imageLeft, picture: picture, closed: 0.9, openness: 0.11),
                      EyeReading(side: .imageRight, picture: picture, closed: 0.7, openness: 0.12)]
         both.closed = 0.8
+        both.eyeLevel = EyeLevel(height: 312.5, apart: 140)
 
         let writer = try CaptureWriter(root: root, name: "test")
         writer.write(frame: 7, time: 0.2333, reading: both, state: .closed(since: 0.2, frames: 1, peak: 0.8), event: nil, tick: true)
@@ -179,8 +180,8 @@ struct RecordingTests {
             .split(separator: "\n").map(String.init)
         #expect(lines == [
             CaptureWriter.header,
-            "7,0.2333,0.9000,0.7000,0.8000,0.1100,0.1200,closed,,1",
-            "8,0.2667,,,,,,unknown,,",
+            "7,0.2333,0.9000,0.7000,0.8000,0.1100,0.1200,closed,,1,312.50,140.00",
+            "8,0.2667,,,,,,unknown,,,,",
         ])
         #expect(writer.frames == 2)
     }

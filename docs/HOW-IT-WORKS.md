@@ -205,7 +205,7 @@ route so far. The app's own trainer learns from sessions alone.
 ## 5. Counting
 
 The model only says "closed: 2%, 3%, 98%, 99%, 4%" thirty times a second.
-`BlinkDetector` finds blinks in that stream with four rules:
+`BlinkDetector` finds blinks in that stream with five rules:
 
 | Rule | Why |
 |---|---|
@@ -213,6 +213,14 @@ The model only says "closed: 2%, 3%, 98%, 99%, 4%" thirty times a second.
 | Two closed frames in a row, or one frame at least 80% sure | A lone hesitant frame is a model mistake; a lone sure frame is a fast blink |
 | At most 0.6 s | Longer is resting or looking down, reported as a long closure |
 | Nothing counted across a gap | If the face was lost while the eyes were closed, nobody knows when they reopened |
+| No count if the eyes moved up or down by more than 0.15 of their distance during the closure | Seen from a camera above the screen, a head going down looks like closing eyes. A nod or a glance at the keyboard shorter than 0.6 s was counted as a blink |
+
+The last rule asks where the eyes were, which the model's answer does not say: each frame
+also gives the height of the point between the eyes and their distance apart, from
+Vision's landmarks. A real blink barely moves that point (0.06 of the distance between the
+eyes at the median over 151 marked blinks, as the lid pulls Vision's outline down); the
+closures counted in two minutes of nodding moved it by 0.16 to 1.18. A real blink made
+during such a move is lost.
 
 The two eyes' answers are averaged before the rules are applied. The rules exist in Swift
 (the app) and in Python (the evaluation); a test reads the numbers out of the Swift file

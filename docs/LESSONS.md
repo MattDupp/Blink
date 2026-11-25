@@ -1,4 +1,4 @@
-# Eight things this project taught me
+# Eleven things this project taught me
 
 Each of these looked fine until something was measured or looked at. The numbers are from
 my own recordings: one person, one morning.
@@ -355,3 +355,51 @@ battery gave three figures in each, and two pauses read 4.0 and 1.9 W for reason
 had nothing to do with the app. Only the next runs could be trusted: five minutes a
 phase, with the counting phases on both sides of the pause. And the Mac's resting level
 moved between runs, from 1.9 to 5.1 W: only differences within one run mean anything.
+
+## 11. A nod is not a blink
+
+Moving my head up and down raised the count with no blink at all. Two recordings of a
+minute, one nodding and one nodding with glances at the keyboard, counted 52 and 63 blinks
+at the standard effort.
+
+The replay could already say which way of finding the eyes counted what. It could not say
+where the eyes were: the traces kept the model's answers, not the squares. With
+`BlinkReplay --squares` it can, and the two minutes showed two causes behind one symptom:
+
+- **A head going down looks like closing eyes.** From a camera above the screen, a lowered
+  head shows its upper lids, and the model answers "closed". A nod is shorter than the
+  0.6 s a blink may last, so each nod was counted. Searching the eyes on every frame did
+  not help: 29 and 52.
+- **Squares a frame old miss an eye that moves.** At the standard effort the frame between
+  two searches reads the squares of the one before. During a nod they were 0.07 to 0.20 of
+  the distance between the eyes off the eye, and the model, shown a brow or a cheek, was
+  sure of "closed" for one frame. That added 23 and 11 counts, often in pairs a few frames
+  apart, on eyes that are plainly open in the pictures.
+
+Both move the eyes, and a blink does not. During the 151 blinks marked by hand, the point
+between the eyes moved up or down by 0.06 of their distance at the median (the lid pulls
+Vision's outline down with it), 0.18 at most. During the closures counted while nodding:
+0.16 to 1.18. So the counting has a fifth rule: no blink if the eyes moved up or down by
+more than 0.15 of their distance during the closure. Replayed:
+
+| Standard effort | Two minutes of nodding | Marked blinks found, of 151 |
+|---|---|---|
+| Before, my model | 52 and 63 | 97 |
+| With the rule, my model | 20 and 21 | the same 97 |
+| Before, the reference model (`models/eyenet.weights`) | 62 and 68 | 143 |
+| With the rule, the reference model | 17 and 22 | the same 143 |
+
+The first idea was Light's: forget what squares the eyes had left had read. Tried offline
+on the same answers, at the limit that removed the nod counts it lost 6 of the 97 marked
+blinks, because a closing lid moves Vision's eye centre too.
+
+What the rule costs: a real blink made while the head moves up or down that fast is not
+counted. In the older recordings that was one or two counts, during quick head turns, on
+frames where one eye was hidden and that the marks do not cover. And these two minutes
+cannot say whether every closure during a nod was a lowered gaze: in a 64-pixel picture of
+an eye, a gaze lowered with the head and a closed lid look alike. I blinked as usual while
+recording them, so a recording with no blink while nodding is what would settle it.
+
+**What I keep from it:** a trace that keeps only the answers can say that something is
+wrong, not why. Keeping where each stage looked turned one symptom into two causes, and
+one measurement, the eyes' movement, told both apart from a blink.
