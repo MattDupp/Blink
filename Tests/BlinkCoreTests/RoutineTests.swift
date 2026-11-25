@@ -272,7 +272,8 @@ struct RoutineTests {
         #expect(try String(contentsOf: file, encoding: .utf8).hasPrefix("at,routine,slot,action,until\n"))
         #expect(store.erase())
         #expect(store.load(since: at(0)).isEmpty)
-        #expect(RoutineStore.safe("a,b\nc") == "a_b_c")
+        // A field cannot shift the columns after it, nor become a formula.
+        #expect(RoutineEvent(at: at(9), routine: "a,b\nc", slot: "=1+1", action: .done).fields[1...2] == ["a b c", "1+1"])
     }
 
     @Test("A routine of each kind survives being stored, and a new built-in one is added to old settings")

@@ -7,8 +7,22 @@ import Foundation
 /// folder, write the header, open, go to the end, write": this is that code, once.
 ///
 /// The fields are joined with commas as they are. Callers pass numbers and fixed words;
-/// free text must be made safe first (see `SessionWriter.csvSafe`).
+/// free text must be made safe first (`safe`).
 public final class CSVAppender {
+
+    /// Free text, made safe to sit in one CSV cell:
+    ///   - commas, quotes and line breaks would break the line, so they become spaces;
+    ///   - a cell that starts with = + - or @ is run as a FORMULA by spreadsheet programs
+    ///     when the file is opened there, so those leading characters are dropped.
+    /// (The routine log had a second, weaker version of this that kept the formulas.)
+    public static func safe(_ text: String) -> String {
+        let oneLine = text
+            .components(separatedBy: CharacterSet(charactersIn: ",\"\r\n\t"))
+            .joined(separator: " ")
+            .split(separator: " ")
+            .joined(separator: " ")
+        return String(oneLine.drop { "=+-@ ".contains($0) })
+    }
 
     private let handle: FileHandle
 

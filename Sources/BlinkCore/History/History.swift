@@ -104,15 +104,26 @@ public struct DaySummary: Equatable {
 ///     start,observed_seconds,blinks
 ///     2026-11-20T10:15:00Z,58.4,11
 ///
-/// Only numbers are kept. No picture ever leaves the camera pipeline.
-public struct HistoryStore {
+/// Only numbers are kept. No picture ever leaves the camera pipeline. The Python side
+/// reads this file too: its format does not change.
+public typealias HistoryStore = RecordFile<MinuteRecord>
 
-    public let file: URL
+extension MinuteRecord: RecordLine {
+    public static let header = "start,observed_seconds,blinks"
+    public var at: Date { start }
 
-    public init(file: URL) {
-        self.file = file
+    public var fields: [String] {
+        [RecordDates.string(start), String(format: "%.1f", observedSeconds), String(blinks)]
     }
 
+    public init?(fields: [String]) {
+        guard fields.count == 3, let start = RecordDates.date(fields[0]),
+              let observed = Double(fields[1]), let blinks = Int(fields[2]) else { return nil }
+        self.init(start: start, observedSeconds: observed, blinks: blinks)
+    }
+}
+
+extension RecordFile where Line == MinuteRecord {
     /// The folder the app keeps its own files in.
     public static var applicationFolder: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -122,48 +133,5 @@ public struct HistoryStore {
 
     public static var defaultFile: URL {
         applicationFolder.appendingPathComponent("history.csv")
-    }
-
-    private static let header = "start,observed_seconds,blinks"
-
-    /// Adds one minute at the end of the file. Returns false (and logs why) on failure.
-    @discardableResult
-    public func append(_ record: MinuteRecord) -> Bool {
-        do {
-            return try CSVAppender(url: file, header: Self.header).append([
-                ISO8601DateFormatter().string(from: record.start),
-                String(format: "%.1f", record.observedSeconds),
-                String(record.blinks),
-            ])
-        } catch {
-            Log.storage.error("History not opened: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// Removes every recorded minute. Returns false (and logs why) on failure.
-    @discardableResult
-    public func erase() -> Bool {
-        do {
-            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-            return true
-        } catch {
-            Log.storage.error("History not erased: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// The minutes recorded since `date`, oldest first. Lines that cannot be read are skipped.
-    public func load(since date: Date) -> [MinuteRecord] {
-        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
-        let formatter = ISO8601DateFormatter()
-        var records: [MinuteRecord] = []
-        for line in text.split(separator: "\n").dropFirst() {
-            let fields = line.split(separator: ",")
-            guard fields.count == 3, let start = formatter.date(from: String(fields[0])),
-                  let observed = Double(fields[1]), let blinks = Int(fields[2]), start >= date else { continue }
-            records.append(MinuteRecord(start: start, observedSeconds: observed, blinks: blinks))
-        }
-        return records
     }
 }

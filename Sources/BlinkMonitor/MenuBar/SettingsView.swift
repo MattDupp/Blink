@@ -145,11 +145,13 @@ enum EraseWords {
             + "Nothing is counted until it is done. This cannot be undone.",
         button: "Delete and Start Again")
 
-    static let everything = Confirm.Question(
-        title: "Delete everything and quit?",
-        text: "The recordings of your eyes, your model, the history, the routine log, the break log, your eye notes and every setting are removed from this Mac, "
-            + "and Blink quits. Afterwards, move Blink itself to the Trash. This cannot be undone.",
-        button: "Delete Everything and Quit")
+    static func everything(_ records: [KeptRecord]) -> Confirm.Question {
+        Confirm.Question(
+            title: "Delete everything and quit?",
+            text: "The recordings of your eyes, your model, \(KeptRecord.names(records)) and every setting are removed from this Mac, "
+                + "and Blink quits. Afterwards, move Blink itself to the Trash. This cannot be undone.",
+            button: "Delete Everything and Quit")
+    }
 }
 
 /// Where the files that setup makes are kept.
@@ -162,6 +164,8 @@ struct SettingsFiles {
     /// The app's own captures folder (what Live View's record buttons saved). Nil in the
     /// demo. A folder named at launch (`--capture-dir`) is a developer's and is not this.
     var capturesRoot: URL?
+    /// The records' files (`KeptRecord`): their sizes are shown in the Privacy tab.
+    var records: [URL] = []
 }
 
 /// What the Settings window remembers while it is open.
@@ -190,6 +194,8 @@ final class SettingsState: ObservableObject {
         var captureMegabytes = 0.0
         /// A model trained here that has not passed (or been excused from) its test.
         var untested = false
+        /// The size of each record's file; absent: no file yet.
+        var recordBytes: [URL: Int64] = [:]
     }
 
     /// The outcome of "Measure Again", waiting for your decision.
@@ -225,7 +231,10 @@ final class SettingsState: ObservableObject {
         onDisk = OnDisk(sessions: sessions.count, pictures: sessions.reduce(0) { $0 + $1.pictures },
                         megabytes: Double(bytes) / 1_000_000,
                         captures: captures.count, captureMegabytes: Double(captureBytes) / 1_000_000,
-                        untested: files.store.info().map { !$0.isAccepted } ?? false)
+                        untested: files.store.info().map { !$0.isAccepted } ?? false,
+                        recordBytes: Dictionary(uniqueKeysWithValues: files.records.compactMap { file in
+                            ((try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int64).map { (file, $0) }
+                        }))
     }
 }
 
@@ -716,45 +725,12 @@ struct SettingsView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
-            // Every file the app writes, each with its size, where it is and its own Erase.
+            // Every file the app writes (`KeptRecord`), each with its size, where it is and its own Erase.
             Card {
-                Row("History file", detail: "\(Format.count(history.minutes.count, "minute")) from the last \(HistoryController.daysKept) days are shown. "
-                        + "The file keeps every minute since the first, and Erase removes all of them. \(Self.size(of: history.store.file))") {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([history.store.file]) }
-                    Button("Erase…") {
-                        if Confirm.destructive(EraseWords.history(startingLimit: preferences.floor)) { model.eraseHistory() }
-                    }
-                    .disabled(history.minutes.isEmpty && preferences.reference == nil)
-                }
-                Divider()
-                let log = model.routines.store.file
-                Row("Routine log", detail: "What you did with your routines, one line each time. It opens in any spreadsheet. \(Self.size(of: log))") {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([log]) }
-                        .disabled(!FileManager.default.fileExists(atPath: log.path))
-                    Button("Erase…") {
-                        if Confirm.destructive(EraseWords.routineLog) { model.routines.eraseRecord() }
-                    }
-                    .disabled(!FileManager.default.fileExists(atPath: log.path))
-                }
-                Divider()
-                let breakLog = model.care.store.file
-                Row(KeptWords.fileTitle, detail: "\(KeptWords.fileDetail) \(Self.size(of: breakLog))") {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([breakLog]) }
-                        .disabled(!FileManager.default.fileExists(atPath: breakLog.path))
-                    Button("Erase…") {
-                        if Confirm.destructive(EraseWords.breakLog) { model.care.erase() }
-                    }
-                    .disabled(!FileManager.default.fileExists(atPath: breakLog.path))
-                }
-                Divider()
-                let eyeNotes = model.eyeNotes.store.file
-                Row(EyeNoteWords.fileTitle, detail: "\(EyeNoteWords.fileDetail) \(Self.size(of: eyeNotes))") {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([eyeNotes]) }
-                        .disabled(!FileManager.default.fileExists(atPath: eyeNotes.path))
-                    Button("Erase…") {
-                        if Confirm.destructive(EraseWords.eyeNotes) { model.eyeNotes.erase() }
-                    }
-                    .disabled(!FileManager.default.fileExists(atPath: eyeNotes.path))
+                let records = model.keptRecords
+                ForEach(Array(records.enumerated()), id: \.element.id) { index, record in
+                    if index > 0 { Divider() }
+                    recordRow(record)
                 }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
                     Divider()
@@ -773,9 +749,10 @@ struct SettingsView: View {
             if let deleteEverything = actions.deleteEverythingAndQuit {
                 Card {
                     Row("Remove Blink from this Mac",
-                        detail: "Deletes the recordings, the model, the history, the routine log, the break log, your eye notes and every setting, then quits. Afterwards, move the app itself to the Trash.") {
+                        detail: "Deletes the recordings of your eyes, your model, \(KeptRecord.names(model.keptRecords)) and every setting, "
+                            + "then quits. Afterwards, move the app itself to the Trash.") {
                         Button("Delete Everything and Quit…") {
-                            if Confirm.destructive(EraseWords.everything) { deleteEverything() }
+                            if Confirm.destructive(EraseWords.everything(model.keptRecords)) { deleteEverything() }
                         }
                     }
                 }
@@ -784,10 +761,20 @@ struct SettingsView: View {
         .onAppear { state.refresh(files) }
     }
 
-    /// "12 KB.", or that the file does not exist yet.
-    static func size(of file: URL) -> String {
-        guard let bytes = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int64 else { return "No file yet." }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) + "."
+    /// One record's row: its size (counted when the window opened), Show in Finder, Erase.
+    private func recordRow(_ record: KeptRecord) -> some View {
+        let bytes = state.onDisk.recordBytes[record.file]
+        let size = bytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + "." } ?? "No file yet."
+        return Row(record.title, detail: "\(record.detail) \(size)") {
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([record.file]) }
+                .disabled(bytes == nil)
+            Button("Erase…") {
+                guard Confirm.destructive(record.eraseQuestion) else { return }
+                record.erase()
+                state.refresh(files)
+            }
+            .disabled(bytes == nil && !record.holdsMore())
+        }
     }
 
     // MARK: Your model

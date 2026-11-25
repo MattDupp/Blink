@@ -60,7 +60,7 @@ public final class SessionWriter {
 
     public init(root: URL, session: String, condition: String) throws {
         sessionID = session
-        self.condition = Self.csvSafe(condition)
+        self.condition = CSVAppender.safe(condition)
 
         folder = root.appendingPathComponent(session, isDirectory: true)
         for label in [EyeLabel.open, EyeLabel.closed] {
@@ -68,19 +68,6 @@ public final class SessionWriter {
         }
 
         manifest = try CSVAppender(url: folder.appendingPathComponent("manifest.csv"), header: Self.header)
-    }
-
-    /// Free text typed by the user, made safe to sit in one CSV cell:
-    ///   - commas, quotes and line breaks would break the line, so they become spaces;
-    ///   - a cell that starts with = + - or @ is run as a FORMULA by spreadsheet programs
-    ///     when the file is opened there, so those leading characters are dropped.
-    static func csvSafe(_ text: String) -> String {
-        let oneLine = text
-            .components(separatedBy: CharacterSet(charactersIn: ",\"\r\n\t"))
-            .joined(separator: " ")
-            .split(separator: " ")
-            .joined(separator: " ")
-        return String(oneLine.drop { "=+-@ ".contains($0) })
     }
 
     /// Saves one eye picture and its manifest line. Returns false when the disk refused.

@@ -55,56 +55,25 @@ public struct CareEvent: Equatable {
 /// A file of its own: `history.csv` is read by the Python side too and its format does
 /// not change. Lines are only ever added. Like the other two it holds times and words,
 /// never a picture, and it never leaves this Mac.
-public struct CareStore {
+public typealias CareStore = RecordFile<CareEvent>
 
-    public let file: URL
+extension CareEvent: RecordLine {
+    public static let header = "at,what,note"
+    private static let sameAbsenceNote = "same-absence"
 
-    public init(file: URL) {
-        self.file = file
+    public var fields: [String] {
+        [RecordDates.string(at), kind.rawValue, sameAbsence ? Self.sameAbsenceNote : ""]
     }
 
+    public init?(fields: [String]) {
+        guard fields.count == 3, let at = RecordDates.date(fields[0]), let kind = Kind(rawValue: fields[1]) else { return nil }
+        self.init(at: at, kind: kind, sameAbsence: fields[2] == Self.sameAbsenceNote)
+    }
+}
+
+extension RecordFile where Line == CareEvent {
     public static var defaultFile: URL {
         HistoryStore.applicationFolder.appendingPathComponent("breaks.csv")
-    }
-
-    private static let header = "at,what,note"
-    private static let sameAbsence = "same-absence"
-
-    @discardableResult
-    public func append(_ event: CareEvent) -> Bool {
-        do {
-            return try CSVAppender(url: file, header: Self.header).append([
-                ISO8601DateFormatter().string(from: event.at), event.kind.rawValue, event.sameAbsence ? Self.sameAbsence : "",
-            ])
-        } catch {
-            Log.storage.error("Break log not opened: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// What happened since `date`, oldest first. Lines that cannot be read are skipped.
-    public func load(since date: Date) -> [CareEvent] {
-        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
-        let formatter = ISO8601DateFormatter()
-        var events: [CareEvent] = []
-        for line in text.split(separator: "\n").dropFirst() {
-            let fields = line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-            guard fields.count == 3, let at = formatter.date(from: fields[0]), at >= date,
-                  let kind = CareEvent.Kind(rawValue: fields[1]) else { continue }
-            events.append(CareEvent(at: at, kind: kind, sameAbsence: fields[2] == Self.sameAbsence))
-        }
-        return events
-    }
-
-    @discardableResult
-    public func erase() -> Bool {
-        do {
-            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-            return true
-        } catch {
-            Log.storage.error("Break log not erased: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
     }
 }
 

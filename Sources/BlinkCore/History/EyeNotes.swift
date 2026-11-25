@@ -40,54 +40,24 @@ public struct EyeNote: Equatable {
 ///
 /// Lines are only ever added. An answer changed the same day is a second line, and the
 /// later one is the day's note (`EyeNotes.byDay`). The file never leaves this Mac.
-public struct EyeNoteStore {
+public typealias EyeNoteStore = RecordFile<EyeNote>
 
-    public let file: URL
+extension EyeNote: RecordLine {
+    public static let header = "day,at,feeling"
 
-    public init(file: URL) {
-        self.file = file
+    public var fields: [String] {
+        [CSVAppender.safe(day), RecordDates.string(at), feeling.rawValue]
     }
 
+    public init?(fields: [String]) {
+        guard fields.count == 3, let at = RecordDates.date(fields[1]), let feeling = EyeFeeling(rawValue: fields[2]) else { return nil }
+        self.init(day: fields[0], at: at, feeling: feeling)
+    }
+}
+
+extension RecordFile where Line == EyeNote {
     public static var defaultFile: URL {
         HistoryStore.applicationFolder.appendingPathComponent("eye-notes.csv")
-    }
-
-    private static let header = "day,at,feeling"
-
-    @discardableResult
-    public func append(_ note: EyeNote) -> Bool {
-        do {
-            return try CSVAppender(url: file, header: Self.header).append([
-                RoutineStore.safe(note.day), ISO8601DateFormatter().string(from: note.at), note.feeling.rawValue,
-            ])
-        } catch {
-            Log.storage.error("Eye notes not opened: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// Every note, oldest first. Lines that cannot be read are skipped.
-    public func load() -> [EyeNote] {
-        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
-        let formatter = ISO8601DateFormatter()
-        var notes: [EyeNote] = []
-        for line in text.split(separator: "\n").dropFirst() {
-            let fields = line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-            guard fields.count == 3, let at = formatter.date(from: fields[1]), let feeling = EyeFeeling(rawValue: fields[2]) else { continue }
-            notes.append(EyeNote(day: fields[0], at: at, feeling: feeling))
-        }
-        return notes
-    }
-
-    @discardableResult
-    public func erase() -> Bool {
-        do {
-            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-            return true
-        } catch {
-            Log.storage.error("Eye notes not erased: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
     }
 }
 

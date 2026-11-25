@@ -119,10 +119,10 @@ struct RecordingTests {
 
     @Test("Text typed by the user cannot break the CSV or become a spreadsheet formula")
     func conditionText() {
-        #expect(SessionWriter.csvSafe("lamp, \"glasses\"\nevening") == "lamp glasses evening")
-        #expect(SessionWriter.csvSafe("=HYPERLINK(\"x\")") == "HYPERLINK( x )")
-        #expect(SessionWriter.csvSafe(" +-@ daylight") == "daylight")
-        #expect(SessionWriter.csvSafe("no glasses - evening") == "no glasses - evening")
+        #expect(CSVAppender.safe("lamp, \"glasses\"\nevening") == "lamp glasses evening")
+        #expect(CSVAppender.safe("=HYPERLINK(\"x\")") == "HYPERLINK( x )")
+        #expect(CSVAppender.safe(" +-@ daylight") == "daylight")
+        #expect(CSVAppender.safe("no glasses - evening") == "no glasses - evening")
     }
 
     @Test("Recordings are written to folders only their owner can read")

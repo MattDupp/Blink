@@ -51,64 +51,24 @@ public struct RoutineEvent: Equatable {
 /// "done on that day", whatever the hour.
 /// Lines are only ever added: what is due is worked out from them each time it is asked
 /// (`RoutineDay`), so there is no "state" file that could disagree with the record.
-public struct RoutineStore {
+public typealias RoutineStore = RecordFile<RoutineEvent>
 
-    public let file: URL
+extension RoutineEvent: RecordLine {
+    public static let header = "at,routine,slot,action,until"
 
-    public init(file: URL) {
-        self.file = file
+    public var fields: [String] {
+        [RecordDates.string(at), CSVAppender.safe(routine), CSVAppender.safe(slot), action.rawValue,
+         until.map(RecordDates.string) ?? ""]
     }
 
+    public init?(fields: [String]) {
+        guard fields.count == 5, let at = RecordDates.date(fields[0]), let action = Action(rawValue: fields[3]) else { return nil }
+        self.init(at: at, routine: fields[1], slot: fields[2], action: action, until: RecordDates.date(fields[4]))
+    }
+}
+
+extension RecordFile where Line == RoutineEvent {
     public static var defaultFile: URL {
         HistoryStore.applicationFolder.appendingPathComponent("routines.csv")
-    }
-
-    private static let header = "at,routine,slot,action,until"
-
-    /// Adds one line at the end of the file. Returns false (and logs why) on failure.
-    @discardableResult
-    public func append(_ event: RoutineEvent) -> Bool {
-        let formatter = ISO8601DateFormatter()
-        do {
-            return try CSVAppender(url: file, header: Self.header).append([
-                formatter.string(from: event.at), Self.safe(event.routine), Self.safe(event.slot),
-                event.action.rawValue, event.until.map { formatter.string(from: $0) } ?? "",
-            ])
-        } catch {
-            Log.storage.error("Routine record not opened: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// What happened since `date`, oldest first. Lines that cannot be read are skipped.
-    public func load(since date: Date) -> [RoutineEvent] {
-        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
-        let formatter = ISO8601DateFormatter()
-        var events: [RoutineEvent] = []
-        for line in text.split(separator: "\n").dropFirst() {
-            let fields = line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-            guard fields.count == 5, let at = formatter.date(from: fields[0]), at >= date,
-                  let action = RoutineEvent.Action(rawValue: fields[3]) else { continue }
-            events.append(RoutineEvent(at: at, routine: fields[1], slot: fields[2], action: action,
-                                       until: formatter.date(from: fields[4])))
-        }
-        return events
-    }
-
-    /// Removes the whole record. Returns false (and logs why) on failure.
-    @discardableResult
-    public func erase() -> Bool {
-        do {
-            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-            return true
-        } catch {
-            Log.storage.error("Routine record not erased: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
-    }
-
-    /// A comma or a line break in a field would shift every column after it.
-    static func safe(_ field: String) -> String {
-        String(field.map { $0 == "," || $0.isNewline ? "_" : $0 })
     }
 }

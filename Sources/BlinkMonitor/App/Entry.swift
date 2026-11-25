@@ -272,8 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let history = WindowController(title: "History", text: preferences) {
             HistoryView(history: model.history, preferences: preferences, state: historyState,
                         care: model.care, routines: model.routines, eyeNotes: model.eyeNotes,
-                        export: { ExportPanel.run(history: model.history.store.file, routineLog: model.routines.store.file,
-                                                  breakLog: model.care.store.file, eyeNotes: model.eyeNotes.store.file) })
+                        export: { ExportPanel.run(model.keptRecords) })
         }
         // It opens on today, in the last seven days. The earlier weeks are read from the
         // file while the window is open, and let go when it closes. The demo's are made up.
@@ -360,7 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let settingsState = SettingsState()
         let recordings = SettingsFiles(store: parts.store, sessionsRoot: parts.sessionsRoot, ownSessions: parts.ownSessions,
-                                       capturesRoot: demo ? nil : Options.ownCaptureRoot)
+                                       capturesRoot: demo ? nil : Options.ownCaptureRoot, records: model.keptRecords.map(\.file))
         let settings = WindowController(title: "Blink Settings", text: preferences) { [weak self] in
             SettingsView(model: model, preferences: preferences, history: model.history, reminders: model.reminders,
                          loginItem: model.loginItem, shortcut: model.shortcut, state: settingsState, files: recordings,

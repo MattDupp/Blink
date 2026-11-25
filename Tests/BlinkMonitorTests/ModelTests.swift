@@ -884,11 +884,28 @@ struct PanelSentenceTests {
 @Suite("Settings")
 struct SettingsWordsTests {
 
+    @Test("Every record the app keeps is listed once: in Privacy, in Export and in Delete Everything")
+    func keptRecords() {
+        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
+                                 initial: MonitorModel.InitialState())
+        let records = model.keptRecords
+        #expect(records.map(\.exportName) == ["Blink - history.csv", "Blink - routine log.csv", "Blink - break log.csv",
+                                               "Blink - eye notes.csv"])
+        #expect(Set(records.map(\.file)).count == records.count, "one file each")
+        #expect(Set(records.map(\.exportName)).count == records.count, "one name each")
+        let everything = EraseWords.everything(records).text, export = ExportPanel.message(records)
+        for record in records {
+            #expect(everything.contains("your \(record.name)"), "\(record.name)")
+            #expect(export.contains("your \(record.name)"), "\(record.name)")
+            #expect(record.eraseQuestion.text.contains("cannot be undone"), "\(record.name)")
+        }
+    }
+
     @Test("Seven tabs, the last one About; every erasing question says it cannot be undone")
     func tabsAndQuestions() {
         #expect(SettingsState.Tab.allCases.map(\.rawValue) == ["General", "Blink Rate", "Breaks", "Routines", "Model", "Privacy", "About"])
         let questions = [EraseWords.history(startingLimit: 10), EraseWords.routineLog, EraseWords.captures(2),
-                         EraseWords.startAgain, EraseWords.everything]
+                         EraseWords.startAgain, EraseWords.everything([])]
         for question in questions {
             #expect(question.text.contains("cannot be undone"), "\(question.title)")
             #expect(question.button != "OK" && question.button != "Cancel")

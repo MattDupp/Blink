@@ -1,15 +1,11 @@
 import Foundation
 
-/// "Export…": copies of the app's two files of numbers, in a folder the user chose.
+/// "Export…": copies of the app's files of numbers and words, in a folder the user chose.
 ///
-/// The history (one line per minute counted) and the routine log (one line each time a
-/// reminder was shown, done, postponed or missed). Both are plain CSV, so any spreadsheet
-/// opens them. Nothing is sent anywhere: this is a copy from one folder of this Mac to
-/// another, and the app goes on writing to its own files, not to the copies.
-///
-/// The copies get names that say where they come from. In the app's folder the files are
-/// "history.csv" and "routines.csv"; in someone's Documents those names would say nothing,
-/// and could be another program's.
+/// Which files, and the names of their copies, the app says (`KeptRecord`). They are plain
+/// CSV, so any spreadsheet opens them. Nothing is sent anywhere: this is a copy from one
+/// folder of this Mac to another, and the app goes on writing to its own files, not to
+/// the copies.
 public enum DataExport {
 
     /// One file to export: where it is, and the name of its copy.
@@ -21,15 +17,6 @@ public enum DataExport {
             self.file = file
             self.name = name
         }
-    }
-
-    /// A dash stands between the app's name and the record: "Blink break log" read as a
-    /// log of blink breaks, and the file holds the look-away breaks and reminders too.
-    public static func items(history: URL, routineLog: URL, breakLog: URL, eyeNotes: URL) -> [Item] {
-        [Item(file: history, name: "Blink - history.csv"),
-         Item(file: routineLog, name: "Blink - routine log.csv"),
-         Item(file: breakLog, name: "Blink - break log.csv"),
-         Item(file: eyeNotes, name: "Blink - eye notes.csv")]
     }
 
     /// Copies each file that exists into `folder`, and answers the copies made. A file
