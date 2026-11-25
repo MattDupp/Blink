@@ -15,7 +15,10 @@ public struct BlinkBreak: Equatable {
     public let target: Int
     public private(set) var count = 0
 
-    public init(target: Int = 10) {
+    /// Blinks of an exercise, unless another number is asked for.
+    public static let usualTarget = 10
+
+    public init(target: Int = BlinkBreak.usualTarget) {
         self.target = max(1, target)
     }
 

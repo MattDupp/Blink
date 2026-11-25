@@ -29,7 +29,7 @@ enum GoodToKnow {
         ("Does it work during a video call?",
          "Yes. macOS lets several apps use the camera together, and the call does not see what Blink does. For no reminders meanwhile, use Quiet in the panel, or Quiet during calls in General."),
         ("New glasses, a new desk, a new camera?",
-         "Your model learned your eyes as they looked when you recorded them. After a change, test it under Model. If it counts fewer than 8 of 10, add a recording there."),
+         "Your model learned your eyes as they looked when you recorded them. After a change, test it under Model. If it counts fewer than \(ProofTest.passMark) of \(ProofTest.ticks), add a recording there."),
         ("Why is my rate lower than what I read elsewhere?",
          "The app counts complete blinks only, and people blink less at a screen than in conversation. What it compares with is your own usual rate."),
         ("Can I leave it running all day?",
@@ -507,7 +507,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Card {
                 Row("Remind me when I blink too little",
-                    detail: "When your rate stays under the limit for 3 minutes. Left unanswered it backs off: the next after 5, 15, 30, then 60 minutes, with a sound for the first two only. A blink break answers it.") {
+                    detail: "When your rate stays under the limit for \(ReminderWords.window). Left unanswered it backs off: the next after \(ReminderWords.waits), with a sound for \(ReminderWords.withSound) only. A blink break answers it.") {
                     Toggle("Remind me when I blink too little", isOn: $preferences.remindersOn)
                 }
                 Divider()
@@ -519,7 +519,7 @@ struct SettingsView: View {
                 Divider()
                 // It answers the blink reminder, so it is here and not under Breaks.
                 let cameraOn = model.status(now: moment.now).isCameraOn
-                Row("Try a blink break", detail: cameraOn ? "10 slow blinks, counted by the camera. A finished one answers the reminder for 20 minutes."
+                Row("Try a blink break", detail: cameraOn ? "\(BlinkBreak.usualTarget) slow blinks, counted by the camera. A finished one answers the reminder for \(ReminderWords.answeredFor)."
                                                           : "The camera counts the blinks of a blink break, and it is off now.") {
                     Button("Start") { actions.startBlinkBreak() }
                         .disabled(!cameraOn)
@@ -594,7 +594,8 @@ struct SettingsView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your usual rate: \(Format.rate(reference.rate)) blinks a minute")
-                        Text("Measured on \(Format.day(reference.measuredOn)) over \(Format.count(reference.minutes, "minute")). \(limitSentence(reference))")
+                        Text("Measured on \(Format.day(reference.measuredOn)) over \(Format.count(reference.minutes, "minute")). "
+                             + CalibrationWords.limit(reference: reference, limit: preferences.limit, floor: preferences.floor))
                             .textStyle(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -622,8 +623,7 @@ struct SettingsView: View {
                 let calibration = Baseline.calibration(records: history.minutes)
                 Text("Learning your usual rate")
                 ProgressView(value: calibration.progress)
-                Text("\(Format.duration(calibration.watchedSeconds)) of 3 h at the screen, on \(calibration.days) of 2 days. "
-                     + "Until then the limit is \(preferences.limit) a minute. Once measured, the limit is 70% of your usual rate.")
+                Text(CalibrationWords.progress(calibration, limit: preferences.limit))
                     .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -632,13 +632,6 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-    }
-
-    private func limitSentence(_ reference: Reference) -> String {
-        let share = Int((reference.rate * Baseline.shareOfReference).rounded())
-        return share >= preferences.floor
-            ? "Your limit is 70% of it: \(preferences.limit) a minute."
-            : "70% of it would be \(share), so the lowest limit, \(preferences.floor), applies."
     }
 
     @ViewBuilder
@@ -681,7 +674,7 @@ struct SettingsView: View {
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         case .tooLittle:
             HStack(alignment: .firstTextBaseline) {
-                Text("Too little was recorded in the last week to measure: 3 hours over 2 days are needed.")
+                Text(CalibrationWords.tooLittle)
                     .textStyle(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -819,7 +812,7 @@ struct SettingsView: View {
                             Button("Add a Recording…") { actions.openSetup(.addSession) }
                         }
                         Divider()
-                        Row("Test it again", detail: "10 ticks, a blink at each: how many does it count where you sit now?") {
+                        Row("Test it again", detail: "\(ProofTest.ticks) ticks, a blink at each: how many does it count where you sit now?") {
                             Button("Test Again") { actions.openSetup(.test) }
                                 .disabled(!isTrainedHere)
                         }
@@ -884,7 +877,7 @@ struct SettingsView: View {
         case .none:
             return state.onDisk.untested
                 ? "Your model is trained but not tested yet. Until then nothing is counted."
-                : "Blink learns your eyes before it can count. Setup takes about 8 minutes."
+                : "Blink learns your eyes before it can count. \(AppWords.setupLength)"
         }
     }
 

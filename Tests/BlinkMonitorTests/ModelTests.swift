@@ -651,6 +651,48 @@ struct SourceTests {
         #expect(offenders.isEmpty, "a stored Date() in: \(offenders)")
     }
 
+    /// Every line of the app's own sources that holds text between quotes, outside the
+    /// comment lines: "Name.swift:12" and the text from its first quote to its last.
+    private func quotedLines() throws -> [(place: String, quoted: Substring)] {
+        var lines: [(String, Substring)] = []
+        for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
+            let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
+            for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                    let trimmed = line.drop { $0 == " " }
+                    guard !trimmed.hasPrefix("//"), let first = line.firstIndex(of: "\""), let last = line.lastIndex(of: "\"") else { continue }
+                    lines.append(("\(file.lastPathComponent):\(number + 1)", line[first...last]))
+                }
+            }
+        }
+        return lines
+    }
+
+    @Test("A number that a rule decides is read from the rule, never typed into a sentence")
+    func noTypedRuleNumber() throws {
+        // Each of these stood in a sentence beside the constant that decides it (review of
+        // 25 November 2026): `Baseline`, `ReminderPolicy`, `ProofTest`, `BlinkBreak`,
+        // `BlinkStats`, `SessionPace`. Change the constant, and the sentence went on saying
+        // the old number. The sentences now read them (`ReminderWords`, `CalibrationWords`).
+        let typed = ["70%", "3 h at", "3 hours over", "for 3 minutes", "5, 15, 30", "for 20 minutes", "10 ticks",
+                     "fewer than 8", "ten slow", "ten times", "after 20 seconds", "three seconds each", "Fifteen seconds",
+                     "under 30 minutes"]
+        let offenders = try quotedLines().flatMap { line in
+            typed.filter { line.quoted.contains($0) }.map { "\(line.place) \($0)" }
+        }
+        #expect(offenders.isEmpty, "a number typed by hand in: \(offenders)")
+    }
+
+    @Test("The reminder's waits are said as a list, from the policy's numbers")
+    func reminderWaits() {
+        #expect(ReminderWords.waits(minutes: [5, 15, 30, 60]) == "5, 15, 30, then 60 minutes")
+        #expect(ReminderWords.waits(minutes: [5]) == "5 minutes")
+        #expect(ReminderWords.waits(minutes: []) == "")
+        #expect(ReminderWords.waits == ReminderWords.waits(minutes: [5, 15, 30, 60]))
+        #expect(ReminderWords.withSound == "the first two")
+    }
+
     @Test("No retired word comes back in what a user reads")
     func noRetiredWord() throws {
         // One thing, one name (the audit of 22 November 2026 found six names for two
@@ -665,20 +707,8 @@ struct SourceTests {
                        // The app's name until 24 November 2026. It also holds "Blink Monitor - ",
                        // the old window titles.
                        "Blink Monitor"]
-        var offenders: [String] = []
-        for folder in ["Sources/BlinkMonitor", "Sources/BlinkUI"] {
-            let files = FileManager.default.enumerator(at: Self.root.appendingPathComponent(folder), includingPropertiesForKeys: nil)
-            for case let file as URL in files ?? FileManager.DirectoryEnumerator() where file.pathExtension == "swift" {
-                let text = try String(contentsOf: file, encoding: .utf8)
-                for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
-                    let trimmed = line.drop { $0 == " " }
-                    guard !trimmed.hasPrefix("//"), let first = line.firstIndex(of: "\""), let last = line.lastIndex(of: "\"") else { continue }
-                    let quoted = line[first...last]
-                    for word in retired where quoted.contains(word) {
-                        offenders.append("\(file.lastPathComponent):\(number + 1) \(word)")
-                    }
-                }
-            }
+        let offenders = try quotedLines().flatMap { line in
+            retired.filter { line.quoted.contains($0) }.map { "\(line.place) \($0)" }
         }
         #expect(offenders.isEmpty, "a retired word in: \(offenders)")
     }

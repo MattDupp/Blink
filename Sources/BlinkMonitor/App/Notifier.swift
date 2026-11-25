@@ -148,7 +148,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             identifier = Identifier.lowRate
             content.categoryIdentifier = Identifier.lowRate
             content.title = "Time to blink"
-            content.body = LowRateWords.sentence(limit: limit) + " Try ten slow, full blinks."
+            content.body = LowRateWords.sentence(limit: limit) + " Try \(ReminderWords.exercise)."
             if !sound { content.sound = nil }
         case .lowRateTest:
             identifier = Identifier.lowRateTest

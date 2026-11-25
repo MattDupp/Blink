@@ -835,6 +835,17 @@ enum Format {
             .map { $0.formatted(.dateTime.hour()) } ?? "\(hour)"
     }
 
+    /// "70%": a share as this Mac writes a percentage.
+    static func percent(_ share: Double) -> String {
+        share.formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    /// "two", "ten": a small count as a sentence says it; digits above ten.
+    static func word(_ number: Int) -> String {
+        let words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+        return words.indices.contains(number) ? words[number] : number.formatted()
+    }
+
     /// "1 minute", "3 minutes": a number with its noun, so that no sentence says "1 minutes".
     static func count(_ number: Int, _ noun: String) -> String {
         number == 1 ? "1 \(noun)" : "\(number.formatted()) \(noun)s"

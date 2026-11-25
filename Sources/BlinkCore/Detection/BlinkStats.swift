@@ -79,11 +79,15 @@ public struct BlinkStats {
         watched.reduce(0) { $1.time > now - seconds ? $0 + $1.seconds : $0 }
     }
 
+    /// Observed seconds before a rate is given: a rate computed on a few seconds jumps
+    /// around wildly.
+    public static let secondsBeforeRate = 20.0
+
     /// Blinks per minute of observed time over the last `seconds`. Nil until at least
-    /// 20 s of it were observed: a rate computed on a few seconds jumps around wildly.
+    /// `secondsBeforeRate` of it were observed.
     public func ratePerMinute(inLast seconds: Double, now: Double) -> Double? {
         let time = observed(inLast: seconds, now: now)
-        guard time >= 20 else { return nil }
+        guard time >= Self.secondsBeforeRate else { return nil }
         return Double(blinks(inLast: seconds, now: now)) / time * 60
     }
 

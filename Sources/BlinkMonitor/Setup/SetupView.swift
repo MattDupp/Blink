@@ -131,7 +131,7 @@ private struct WelcomeBackPage: View {
     }
 
     private var next: String {
-        if model.info != nil { return "The test: you blink ten times and it counts. Fifteen seconds." }
+        if model.info != nil { return "The test: you blink \(Format.word(ProofTest.ticks)) times and it counts. About \(Format.count(Int((ProofTest.secondsBeforeFirstTick + Double(ProofTest.ticks) * ProofTest.secondsBetweenTicks).rounded()), "second"))." }
         let left = max(1, model.targetSessions - model.sessions.count)
         return "A look at the camera, then \(Format.count(left, "recording")) of two minutes, the training and the test. About \(left * 3 + 1) minutes."
     }
@@ -707,7 +707,7 @@ private struct SessionBanner: View {
         }
         if recorded == 0 {
             return ("Recording 1 of \(model.targetSessions): record your eyes",
-                    ["A voice asks for \(SessionScript.phases.count) poses, three seconds each: about two minutes.",
+                    ["A voice asks for \(SessionScript.phases.count) poses, \(Format.word(Int(SessionPace.usual.recordSeconds))) seconds each: about two minutes.",
                      "Half of them are with your eyes closed. A sound ends each pose, so you know when to open them.",
                      "Why poses: every picture is saved with what you were asked to do. That is how the model gets the right answer."])
         }
@@ -912,7 +912,7 @@ private struct ProofPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PageTitle("Test it: blink, and watch it count",
-                      "The real test: blink ten times and see how many it counts.")
+                      "The real test: blink \(Format.word(ProofTest.ticks)) times and see how many it counts.")
             // The same card as on the camera and recording pages: a grey Start button
             // with no reason was all this page said.
             if let trouble = CameraTrouble(model.camera) {
@@ -950,7 +950,7 @@ private struct ProofPage: View {
 
     private var headline: String {
         switch model.proof {
-        case .ready: return "10 ticks. Blink once at each."
+        case .ready: return "\(ProofTest.ticks) ticks. Blink once at each."
         case .running: return model.proofTest.answered.isEmpty ? "Get ready" : "Blink at each tick"
         case .finished(let result):
             return result.passed ? "\(result.found) of \(result.of) blinks counted" : "Only \(result.found) of \(result.of) blinks counted"
@@ -1204,10 +1204,10 @@ private struct NotificationPoint: View {
         case .unknown:
             WelcomePoint(symbol: "bell", title: "macOS is asking about notifications",
                          text: "Look at the top right of the screen and choose Allow. If the question has gone, it waits in Notification Centre: click the clock in the menu bar. "
-                             + "Reminders come as notifications: a blink reminder when your rate stays low for 3 minutes, less and less often while you leave it. Breaks and routines, if you switch them on, use notifications too.")
+                             + "Reminders come as notifications: \(ReminderWords.briefly()). Breaks and routines, if you switch them on, use notifications too.")
         case .allowed:
             WelcomePoint(symbol: "bell", title: "Notifications are allowed",
-                         text: "A blink reminder when your rate stays low for 3 minutes, less and less often while you leave it. Breaks and routines, if you switch them on, use notifications too. "
+                         text: "\(ReminderWords.briefly(capital: true)). Breaks and routines, if you switch them on, use notifications too. "
                              + "A reminder's buttons show when the pointer is over it.")
         case .refused:
             VStack(alignment: .leading, spacing: 6) {

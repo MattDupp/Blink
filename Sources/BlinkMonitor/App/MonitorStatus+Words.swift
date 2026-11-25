@@ -6,6 +6,42 @@ import BlinkUI
 enum AppWords {
     /// It ended "when you forget to.", and the last word attached itself to "count".
     static let tagline = "Counts your blinks, and tells you when you forget to blink."
+    /// How long setup takes: an estimate, said in the panel and in Settings.
+    static let setupLength = "Setup takes about 8 minutes."
+}
+
+/// How the blink reminder behaves, in words read from `ReminderPolicy`. Settings, the
+/// welcome and the setup's last page used to say "3 minutes" and "5, 15, 30, then 60" by
+/// hand, beside the numbers that decide it.
+enum ReminderWords {
+    /// "3 minutes": how long the rate stays low before a reminder.
+    static var window: String { Format.count(ReminderPolicy().windowMinutes, "minute") }
+
+    /// "5, 15, 30, then 60 minutes": the waits after each reminder left unanswered.
+    static var waits: String {
+        waits(minutes: ([ReminderPolicy().cooldownSeconds] + ReminderPolicy.laterWaits).map { Int($0 / 60) })
+    }
+
+    static func waits(minutes: [Int]) -> String {
+        guard let last = minutes.last else { return "" }
+        let earlier = minutes.dropLast().map { $0.formatted() }
+        return earlier.isEmpty ? Format.count(last, "minute") : earlier.joined(separator: ", ") + ", then " + Format.count(last, "minute")
+    }
+
+    /// "the first two": the reminders of a low stretch that make a sound.
+    static var withSound: String { "the first \(Format.word(ReminderPolicy.remindersWithSound))" }
+
+    /// "20 minutes": how long a finished blink break answers the reminder.
+    static var answeredFor: String { Format.count(Int(ReminderPolicy.quietAfterBlinkBreak / 60), "minute") }
+
+    /// "a blink reminder when your rate stays low for 3 minutes, less and less often while
+    /// you leave it": the reminder in one clause, for the setup's last page.
+    static func briefly(capital: Bool = false) -> String {
+        (capital ? "A" : "a") + " blink reminder when your rate stays low for \(window), less and less often while you leave it"
+    }
+
+    /// "ten slow, full blinks": what a blink break asks for.
+    static var exercise: String { "\(Format.word(BlinkBreak.usualTarget)) slow, full blinks" }
 }
 
 /// The low rate, said once. The banner, the panel and the menu bar's tooltip each had
@@ -150,7 +186,7 @@ extension MonitorStatus {
         case .starting:
             return "Starting the camera."
         case .needsSetup:
-            return "Blink has not learned your eyes yet, so nothing is counted. Setup takes about 8 minutes."
+            return "Blink has not learned your eyes yet, so nothing is counted. \(AppWords.setupLength)"
         case .settingUp(.checkingCamera):
             return "Setup is checking the camera. Nothing is counted meanwhile."
         case .settingUp(.recording):
@@ -173,9 +209,10 @@ extension MonitorStatus {
         case .noFace:
             return "No face in view, so this time is not counted. If you are here: face the camera and check the light."
         case .watching(let rate):
-            return rate == nil ? "Your rate appears after 20 seconds." : "Your rate over the last minute. Your limit is \(limit)."
+            return rate == nil ? "Your rate appears after \(Format.count(Int(BlinkStats.secondsBeforeRate), "second"))."
+                : "Your rate over the last minute. Your limit is \(limit)."
         case .low:
-            return LowRateWords.sentence(limit: limit) + " Try a blink break: ten slow, full blinks."
+            return LowRateWords.sentence(limit: limit) + " Try a blink break: \(ReminderWords.exercise)."
         }
     }
 }
@@ -227,6 +264,30 @@ struct MenuBarMarks: Equatable {
 /// "50% done" stopped at 50% for the whole first day and gave no reason: the measure
 /// needs three hours at the screen AND two different days.
 enum CalibrationWords {
+    /// "70%": the automatic limit, as a share of your usual rate.
+    static var share: String { Format.percent(Baseline.shareOfReference) }
+
+    /// Settings' line while the usual rate is being learned.
+    static func progress(_ calibration: Baseline.Calibration, limit: Int) -> String {
+        "\(Format.duration(calibration.watchedSeconds)) of \(Format.duration(Baseline.calibrationSeconds)) at the screen, "
+            + "on \(calibration.days) of \(Format.count(Baseline.calibrationDays, "day")). "
+            + "Until then the limit is \(limit) a minute. Once measured, the limit is \(share) of your usual rate."
+    }
+
+    /// "Measure Again" found too little in the last week.
+    static var tooLittle: String {
+        "Too little was recorded in the last week to measure: \(Format.duration(Baseline.calibrationSeconds)) "
+            + "over \(Format.count(Baseline.calibrationDays, "day")) are needed."
+    }
+
+    /// The limit that a usual rate gives, said after it: the share, or the lowest limit.
+    static func limit(reference: Reference, limit: Int, floor: Int) -> String {
+        let shared = Int((reference.rate * Baseline.shareOfReference).rounded())
+        return shared >= floor
+            ? "Your limit is \(share) of it: \(limit) a minute."
+            : "\(share) of it would be \(shared), so the lowest limit, \(floor), applies."
+    }
+
     static func line(_ calibration: Baseline.Calibration, limit: Int) -> String {
         let needed = Format.duration(Baseline.calibrationSeconds)
         let progress: String
@@ -324,7 +385,7 @@ enum SummaryWords {
 
     /// The rows in Settings.
     static let row = "A summary of the day"
-    static let detail = "One silent banner a day, at the hour you choose, with the time at the screen and your rate. On Mondays it adds a line for the seven days before. A day with under 30 minutes at the screen gets no rate."
+    static var detail: String { "One silent banner a day, at the hour you choose, with the time at the screen and your rate. On Mondays it adds a line for the seven days before. A day with under \(Format.duration(DayDigest.minimumSeconds)) at the screen gets no rate." }
     static let hourRow = "Hour of the summary"
 
     /// Under the hour, when Quiet outside working hours would hold the banner back.
