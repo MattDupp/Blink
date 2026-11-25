@@ -53,10 +53,9 @@ final class RoutineController: ObservableObject {
     var someoneThere: () -> Bool = { true }
     /// Show this reminder.
     var onBanner: (RoutineBanner) -> Void = { _ in }
-    /// The app's one gate for banners (`BannerGate`): may a routine's banner show now,
-    /// and the word that one did.
-    var mayShowBanner: (Date) -> Bool = { _ in true }
-    var bannerShown: (Date) -> Void = { _ in }
+    /// The app's one gate for banners (`BannerGate`), set when the app connects it. Until
+    /// then no banner is shown (the tests that want banners say `.always`).
+    var turns = BannerTurns.never
     /// The reminder of this routine is answered: its banner can go.
     var onSettled: (Routine) -> Void = { _ in }
 
@@ -120,8 +119,7 @@ final class RoutineController: ObservableObject {
             if let model, model.pause == .paused(until: end) { model.resume() }
         }
         banners = RoutineBanners(notifier: model.reminders.notifier, routines: self)
-        mayShowBanner = { [weak model] now in model?.reminders.mayShowRoutineBanner(now: now) ?? true }
-        bannerShown = { [weak model] now in model?.reminders.routineBannerShown(now: now) }
+        turns = model.reminders.turns
     }
 
     /// Starts looking at the clock.
@@ -198,16 +196,18 @@ final class RoutineController: ObservableObject {
         let due = self.due(now: now)
         // ONE banner a look at most, and only when there is room (`RoutinePolicy.mayShow`):
         // with several routines due together they come one by one, never as a burst.
-        if !isQuiet(now: now), mayShowBanner(now), policy.mayShow(record: events, now: now),
-           let day = policy.order(due, record: events).first(where: {
-               guard let slot = $0.due else { return false }
-               return policy.bannerDue(for: slot, record: events, now: now, someoneThere: present, repeats: $0.screen == nil)
-           }), let slot = day.due {
-            record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .shown))
-            // More than a tick late: it was kept for you (asleep, away, held back, or the app was closed).
-            onBanner(RoutineBanner(routine: day.routine, slot: slot,
-                                   kept: now.timeIntervalSince(slot.due) > Self.tickSeconds * 3, week: day.week))
-            bannerShown(now)
+        if !isQuiet(now: now), policy.mayShow(record: events, now: now) {
+            turns.take(.routine, now) {
+                guard let day = policy.order(due, record: events).first(where: {
+                    guard let slot = $0.due else { return false }
+                    return policy.bannerDue(for: slot, record: events, now: now, someoneThere: present, repeats: $0.screen == nil)
+                }), let slot = day.due else { return false }
+                record(RoutineEvent(at: now, routine: slot.routine, slot: slot.key, action: .shown))
+                // More than a tick late: it was kept for you (asleep, away, held back, or the app was closed).
+                onBanner(RoutineBanner(routine: day.routine, slot: slot,
+                                       kept: now.timeIntervalSince(slot.due) > Self.tickSeconds * 3, week: day.week))
+                return true
+            }
         }
         // A time can fall due, or be dropped, with nothing written (nobody is there): the
         // menu bar and the panel are told all the same.

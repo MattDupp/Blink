@@ -130,11 +130,13 @@ camera frame -> EyeFinder (Vision landmarks -> 64x64 eye crops) -> EyeReader (mo
   knows when the app runs from its disk image. Launch options are in the header comment.
 - `Preferences` holds every stored choice. One small controller per subject.
 - **One `Notifier` shows every banner**: the low-rate reminder, the look-away break, the
-  routines, the summary of the day and the evening question. A new kind adds its buttons
-  with `extraCategories.append` and answers through `responders`; it never replaces the list.
+  routines, the summary of the day and the evening question. A new kind gives its buttons
+  and its answer with `Notifier.register`; kinds are only ever added.
 - **One `BannerGate` says yes or no to every banner** (`ReminderController` owns it). Quiet
   has two sources, the one chosen in the panel and the time outside `WorkingHours`, and
-  the panel says which (`QuietWords`). A banner that can wait asks `mayShowLastBanner`.
+  the panel says which (`QuietWords`). A part that shows banners is handed `BannerTurns`
+  (`ReminderController.turns`): asked, shown and counted in one call. Until it is
+  connected it shows nothing (`.never`); a banner that can wait takes the `.summary` turn.
 - **Look-away breaks**: `BreakPlan`, `BreakSchedule` and `BreakTally` in
   `BlinkCore/Monitoring`. The schedule has no clock and no window: it is told whether a
   face was in view at a time, and answers with events.

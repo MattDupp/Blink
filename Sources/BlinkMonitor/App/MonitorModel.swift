@@ -191,8 +191,7 @@ final class MonitorModel: ObservableObject {
             self?.care.record(.blinkBreak)
         }
         self.eyeNotes.connect(to: reminders.notifier)
-        self.eyeNotes.mayShowBanner = { [weak self] now in self?.reminders.mayShowLastBanner(now: now) ?? false }
-        self.eyeNotes.bannerShown = { [weak self] now in self?.reminders.routineBannerShown(now: now) }
+        self.eyeNotes.turns = reminders.turns
         reminders.onBlinkReminder = { [weak self] now in self?.care.record(.blinkReminder, now: now) }
         reminders.breaks.onOutcome = { [weak self] outcome, now in self?.care.record(CareEvent(outcome, at: now)) }
         // The exercise is left out of the count for as long as it runs (`MonitorPipeline.setExercise`).

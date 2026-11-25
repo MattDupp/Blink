@@ -51,6 +51,7 @@ struct RoutineWeekControllerTests {
         let controller = RoutineController(defaults: UserDefaults(suiteName: suite)!, store: RoutineStore(file: file),
                                            now: now ?? at(day: 16, 0))
         controller.calendar = calendar
+        controller.turns = .always
         // These timelines were written for a mask at 17:00, which is where it started
         // before it moved an hour after the eye drops. (Not after a relaunch: a stored
         // time is the user's, and is read back as it was.)

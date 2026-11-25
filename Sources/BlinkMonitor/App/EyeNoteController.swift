@@ -16,9 +16,9 @@ final class EyeNoteController: ObservableObject {
     @Published private(set) var notes: [EyeNote]
     let store: EyeNoteStore
 
-    /// May the banner show now, and it was shown: the gate, through `ReminderController`.
-    var mayShowBanner: (Date) -> Bool = { _ in true }
-    var bannerShown: (Date) -> Void = { _ in }
+    /// The gate, through `ReminderController`: set when the app connects it. Until then
+    /// nothing is asked.
+    var turns = BannerTurns.never
     /// The question was asked, by banner (the tests read it).
     var onAsked: () -> Void = {}
 
@@ -48,11 +48,10 @@ final class EyeNoteController: ObservableObject {
     /// Registers the banner's four buttons with the app's one `Notifier`.
     func connect(to notifier: Notifier) {
         self.notifier = notifier
-        notifier.extraCategories.append(UNNotificationCategory(
+        notifier.register([UNNotificationCategory(
             identifier: Identifier.category,
             actions: EyeFeeling.allCases.map { UNNotificationAction(identifier: Identifier.action($0), title: EyeNoteWords.name($0), options: []) },
-            intentIdentifiers: []))
-        notifier.responders.append { [weak self] response in
+            intentIdentifiers: [])]) { [weak self] response in
             guard response.category == Identifier.category,
                   let feeling = EyeFeeling.allCases.first(where: { Identifier.action($0) == response.action }) else { return }
             self?.note(feeling)
@@ -93,17 +92,19 @@ final class EyeNoteController: ObservableObject {
             preferences.eyeNoteAskedDay = SummarySchedule.key(of: now, calendar: calendar)
             return
         }
-        guard mayShowBanner(now) else { return }
-        preferences.eyeNoteAskedDay = SummarySchedule.key(of: now, calendar: calendar)
-        bannerShown(now)
-        let content = UNMutableNotificationContent()
-        content.categoryIdentifier = Identifier.category
-        content.title = EyeNoteWords.question
-        content.body = EyeNoteWords.bannerBody
-        content.sound = nil
-        notifier?.show(content, identifier: Identifier.banner)
-        onAsked()
-        Log.app.notice("Evening question asked")
+        // It waits for the gate: Quiet, a break, the working hours, another banner just shown.
+        turns.take(.summary, now) {
+            preferences.eyeNoteAskedDay = SummarySchedule.key(of: now, calendar: calendar)
+            let content = UNMutableNotificationContent()
+            content.categoryIdentifier = Identifier.category
+            content.title = EyeNoteWords.question
+            content.body = EyeNoteWords.bannerBody
+            content.sound = nil
+            notifier?.show(content, identifier: Identifier.banner)
+            onAsked()
+            Log.app.notice("Evening question asked")
+            return true
+        }
     }
 }
 

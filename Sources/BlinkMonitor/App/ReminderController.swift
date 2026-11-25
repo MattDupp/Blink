@@ -3,6 +3,28 @@ import Combine
 import BlinkCore
 import UserNotifications
 
+/// How a part of the app that shows banners asks its turn at the gate (`BannerGate`, kept
+/// by `ReminderController`). `take(kind, now, show)` asks, and when the gate says yes,
+/// calls `show`, which shows the banner and says whether it did; a banner shown is then
+/// counted. One call: a part cannot ask and forget to say that it showed one.
+@MainActor
+struct BannerTurns {
+    let take: (BannerGate.Kind, Date, () -> Bool) -> Void
+
+    init(_ take: @escaping (BannerGate.Kind, Date, () -> Bool) -> Void) {
+        self.take = take
+    }
+
+    func take(_ kind: BannerGate.Kind, _ now: Date, show: () -> Bool) {
+        take(kind, now, show)
+    }
+
+    /// Not connected: no banner. (The defaults used to let every banner through.)
+    static let never = BannerTurns { _, _, _ in }
+    /// For the tests that look at banners, not at the gate.
+    static let always = BannerTurns { _, _, show in _ = show() }
+}
+
 /// Everything that taps you on the shoulder: the "you blink too little" reminder and the
 /// "look away for a moment" nudge.
 ///
@@ -182,19 +204,25 @@ final class ReminderController: ObservableObject {
     /// outside the working hours set in Settings. Nil: banners may show.
     func quietReason(now: Date = Date()) -> BannerGate.QuietReason? { gate.quietReason(at: now) }
 
-    /// A routine asks whether its banner may show now, and says when it did.
+    /// Would a routine's banner be let through now? (Asked by the tests; the routines
+    /// themselves take their turn through `turns`.)
     func mayShowRoutineBanner(now: Date = Date()) -> Bool {
         gate.mayShow(.routine, busy: busy(), soon: soon(now: now), now: now)
     }
 
-    func routineBannerShown(now: Date = Date()) {
+    /// The one way through the gate for a banner of another part: asked, shown, then
+    /// counted. `show` says whether it showed something.
+    @discardableResult
+    func takeTurn(_ kind: BannerGate.Kind, now: Date = Date(), show: () -> Bool) -> Bool {
+        guard gate.mayShow(kind, busy: busy(), soon: soon(now: now), now: now), show() else { return false }
         gate.shown(at: now)
+        return true
     }
 
-    /// The banners that can wait (the evening question; the summary asks the gate itself):
-    /// last in order, and through the same gate.
-    func mayShowLastBanner(now: Date = Date()) -> Bool {
-        gate.mayShow(.summary, busy: busy(), soon: soon(now: now), now: now)
+    /// What the routines and the evening question are handed: their way through the gate.
+    /// (The evening question takes the turn of the banners that can wait, `.summary`.)
+    var turns: BannerTurns {
+        BannerTurns { [weak self] kind, now, show in self?.takeTurn(kind, now: now, show: show) }
     }
 
     /// A look-away break is about to fall due: it goes first.

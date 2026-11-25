@@ -36,11 +36,10 @@ final class RoutineBanners {
         let later = UNNotificationAction(identifier: Identifier.later, title: "Later (\(routines.policy.laterMinutes) min)", options: [])
         // `.foreground`: pressing it brings the app forward, to show the timer's window.
         let start = UNNotificationAction(identifier: Identifier.start, title: "Start Timer", options: [.foreground])
-        notifier.extraCategories += [
+        notifier.register([
             UNNotificationCategory(identifier: Identifier.category, actions: [done, later], intentIdentifiers: []),
             UNNotificationCategory(identifier: Identifier.timedCategory, actions: [start, later, done], intentIdentifiers: []),
-        ]
-        notifier.onOtherResponse = { [weak routines] response in
+        ]) { [weak routines] response in
             guard [Identifier.category, Identifier.timedCategory].contains(response.category),
                   let id = response.info["routine"],
                   let slot = response.info["slot"], !slot.isEmpty else { return }      // empty: the test reminder

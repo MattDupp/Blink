@@ -41,6 +41,7 @@ struct RoutineControllerTests {
         let controller = RoutineController(defaults: UserDefaults(suiteName: suite)!, store: RoutineStore(file: file),
                                            now: now ?? at(0))
         controller.calendar = calendar
+        controller.turns = .always
         controller.someoneThere = { desk.present }
         controller.onBanner = { desk.banners.append($0) }
         controller.onSettled = { desk.settled.append($0.id) }
@@ -67,6 +68,19 @@ struct RoutineControllerTests {
         #expect(controller.routines.map(\.id) == Routine.builtIn.map(\.id))
         controller.tick(now: at(9))
         #expect(desk.banners.isEmpty && controller.events.isEmpty && controller.days(now: at(9)).isEmpty)
+    }
+
+    @Test("Never connected to the gate, the routines show no banner: Quiet cannot be passed by mistake")
+    func closedUntilConnected() {
+        let desk = Desk()
+        let controller = switchedOn(desk)
+        controller.turns = .never
+        controller.tick(now: at(8))
+        #expect(desk.banners.isEmpty, "the gate's default lets nothing through")
+        #expect(controller.due(now: at(8)).count == 1, "the time still waits, in the panel and the menu bar")
+        controller.turns = .always
+        controller.tick(now: at(8, 1))
+        #expect(desk.banners.count == 1)
     }
 
     @Test("Switched on in the afternoon: no reminder for the times already past")

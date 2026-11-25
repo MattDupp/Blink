@@ -307,7 +307,7 @@ struct BreakTests {
         #expect(!reminders.mayShowRoutineBanner(now: morning))
         reminders.busy = { .free }
         // Two minutes after any banner.
-        reminders.routineBannerShown(now: morning)
+        #expect(reminders.takeTurn(.routine, now: morning) { true })
         #expect(!reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(60)))
         #expect(reminders.mayShowRoutineBanner(now: morning.addingTimeInterval(120)))
     }

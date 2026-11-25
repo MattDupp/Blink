@@ -1216,8 +1216,9 @@ struct EyeNoteControllerTests {
         #expect(!preferences.eyeNoteOn && !preferences.hasChoices)
         var asked = 0, allowed = true, shownAt: [Date] = []
         notes.onAsked = { asked += 1 }
-        notes.mayShowBanner = { _ in allowed }
-        notes.bannerShown = { shownAt.append($0) }
+        notes.turns = BannerTurns { _, now, show in
+            if allowed, show() { shownAt.append(now) }
+        }
 
         notes.askIfDue(now: at(18))
         #expect(asked == 0, "off: no question")

@@ -40,6 +40,7 @@ struct RoutineOwnTests {
         }
         let controller = RoutineController(defaults: defaults, store: RoutineStore(file: file), now: now ?? at(0))
         controller.calendar = calendar
+        controller.turns = .always
         controller.someoneThere = { desk.present }
         controller.onBanner = { desk.banners.append($0) }
         controller.onSettled = { desk.settled.append($0.id) }

@@ -47,10 +47,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let skipBreak = "skip-break"
     }
 
-    /// Called on the main thread when a button of a banner is pressed.
+    /// Called on the main thread when a button of one of the notifier's own banners is pressed.
     var onAction: (@MainActor (Action) -> Void)?
 
-    /// A press on a banner of another kind (the routines: see `RoutineBanners`).
+    /// A press on a banner of another kind (the routines, the evening question).
     struct OtherResponse {
         let category: String
         let action: String
@@ -58,13 +58,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// The other kinds of banner, with their buttons. macOS keeps ONE set of kinds per
-    /// app: they must all be given together, here.
-    var extraCategories: [UNNotificationCategory] = []
-    /// Called on the main thread for a press that is not one of `Action`.
-    var onOtherResponse: (@MainActor (OtherResponse) -> Void)?
-    /// More kinds of banner that answer for themselves (the evening question): each is
-    /// handed every response that is not the notifier's own, and takes its own.
-    var responders: [@MainActor (OtherResponse) -> Void] = []
+    /// app: they are all given together, each time one is added.
+    private var otherCategories: [UNNotificationCategory] = []
+    /// Each other kind's answer: handed every press that is not the notifier's own, it
+    /// takes its own. Kinds are only ever added (the routines used to hold a slot of
+    /// their own, which a second kind could have taken from them).
+    private var responders: [@MainActor (OtherResponse) -> Void] = []
+    /// The kinds have been given to macOS once: a kind added later is given at once.
+    private var categoriesGiven = false
+
+    /// Adds a kind of banner: its buttons, and what a press on one of them does.
+    func register(_ categories: [UNNotificationCategory], respond: @escaping @MainActor (OtherResponse) -> Void) {
+        otherCategories += categories
+        responders.append(respond)
+        if categoriesGiven { giveCategories() }
+    }
 
     /// macOS only gives notifications to a real app (a bundle with an identifier).
     /// Run as a bare program there is none, and asking would crash.
@@ -102,7 +110,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationAction(identifier: "test-later", title: "Later (5 min)", options: []),
             UNNotificationAction(identifier: "test-skip", title: "Skip", options: []),
         ], intentIdentifiers: [])
-        center.setNotificationCategories(Set([lowRate, lowRateTest, screenBreak, screenBreakLast, screenBreakTest] + extraCategories))
+        ownCategories = [lowRate, lowRateTest, screenBreak, screenBreakLast, screenBreakTest]
+        giveCategories()
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             if let error { Log.app.error("Notifications: \(error.localizedDescription, privacy: .public)") }
             Task { @MainActor in
@@ -110,6 +119,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 done(granted)
             }
         }
+    }
+
+    private var ownCategories: [UNNotificationCategory] = []
+
+    private func giveCategories() {
+        center?.setNotificationCategories(Set(ownCategories + otherCategories))
+        categoriesGiven = true
     }
 
     /// What macOS says now, without asking: true, false, or nil when the question was
@@ -267,10 +283,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             let content = response.notification.request.content
             let other = OtherResponse(category: content.categoryIdentifier, action: response.actionIdentifier,
                                       info: content.userInfo as? [String: String] ?? [:])
-            Task { @MainActor [weak self] in
-                self?.onOtherResponse?(other)
-                self?.responders.forEach { $0(other) }
-            }
+            Task { @MainActor [weak self] in self?.responders.forEach { $0(other) } }
         }
         completionHandler()
     }
