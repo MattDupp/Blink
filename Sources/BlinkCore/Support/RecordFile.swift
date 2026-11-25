@@ -8,6 +8,8 @@ import Foundation
 /// append, load and erase, and the copies had begun to differ. A record now says only its
 /// header and its fields; `RecordFile` does the rest, once.
 public protocol RecordLine {
+    /// The file's name, in the app's folder or in a scratch one.
+    static var fileName: String { get }
     /// The file's first line: the names of the columns.
     static var header: String { get }
     /// The line's fields, in the header's order. Free text goes through `CSVAppender.safe`.
@@ -35,6 +37,23 @@ public struct RecordFile<Line: RecordLine> {
 
     public init(file: URL) {
         self.file = file
+    }
+
+    /// The record's file in `folder`.
+    public init(in folder: URL) {
+        file = folder.appendingPathComponent(Line.fileName)
+    }
+
+    /// The folder the app keeps its own files in: ~/Library/Application Support/BlinkMonitor.
+    public static var applicationFolder: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return support.appendingPathComponent("BlinkMonitor", isDirectory: true)
+    }
+
+    /// The record's file among the app's own.
+    public static var defaultFile: URL {
+        applicationFolder.appendingPathComponent(Line.fileName)
     }
 
     /// Adds one line at the end of the file. Returns false (and logs why) on failure.

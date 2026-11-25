@@ -31,18 +31,10 @@ final class EyeNoteController: ObservableObject {
         static func action(_ feeling: EyeFeeling) -> String { "eye-note-" + feeling.rawValue }
     }
 
-    init(preferences: Preferences, store: EyeNoteStore = EyeNoteStore(file: EyeNoteStore.defaultFile)) {
+    init(preferences: Preferences, store: EyeNoteStore) {
         self.preferences = preferences
         self.store = store
         notes = store.load()
-    }
-
-    /// Notes of their own in the temporary folder, emptied at each start: the demo, the
-    /// screenshots and the tests never write to the user's real file.
-    static func scratch(preferences: Preferences) -> EyeNoteController {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-eye-notes.csv")
-        try? FileManager.default.removeItem(at: file)
-        return EyeNoteController(preferences: preferences, store: EyeNoteStore(file: file))
     }
 
     /// Registers the banner's four buttons with the app's one `Notifier`.

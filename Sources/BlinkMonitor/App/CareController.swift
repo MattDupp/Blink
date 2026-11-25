@@ -18,17 +18,9 @@ final class CareController: ObservableObject {
 
     let store: CareStore
 
-    init(store: CareStore = CareStore(file: CareStore.defaultFile), now: Date = Date(), calendar: Calendar = .current) {
+    init(store: CareStore, now: Date = Date(), calendar: Calendar = .current) {
         self.store = store
         events = store.load(since: HistoryWeeks.week(HistoryWeeks.shown - 1, now: now, calendar: calendar).start)
-    }
-
-    /// A log of its own in the temporary folder, emptied at each start: the demo, the
-    /// screenshots and the tests never write to the user's real one.
-    static func scratch() -> CareController {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-breaks.csv")
-        try? FileManager.default.removeItem(at: file)
-        return CareController(store: CareStore(file: file))
     }
 
     func record(_ event: CareEvent) {

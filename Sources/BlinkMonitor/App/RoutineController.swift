@@ -81,7 +81,7 @@ final class RoutineController: ObservableObject {
     /// Keeps `RoutineBanners` alive for as long as this is.
     private var banners: AnyObject?
 
-    init(defaults: UserDefaults, store: RoutineStore = RoutineStore(file: RoutineStore.defaultFile), now: Date = Date()) {
+    init(defaults: UserDefaults, store: RoutineStore, now: Date = Date()) {
         self.defaults = defaults
         self.store = store
         let stored = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode([Routine].self, from: $0) }
@@ -90,14 +90,6 @@ final class RoutineController: ObservableObject {
         quietDay = defaults.string(forKey: Self.quietKey)
         // A timer that runs to its end marks the routine done, at the moment it ended.
         session.onDone = { [weak self] in self?.didIt($0.routine, now: $0.end) }
-    }
-
-    /// A record of its own in the temporary folder, emptied at each start: the demo, the
-    /// screenshots and the tests must never write to the user's real record.
-    static func scratch(defaults: UserDefaults) -> RoutineController {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-routines.csv")
-        try? FileManager.default.removeItem(at: file)
-        return RoutineController(defaults: defaults, store: RoutineStore(file: file))
     }
 
     /// Connects the controller to the running app: presence from the camera, banners

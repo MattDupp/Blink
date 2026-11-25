@@ -43,6 +43,7 @@ public struct EyeNote: Equatable {
 public typealias EyeNoteStore = RecordFile<EyeNote>
 
 extension EyeNote: RecordLine {
+    public static let fileName = "eye-notes.csv"
     public static let header = "day,at,feeling"
 
     public var fields: [String] {
@@ -52,12 +53,6 @@ extension EyeNote: RecordLine {
     public init?(fields: [String]) {
         guard fields.count == 3, let at = RecordDates.date(fields[1]), let feeling = EyeFeeling(rawValue: fields[2]) else { return nil }
         self.init(day: fields[0], at: at, feeling: feeling)
-    }
-}
-
-extension RecordFile where Line == EyeNote {
-    public static var defaultFile: URL {
-        HistoryStore.applicationFolder.appendingPathComponent("eye-notes.csv")
     }
 }
 

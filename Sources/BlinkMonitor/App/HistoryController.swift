@@ -24,7 +24,7 @@ final class HistoryController: ObservableObject {
 
     /// `minutes`, `current`: what is already known (the screenshots start from made-up
     /// minutes; the real app starts empty and calls `load`).
-    init(store: HistoryStore = HistoryStore(file: HistoryStore.defaultFile), minutes: [MinuteRecord] = [],
+    init(store: HistoryStore, minutes: [MinuteRecord] = [],
          current: MinuteRecord? = nil) {
         self.store = store
         self.minutes = minutes

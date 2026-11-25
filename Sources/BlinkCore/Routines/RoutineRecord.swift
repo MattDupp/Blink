@@ -54,6 +54,7 @@ public struct RoutineEvent: Equatable {
 public typealias RoutineStore = RecordFile<RoutineEvent>
 
 extension RoutineEvent: RecordLine {
+    public static let fileName = "routines.csv"
     public static let header = "at,routine,slot,action,until"
 
     public var fields: [String] {
@@ -64,11 +65,5 @@ extension RoutineEvent: RecordLine {
     public init?(fields: [String]) {
         guard fields.count == 5, let at = RecordDates.date(fields[0]), let action = Action(rawValue: fields[3]) else { return nil }
         self.init(at: at, routine: fields[1], slot: fields[2], action: action, until: RecordDates.date(fields[4]))
-    }
-}
-
-extension RecordFile where Line == RoutineEvent {
-    public static var defaultFile: URL {
-        HistoryStore.applicationFolder.appendingPathComponent("routines.csv")
     }
 }

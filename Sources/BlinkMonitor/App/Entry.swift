@@ -265,7 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Creates the model, its menu-bar item and its windows, and starts it.
     private func launch(demo: Bool) {
-        let model = demo ? SampleData.demoModel() : MonitorModel(preferences: Preferences())
+        let model = demo ? SampleData.demoModel() : MonitorModel(preferences: Preferences(), place: .real)
         let preferences = model.preferences
 
         let historyState = HistoryState()

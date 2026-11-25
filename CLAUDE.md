@@ -184,8 +184,8 @@ their numbers, and the file formats, across the two languages.
   Python side. Its line type conforms to `RecordLine` and is stored in a `RecordFile`
   (BlinkCore). It gets one entry in `MonitorModel.keptRecords` (`KeptRecords.swift`), which
   gives it its row in the Privacy tab, its copy in Export and its name in "Delete
-  Everything"; and a scratch copy for the demo, the screenshots and the tests
-  (`CareController.scratch`).
+  Everything"; and its store in `DataPlace`, which is what keeps the demo, the screenshots
+  and the tests in a scratch folder of their own (the app alone asks for `.real`).
 - The installer never holds a model: `scripts/dmg.sh` checks the app before packing and
   the image afterwards.
 - Pictures in `docs/img` may show 64x64 eye crops and rendered screens, never a whole face.

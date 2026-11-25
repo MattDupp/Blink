@@ -58,6 +58,7 @@ public struct CareEvent: Equatable {
 public typealias CareStore = RecordFile<CareEvent>
 
 extension CareEvent: RecordLine {
+    public static let fileName = "breaks.csv"
     public static let header = "at,what,note"
     private static let sameAbsenceNote = "same-absence"
 
@@ -68,12 +69,6 @@ extension CareEvent: RecordLine {
     public init?(fields: [String]) {
         guard fields.count == 3, let at = RecordDates.date(fields[0]), let kind = Kind(rawValue: fields[1]) else { return nil }
         self.init(at: at, kind: kind, sameAbsence: fields[2] == Self.sameAbsenceNote)
-    }
-}
-
-extension RecordFile where Line == CareEvent {
-    public static var defaultFile: URL {
-        HistoryStore.applicationFolder.appendingPathComponent("breaks.csv")
     }
 }
 

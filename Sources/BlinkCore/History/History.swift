@@ -109,6 +109,7 @@ public struct DaySummary: Equatable {
 public typealias HistoryStore = RecordFile<MinuteRecord>
 
 extension MinuteRecord: RecordLine {
+    public static let fileName = "history.csv"
     public static let header = "start,observed_seconds,blinks"
     public var at: Date { start }
 
@@ -120,18 +121,5 @@ extension MinuteRecord: RecordLine {
         guard fields.count == 3, let start = RecordDates.date(fields[0]),
               let observed = Double(fields[1]), let blinks = Int(fields[2]) else { return nil }
         self.init(start: start, observedSeconds: observed, blinks: blinks)
-    }
-}
-
-extension RecordFile where Line == MinuteRecord {
-    /// The folder the app keeps its own files in.
-    public static var applicationFolder: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return support.appendingPathComponent("BlinkMonitor", isDirectory: true)
-    }
-
-    public static var defaultFile: URL {
-        applicationFolder.appendingPathComponent("history.csv")
     }
 }

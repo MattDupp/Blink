@@ -448,7 +448,7 @@ struct ModelSourceTests {
     @Test("With no model the app waits for its setup, the camera untouched, and says what setup is doing")
     func waitsForSetup() async {
         let store = store()
-        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()), modelStore: store)
+        let model = MonitorModel(preferences: .temporary(), place: DataPlace(folder: store.base))
         await model.start()
         #expect(model.lifecycle == .needsSetup)
         #expect(model.status() == .needsSetup)

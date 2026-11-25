@@ -12,8 +12,7 @@ import BlinkUI
 struct ModelTests {
 
     private func running() -> MonitorModel {
-        MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
-                     initial: MonitorModel.InitialState())
+        MonitorModel(preferences: .temporary(), initial: MonitorModel.InitialState())
     }
 
     private func frame(face: Bool = true, rate: Double? = 13, event: BlinkDetector.Event? = nil) -> MonitorUpdate {
@@ -174,7 +173,7 @@ struct ModelTests {
 
     @Test("Quitting writes the minute in progress when it holds enough to have a rate")
     func minuteSavedOnQuit() {
-        let history = HistoryController(store: SampleData.scratchHistory())
+        let history = HistoryController(store: DataPlace.scratch().history)
         let start = Date(timeIntervalSince1970: 1_800_000_040)
         history.update(current: MinuteRecord(start: start, observedSeconds: 8, blinks: 2))
         history.saveCurrentMinute(now: start)
@@ -826,8 +825,7 @@ struct SourceTests {
         for folder in [sessions, captures.appendingPathComponent("20270101-100000-free", isDirectory: true)] {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         }
-        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
-                                 modelStore: ModelStore(base: base))
+        let model = MonitorModel(preferences: .temporary(), place: DataPlace(folder: base))
         try await model.deleteModelAndRecordings(sessions: sessions, own: true, captures: captures)
         #expect(!FileManager.default.fileExists(atPath: sessions.path))
         #expect(!FileManager.default.fileExists(atPath: captures.path))
@@ -909,8 +907,7 @@ struct SettingsWordsTests {
 
     @Test("Every record the app keeps is listed once: in Privacy, in Export and in Delete Everything")
     func keptRecords() {
-        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
-                                 initial: MonitorModel.InitialState())
+        let model = MonitorModel(preferences: .temporary(), initial: MonitorModel.InitialState())
         let records = model.keptRecords
         #expect(records.map(\.exportName) == ["Blink - history.csv", "Blink - routine log.csv", "Blink - break log.csv",
                                                "Blink - eye notes.csv"])
@@ -1087,12 +1084,26 @@ struct CareControllerTests {
         #expect(care.events.isEmpty && !FileManager.default.fileExists(atPath: care.store.file.path))
     }
 
+    @Test("A model's files are in a scratch folder of its own unless the user's own are asked for by name")
+    func dataPlace() {
+        let one = MonitorModel(preferences: .temporary()), two = MonitorModel(preferences: .temporary())
+        let files = [one.history.store.file, one.care.store.file, one.eyeNotes.store.file, one.routines.store.file, one.modelStore.base]
+        let temporary = FileManager.default.temporaryDirectory.path
+        #expect(files.allSatisfy { $0.path.hasPrefix(one.place.folder.path) && $0.path.hasPrefix(temporary) })
+        #expect(one.place.folder != two.place.folder, "two made-up models never share a file")
+        // The user's own: the files the app has always used.
+        let real = DataPlace.real
+        #expect([real.history.file, real.care.file, real.eyeNotes.file, real.routines.file]
+                    == [HistoryStore.defaultFile, CareStore.defaultFile, EyeNoteStore.defaultFile, RoutineStore.defaultFile])
+        #expect(real.models.base == ModelStore.standard.base && real.sessions == SessionStore.standardRoot)
+    }
+
     @Test("The model writes a finished blink break to its log, and a made-up model never touches the real file")
     func hooks() {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("blink-care-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: folder) }
-        let care = CareController(store: CareStore(file: folder.appendingPathComponent("breaks.csv")))
-        let model = MonitorModel(preferences: .temporary(), initial: MonitorModel.InitialState(), care: care)
+        let model = MonitorModel(preferences: .temporary(), place: DataPlace(folder: folder), initial: MonitorModel.InitialState())
+        let care = model.care
         model.blinkBreak.onDone()
         model.reminders.onBlinkReminder(Date())
         model.reminders.breaks.onOutcome(BreakOutcome(kind: .short, ending: .skipped), Date())

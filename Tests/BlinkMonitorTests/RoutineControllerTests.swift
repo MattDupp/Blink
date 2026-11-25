@@ -269,8 +269,7 @@ struct RoutineControllerTests {
 
     @Test("With the camera paused, an awake screen counts as somebody there; a sleeping one does not")
     func presence() {
-        let model = MonitorModel(preferences: .temporary(), history: HistoryController(store: SampleData.scratchHistory()),
-                                 initial: MonitorModel.InitialState())
+        let model = MonitorModel(preferences: .temporary(), initial: MonitorModel.InitialState())
         #expect(!model.someoneAtScreen())           // camera on, no face yet
         var update = MonitorUpdate()
         update.live.faceFound = true

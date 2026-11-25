@@ -123,6 +123,8 @@ final class MonitorModel: ObservableObject {
     private(set) lazy var shortcut = ShortcutController(preferences: preferences)
     /// Where the model trained in this app is kept.
     let modelStore: ModelStore
+    /// Where all of this model's files are: the user's own, or a scratch folder (`DataPlace`).
+    let place: DataPlace
 
     /// No picture for this long, with the camera meant to be on, is said in the windows.
     static let silenceSeconds = 5.0
@@ -157,19 +159,21 @@ final class MonitorModel: ObservableObject {
     private let cameraNoteOverride: String?
     private var resumeTimer: Timer?
 
+    /// `place`: where its files are. A scratch folder unless the user's own are asked for
+    /// (`DataPlace`). `history`: minutes already known (the screenshots, the demo).
     /// `demo`: run on made-up eyes, without the camera or the model (see `DemoCamera`).
-    init(preferences: Preferences, history: HistoryController? = nil, initial: InitialState? = nil, demo: Bool = false,
-         modelStore: ModelStore = .standard, care: CareController? = nil, eyeNotes: EyeNoteController? = nil) {
+    init(preferences: Preferences, place: DataPlace = .scratch(), history: HistoryController? = nil,
+         initial: InitialState? = nil, demo: Bool = false) {
         self.preferences = preferences
-        self.modelStore = modelStore
-        self.history = history ?? HistoryController()
+        self.place = place
+        modelStore = place.models
+        self.history = history ?? HistoryController(store: place.history)
         reminders = ReminderController(preferences: preferences, screenMinutes: initial?.screenMinutes ?? 0)
         blinkBreak = BlinkBreakController(exercise: initial?.blinkBreak, seconds: initial?.blinkBreak?.isDone == true ? 38 : nil)
         loginItem = LoginItem(demo: demo)
-        // Made-up eyes or a made-up state: the routine record is a scratch one too.
-        routines = demo || initial != nil ? .scratch(defaults: preferences.defaults) : RoutineController(defaults: preferences.defaults)
-        self.care = care ?? (demo || initial != nil ? .scratch() : CareController())
-        self.eyeNotes = eyeNotes ?? (demo || initial != nil ? .scratch(preferences: preferences) : EyeNoteController(preferences: preferences))
+        routines = RoutineController(defaults: preferences.defaults, store: place.routines)
+        care = CareController(store: place.care)
+        eyeNotes = EyeNoteController(preferences: preferences, store: place.eyeNotes)
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {
@@ -190,8 +194,8 @@ final class MonitorModel: ObservableObject {
             self?.reminders.blinkBreakDone()
             self?.care.record(.blinkBreak)
         }
-        self.eyeNotes.connect(to: reminders.notifier)
-        self.eyeNotes.turns = reminders.turns
+        eyeNotes.connect(to: reminders.notifier)
+        eyeNotes.turns = reminders.turns
         reminders.onBlinkReminder = { [weak self] now in self?.care.record(.blinkReminder, now: now) }
         reminders.breaks.onOutcome = { [weak self] outcome, now in self?.care.record(CareEvent(outcome, at: now)) }
         // The exercise is left out of the count for as long as it runs (`MonitorPipeline.setExercise`).

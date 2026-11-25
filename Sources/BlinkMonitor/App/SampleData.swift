@@ -49,14 +49,6 @@ enum SampleData {
         case settingUp
     }
 
-    /// A history file of its own, emptied at each start: made-up minutes must never
-    /// reach the user's real history.
-    static func scratchHistory() -> HistoryStore {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-history.csv")
-        try? FileManager.default.removeItem(at: file)
-        return HistoryStore(file: file)
-    }
-
     /// The demo as it starts: a week of made-up history, a reference, and made-up eyes in
     /// place of the camera (`MonitorModel(demo:)`).
     static func demoModel(now: Date = Date()) -> MonitorModel {
@@ -67,8 +59,10 @@ enum SampleData {
         // Breaks at the demo's pace: one after a minute, and a long one after two of them.
         preferences.breakNudgesOn = true
         preferences.breakPlan = BreakPlan(workMinutes: 1, breakSeconds: 20, longEvery: 2, longMinutes: 1)
-        let model = MonitorModel(preferences: preferences,
-                                 history: HistoryController(store: scratchHistory(), minutes: minutes), demo: true)
+        // Made-up minutes, in a scratch folder: they never reach the user's real history.
+        let place = DataPlace.scratch()
+        let model = MonitorModel(preferences: preferences, place: place,
+                                 history: HistoryController(store: place.history, minutes: minutes), demo: true)
         // The demo has a past: the History window can go back ten weeks.
         model.history.state(earlier: earlierMinutes(now: now), readAt: now)
         model.care.state(events: care(now: now))
@@ -187,8 +181,9 @@ enum SampleData {
                                                   blinks: isLow ? 4 : 8)
         if case .firstMinute = scene { current = nil }
         if initial.lifecycle == .needsSetup { current = nil }
-        let model = MonitorModel(preferences: preferences,
-                                 history: HistoryController(store: scratchHistory(), minutes: minutes, current: current),
+        let place = DataPlace.scratch()
+        let model = MonitorModel(preferences: preferences, place: place,
+                                 history: HistoryController(store: place.history, minutes: minutes, current: current),
                                  initial: initial, demo: isDemo)
         var tally = BreakTally(day: Calendar.current.startOfDay(for: now))
         for ending in [BreakOutcome.Ending.onTrust, .away, .onTrust, .skipped, .away, .onTrust] {
@@ -223,14 +218,11 @@ enum SampleData {
                                                      accepted: $0 >= ProofTest.passMark) })
     }
 
-    /// Where the demo's setup writes: a folder of its own, emptied at each start. Painted
+    /// Where the demo's setup writes: the demo's own scratch folder (`DataPlace`). Painted
     /// sessions and the model trained on them must never reach the user's own files.
     static func demoSetupParts(monitor: MonitorModel) -> SetupModel.Parts {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-demo-setup", isDirectory: true)
-        try? FileManager.default.removeItem(at: folder)
-        return SetupModel.Parts(monitor: monitor, store: ModelStore(base: folder),
-                                sessionsRoot: folder.appendingPathComponent("sessions", isDirectory: true),
-                                pace: .painted, painted: PaintedCamera())
+        SetupModel.Parts(monitor: monitor, store: monitor.place.models, sessionsRoot: monitor.place.sessions,
+                         pace: .painted, painted: PaintedCamera())
     }
 
     /// The moments of the setup that the screenshots show.
@@ -245,12 +237,10 @@ enum SampleData {
 
     /// The setup window at one of those moments: stated, with no camera and no disk.
     static func setup(_ scene: SetupScene, now: Date) -> SetupModel {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("blink-monitor-sample-setup", isDirectory: true)
-        try? FileManager.default.removeItem(at: folder)
         var monitorScene = Scene.needsSetup
         if case .demoWelcome = scene { monitorScene = .demo }
-        let parts = SetupModel.Parts(monitor: model(now: now, scene: monitorScene), store: ModelStore(base: folder),
-                                     sessionsRoot: folder.appendingPathComponent("sessions", isDirectory: true))
+        let monitor = model(now: now, scene: monitorScene)
+        let parts = SetupModel.Parts(monitor: monitor, store: monitor.place.models, sessionsRoot: monitor.place.sessions)
 
         func session(_ name: String, _ open: Int, _ closed: Int) -> SessionSummary {
             SessionSummary(name: name, folder: parts.sessionsRoot.appendingPathComponent(name), open: open, closed: closed)
@@ -514,7 +504,7 @@ enum SampleData {
     }
 
     /// Switches the built-in routine on in `model` and gives it a made-up day. The model
-    /// is a made-up one: its record is a scratch file (see `RoutineController.scratch`).
+    /// is a made-up one: its record is in a scratch folder (`DataPlace`).
     static func routines(in model: MonitorModel, now: Date, scene: RoutineScene, calendar: Calendar = .current) {
         let routines = model.routines
         let id = Routine.eyeDrops.id
