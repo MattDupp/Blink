@@ -29,7 +29,9 @@ public final class CSVAppender {
     public init(url: URL, header: String) throws {
         let files = FileManager.default
         if !files.fileExists(atPath: url.path) {
-            try files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // Readable by its owner only, like every folder of the app's (`PrivateFolder`): when
+            // a CSV was the first thing written, the app's own folder was made readable by all.
+            try PrivateFolder.create(at: url.deletingLastPathComponent())
             try (header + "\n").write(to: url, atomically: true, encoding: .utf8)
         }
         handle = try FileHandle(forWritingTo: url)
@@ -47,7 +49,7 @@ public final class CSVAppender {
             try handle.write(contentsOf: Data((fields.joined(separator: ",") + "\n").utf8))
             return true
         } catch {
-            Log.storage.error("CSV line not written: \(error.localizedDescription, privacy: .public)")
+            Log.storage.error("CSV line not written: \(error.localizedDescription, privacy: .private)")   // it can hold a path
             return false
         }
     }

@@ -132,7 +132,7 @@ final class TrainingJob {
         readers.forEach { $0.stop() }
         guard !over else { return }
         let last = complaints.suffix(3).joined(separator: "\n")
-        Log.app.error("Trainer ended early (code \(code, privacy: .public)): \(last, privacy: .public)")
+        Log.app.error("Trainer ended early (code \(code, privacy: .public)): \(last, privacy: .private)")  // paths
         received(.failed("The training program stopped before the end (\(crashed ? "signal" : "code") \(code))."
                          + (last.isEmpty ? "" : "\n\(last)")))
     }

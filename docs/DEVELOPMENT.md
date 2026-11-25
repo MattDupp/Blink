@@ -415,7 +415,8 @@ Finder normally writes the `.DS_Store` when someone arranges a window by hand. W
 directly is what lets the image be built with nobody at the screen, and in CI.
 
 **No model, ever, in the public image.** The app that the image installs has no model, so
-it runs as the demo (`Options.demo`) and says how to train one. For your own second Mac
+it opens its setup the first time, asks for the camera and trains one on its owner's eyes.
+Its panel also offers the demo, for a look without the camera. For your own second Mac
 there is `make dmg WITH_MODEL=models/EyeNet.mlmodelc`. It writes
 `build/Blink-with-my-model.dmg`, under another name so that it cannot be
 taken for the public one. Publishing that file publishes the model.
@@ -489,8 +490,11 @@ it was written on.
 
 ### Publishing a release
 
-`make dmg` prints the image's SHA-256. The image is never committed (`.gitignore`). It is
-attached to a GitHub release, and the README's download link points to the latest one.
+`make dmg` prints the image's SHA-256: put it in the release's notes. The image is signed ad
+hoc, so its signature says nothing of who made it, and the fingerprint is the one way someone
+can check that the file they were handed is the one published (`shasum -a 256 Blink.dmg`).
+The image is never committed (`.gitignore`). It is attached to a GitHub release, and the
+README's download link points to the latest one.
 Until a release exists, that link shows an empty page. The same holds when the file's
 name changes, as it did after 1.0: the README links to `Blink.dmg` from the moment
 `main` is pushed, so publish the release right after.
@@ -499,14 +503,15 @@ Once `main` is pushed, in a browser:
 
 1. Open `https://github.com/MattDupp/Blink/releases/new`.
 2. In *Choose a tag*, type `v1.0` and pick *Create new tag on publish*. The target is `main`.
-3. Give it the title `Blink 1.0` and a few words: a demo, and macOS stops the first opening.
+3. Give it the title `Blink 1.0` and a few words: it sets itself up on your eyes, macOS stops
+   the first opening, and the image's SHA-256.
 4. Drop `build/Blink.dmg` on *Attach binaries*.
 5. *Save draft* to look at it first, or *Publish release*.
 
 Or with GitHub's command-line tool (`brew install gh`, then `gh auth login`):
 
 ```bash
-gh release create v1.0 build/Blink.dmg --title "Blink 1.0" --notes "Demo build: made-up blinks, no camera, no model. Signed ad hoc, so macOS stops the first opening. The README says how to allow it."
+gh release create v1.0 build/Blink.dmg --title "Blink 1.0" --notes "It sets itself up on your own eyes the first time it is opened: no model comes with it. Signed ad hoc, so macOS stops the first opening; the README says how to allow it. SHA-256 of Blink.dmg: <the line make dmg printed>"
 ```
 
 Either way this creates the tag `v1.0` on GitHub at the tip of `main`, and a public page

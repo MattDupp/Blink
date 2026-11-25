@@ -574,7 +574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try Uninstall.deleteEverything(folder: HistoryStore.applicationFolder, defaults: .standard,
                                            domain: Bundle.main.bundleIdentifier)
         } catch {
-            Log.app.error("Delete everything: \(error.localizedDescription, privacy: .public)")
+            Log.app.error("Delete everything: \(error.localizedDescription, privacy: .private)")      // it can hold a path
         }
         NSApp.terminate(nil)
     }

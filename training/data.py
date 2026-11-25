@@ -53,18 +53,30 @@ def is_far_eye(row: dict) -> bool:
     )
 
 
+def is_own_picture(relative: str) -> bool:
+    """A manifest names its pictures inside its own session: "open/<name>" or "closed/<name>".
+    Anything else (a path that climbs out with "..", or one that starts at "/") is skipped: a
+    manifest edited by hand must not make a training read files from elsewhere. The app has
+    the same rule (TrainingSet.isOwnPicture)."""
+    parts = relative.split("/")
+    return len(parts) == 2 and parts[0] in ("open", "closed") and parts[1] not in ("", ".", "..")
+
+
 def load(roots: tuple[Path, ...] = (RAW, BLINKS)) -> EyeData:
     """Loads every session of every root: the recorded sessions (eyes held open or
     closed) and the labelled live captures (real blinks). Each is a "session": a block of
     pictures taken together, held out together when the model is tested."""
     rows, pictures = [], []
-    skipped_missing = skipped_far = 0
+    skipped_missing = skipped_far = skipped_outside = 0
     sessions = sorted(
         p for root in roots if root.is_dir() for p in root.iterdir() if (p / "manifest.csv").is_file()
     )
     for session in sessions:
         with (session / "manifest.csv").open(newline="", encoding="utf-8") as handle:
             for row in csv.DictReader(handle):
+                if not is_own_picture(row["file"]):
+                    skipped_outside += 1
+                    continue
                 path = session / row["file"]
                 if not path.is_file():  # deleted by hand, manifest not synced yet
                     skipped_missing += 1
@@ -91,5 +103,6 @@ def load(roots: tuple[Path, ...] = (RAW, BLINKS)) -> EyeData:
         f"({int(labels.sum())} closed, {int((1 - labels).sum())} open)"
         + (f"; left out {skipped_far} far-eye pictures" if skipped_far else "")
         + (f"; {skipped_missing} manifest lines without a picture" if skipped_missing else "")
+        + (f"; {skipped_outside} lines naming a file outside their session" if skipped_outside else "")
     )
     return EyeData(images, labels, rows)

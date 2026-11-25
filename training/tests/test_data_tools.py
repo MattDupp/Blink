@@ -68,6 +68,14 @@ def test_load_reads_every_session_and_skips_what_it_should(tmp_path):
     assert [loaded.rows[i]["file"] for i in loaded.indices({"s2"})] == ["closed/c.png"]
 
 
+def test_a_manifest_names_only_pictures_of_its_own_session():
+    assert data.is_own_picture("open/a.png") and data.is_own_picture("closed/b.png")
+    outside = ["../other/open/a.png", "open/../../a.png", "/Users/someone/a.png"]
+    outside += ["open/", "open/..", "a.png", "eyes/a.png"]
+    for name in outside:
+        assert not data.is_own_picture(name), name
+
+
 # --- captures: reading, labelling, annotating ----------------------------------------------
 
 

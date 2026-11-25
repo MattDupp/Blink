@@ -263,6 +263,15 @@ struct TrainingTests {
 
     // MARK: From sessions on disk
 
+    @Test("A manifest names only pictures of its own session: nothing that climbs out or starts at the root")
+    func ownPicturesOnly() {
+        #expect(TrainingSet.isOwnPicture("open/p00_f000123_L.png") && TrainingSet.isOwnPicture("closed/c.png"))
+        for outside in ["../other/open/a.png", "open/../../a.png", "/Users/someone/a.png", "open/", "open/..", "a.png",
+                        "eyes/a.png", "open/a/b.png"] {
+            #expect(!TrainingSet.isOwnPicture(outside), "\(outside)")
+        }
+    }
+
     @Test("The pictures to learn from: every session's, without the far eye of a turned head or a missing file")
     func trainingSet() throws {
         let root = Fixture.temporaryFolder()

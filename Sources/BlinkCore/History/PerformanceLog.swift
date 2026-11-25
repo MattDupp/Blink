@@ -27,7 +27,7 @@ public struct PerformanceLog {
                 String(format: "%.1f", summary.worstTotal),
             ])
         } catch {
-            Log.storage.error("Performance log not opened: \(error.localizedDescription, privacy: .public)")
+            Log.storage.error("Performance log not opened: \(error.localizedDescription, privacy: .private)")
         }
     }
 

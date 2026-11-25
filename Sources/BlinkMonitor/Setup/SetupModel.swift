@@ -762,7 +762,7 @@ final class SetupModel: ObservableObject {
             job = nil
             parts.store.discardStaging()
             facts.training = .failed(reason: reason, attempts: failedTrainings)
-            Log.app.error("Training failed: \(reason, privacy: .public)")
+            Log.app.error("Training failed: \(reason, privacy: .private)")      // it can hold a path; the page says it
         case .finished:
             job = nil
             do {

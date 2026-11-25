@@ -27,6 +27,15 @@ public struct TrainingSet {
 
     // MARK: Listing
 
+    /// A manifest names its pictures inside its own session: "open/<name>" or "closed/<name>",
+    /// as `SessionWriter` and training/label_captures.py write them. Anything else, a path that
+    /// climbs out with ".." or one that starts at "/", is skipped: a manifest edited by hand
+    /// must not make a training read files from elsewhere. (data.py has the same rule.)
+    static func isOwnPicture(_ relative: String) -> Bool {
+        let parts = relative.split(separator: "/", omittingEmptySubsequences: false)
+        return parts.count == 2 && EyeLabel(rawValue: String(parts[0])) != nil && !["", ".", ".."].contains(parts[1])
+    }
+
     /// Every usable picture of every session under `root`, in the order of the manifests.
     ///
     /// Two kinds of lines are left out, as in data.py: a picture that is no longer on disk,
@@ -45,6 +54,7 @@ public struct TrainingSet {
                 guard fields.count > max(label, file) else { continue }
                 if let side, let yaw, fields.count > max(side, yaw), let turn = Double(fields[yaw]),
                    isFarEye(side: String(fields[side]), yaw: turn) { continue }
+                guard isOwnPicture(String(fields[file])) else { continue }
                 let url = session.folder.appendingPathComponent(String(fields[file]))
                 guard FileManager.default.fileExists(atPath: url.path) else { continue }
                 entries.append(Entry(file: url, session: session.name, closed: fields[label] == EyeLabel.closed.rawValue))
