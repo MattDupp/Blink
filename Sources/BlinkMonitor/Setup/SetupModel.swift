@@ -16,6 +16,7 @@ import BlinkUI
 /// Like `MonitorModel`, it stores facts and is fed events by hand in the tests: frames
 /// through `apply`, the trainer's words through `training(_:)`.
 @MainActor
+@dynamicMemberLookup
 final class SetupModel: ObservableObject {
 
     enum Step: Int, Comparable {
@@ -82,46 +83,84 @@ final class SetupModel: ObservableObject {
         var passes = TrainingRun.passes
     }
 
-    /// What the screenshots start from, instead of the disk and the camera.
-    struct InitialState {
+    /// THE SETUP'S FACTS, as one value. The windows read them through the model
+    /// (`model.step`: see the subscript below). The screenshots hand a whole `Facts` to `init`
+    /// instead of the disk and the camera; they used to fill a copy of each fact, field by
+    /// field, which `init` then copied back one by one, and a new fact needed three edits.
+    struct Facts {
         var step = Step.welcome
-        var camera = CameraState.on
+        /// The step that waits behind the welcome-back page. Nil: no such page.
+        var welcomeBack: Step?
+        var camera = CameraState.off
+        /// The cameras this Mac offers, for the camera page (empty in the demo).
+        var cameras: [CameraOption] = []
+        /// The complete sessions on disk, oldest first.
         var sessions: [SessionSummary] = []
+        /// The model trained here, when there is one.
         var info: ModelInfo?
-        var faceFound = true
+        var hasPrevious = false
+        var preview: CGImage?
+        var frameSize = CGSize(width: 1920, height: 1080)
+        var eyeRects: [CGRect] = []
+        var faceFound = false
+        /// No face for a few seconds, with the camera running.
         var faceMissing = false
-        var cropSide = 118
-        var brightness: Double? = 128
-        var crops: [CGImage?] = [nil, nil]
+        /// The camera is on and sends no picture.
+        var cameraSilent = false
+        var cropSide = 0
+        var leftCrop: CGImage?
+        var rightCrop: CGImage?
+        /// The eye pictures' average brightness over the last second, 0 to 255.
+        var brightness: Double?
         var sessionRunning = false
-        var phaseIndex = 0
         var phaseState = PhaseState.idle
+        var phaseIndex = 0
         var recordProgress = 0.0
+        /// How far the window's brightness is changed, 0 to 1: the end of a closed-eye pose,
+        /// shown to someone who cannot hear its sound (`PoseSignal`).
         var glow = 0.0
         var sessionOpen = 0
         var sessionClosed = 0
+        /// Said after a session that was not kept.
         var sessionNote: String?
-        var soundMuted = false
+        /// Sessions wanted before training is offered.
         var targetSessions = SessionScript.sessionsBeforeTraining
+        var problem: String?
+        /// The poses of the last session during which the camera lost the face, even when
+        /// asked a second time.
+        var lostPoses: [Phase] = []
+        /// The Mac's sound is muted or at zero: the voice would not be heard.
+        var soundMuted = false
         var training = Training.waiting
+        /// A few of your pictures as the model is shown them during this pass: altered.
         var alteredSamples: [CGImage] = []
+        /// The training has said nothing for ten seconds: "Still working…".
+        var trainingSilent = false
         var proof = Proof.ready
         var proofTest = ProofTest()
-        var hasPrevious = false
-        var megabytes: Double?
-        var place: String?
-        var welcomeBack: Step?
+        /// Tests failed in a row on this model. One is often a missed tick, so the first
+        /// offers the test again; the second offers one more recording.
         var failedTests = 0
+        /// The model reads the eyes as closed right now (the ring shows it).
+        var eyesClosed = false
+        /// Stated by the screenshots instead of measured on disk.
+        var statedMegabytes: Double?
+        var statedPlace: String?
+
+        /// Both eye pictures at once (the screenshots).
+        var crops: [CGImage?] {
+            get { [leftCrop, rightCrop] }
+            set { (leftCrop, rightCrop) = (newValue.first ?? nil, newValue.dropFirst().first ?? nil) }
+        }
     }
 
     // MARK: Facts
 
-    @Published private(set) var step = Step.welcome
-    /// The step that waits behind the welcome-back page. Nil: no such page.
-    @Published private(set) var welcomeBack: Step?
-    @Published private(set) var camera = CameraState.off
-    /// The cameras this Mac offers, for the camera page (empty in the demo).
-    @Published private(set) var cameras: [CameraOption] = []
+    @Published private(set) var facts: Facts
+
+    /// `model.step` reads `model.facts.step`: the windows and the tests read the facts as before.
+    subscript<Value>(dynamicMember path: KeyPath<Facts, Value>) -> Value { facts[keyPath: path] }
+
     /// The camera chosen for the app: nil is Automatic.
     var chosenCamera: String? { monitor.preferences.cameraID }
 
@@ -130,67 +169,18 @@ final class SetupModel: ObservableObject {
         monitor.setCamera(id)
         objectWillChange.send()
     }
-    /// The complete sessions on disk, oldest first.
-    @Published private(set) var sessions: [SessionSummary] = []
-    /// The model trained here, when there is one.
-    @Published private(set) var info: ModelInfo?
-    @Published private(set) var hasPrevious = false
 
     // The camera, as the window shows it.
-    @Published private(set) var preview: CGImage?
-    @Published private(set) var frameSize = CGSize(width: 1920, height: 1080)
-    @Published private(set) var eyeRects: [CGRect] = []
-    @Published private(set) var faceFound = false
-    /// No face for a few seconds, with the camera running.
-    @Published private(set) var faceMissing = false
-    /// The camera is on and sends no picture.
-    @Published private(set) var cameraSilent = false
-    @Published private(set) var cropSide = 0
-    @Published private(set) var leftCrop: CGImage?
-    @Published private(set) var rightCrop: CGImage?
-    /// The eye pictures' average brightness over the last second, 0 to 255.
-    @Published private(set) var brightness: Double?
 
     // Recording.
-    @Published private(set) var sessionRunning = false
-    @Published private(set) var phaseState = PhaseState.idle
-    @Published private(set) var phaseIndex = 0
-    @Published var recordProgress = 0.0
-    /// How far the window's brightness is changed, 0 to 1: the end of a closed-eye pose,
-    /// shown to someone who cannot hear its sound (`PoseSignal`).
-    @Published private(set) var glow = 0.0
     /// Reduce Motion, as macOS has it (stated in the tests).
     var reduceMotion: () -> Bool = { Comfort.reduceMotion }
-    @Published private(set) var sessionOpen = 0
-    @Published private(set) var sessionClosed = 0
-    /// Said after a session that was not kept.
-    @Published private(set) var sessionNote: String?
-    /// Sessions wanted before training is offered.
-    @Published private(set) var targetSessions = SessionScript.sessionsBeforeTraining
-    @Published private(set) var problem: String?
-    /// The poses of the last session during which the camera lost the face, even when
-    /// asked a second time.
-    @Published private(set) var lostPoses: [Phase] = []
-    /// The Mac's sound is muted or at zero: the voice would not be heard.
-    @Published private(set) var soundMuted = false
 
     // Training.
-    @Published private(set) var training = Training.waiting
-    /// A few of your pictures as the model is shown them during this pass: altered.
-    @Published private(set) var alteredSamples: [CGImage] = []
-    /// The training has said nothing for ten seconds: "Still working…".
-    @Published private(set) var trainingSilent = false
     private var lastTrainingWord = Date()
     private var trainingWatch: Task<Void, Never>?
 
     // The test.
-    @Published private(set) var proof = Proof.ready
-    @Published private(set) var proofTest = ProofTest()
-    /// Tests failed in a row on this model. One is often a missed tick, so the first
-    /// offers the test again; the second offers one more recording.
-    @Published private(set) var failedTests = 0
-    /// The model reads the eyes as closed right now (the ring shows it).
-    @Published private(set) var eyesClosed = false
 
     let parts: Parts
     var monitor: MonitorModel { parts.monitor }
@@ -222,45 +212,14 @@ final class SetupModel: ObservableObject {
     private var lastFrame: Date?
     private var silenceTimer: Timer?
     private var isOpen = false
-    private var statedMegabytes: Double?
-    private var statedPlace: String?
     /// Held while a session or the test runs: see `stayAwake`.
     private var awake: NSObjectProtocol?
 
-    init(parts: Parts, initial: InitialState? = nil) {
+    /// `facts`: where to start; the screenshots state them, the app starts from nothing.
+    init(parts: Parts, facts: Facts = Facts()) {
         self.parts = parts
+        self.facts = facts
         pipeline = SessionPipeline(pace: parts.pace)
-        if let initial {
-            step = initial.step
-            welcomeBack = initial.welcomeBack
-            failedTests = initial.failedTests
-            camera = initial.camera
-            sessions = initial.sessions
-            info = initial.info
-            faceFound = initial.faceFound
-            faceMissing = initial.faceMissing
-            cropSide = initial.cropSide
-            brightness = initial.brightness
-            leftCrop = initial.crops.first ?? nil
-            rightCrop = initial.crops.last ?? nil
-            sessionRunning = initial.sessionRunning
-            phaseIndex = initial.phaseIndex
-            glow = initial.glow
-            phaseState = initial.phaseState
-            recordProgress = initial.recordProgress
-            sessionOpen = initial.sessionOpen
-            sessionClosed = initial.sessionClosed
-            sessionNote = initial.sessionNote
-            soundMuted = initial.soundMuted
-            targetSessions = initial.targetSessions
-            training = initial.training
-            alteredSamples = initial.alteredSamples
-            proof = initial.proof
-            proofTest = initial.proofTest
-            hasPrevious = initial.hasPrevious
-            statedMegabytes = initial.megabytes
-            statedPlace = initial.place
-        }
         pipeline.onUpdate = { [weak self] frame in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.apply(frame) }
@@ -284,14 +243,14 @@ final class SetupModel: ObservableObject {
 
     /// "Continue", on the welcome-back page.
     func continueSetup() {
-        guard let next = welcomeBack else { return }
-        welcomeBack = nil
+        guard let next = facts.welcomeBack else { return }
+        facts.welcomeBack = nil
         enter(next)
     }
 
     /// "Back", on the camera page: to the welcome page, where the demo is offered.
     func backToWelcome() {
-        guard step == .camera else { return }
+        guard facts.step == .camera else { return }
         enter(.welcome)
     }
 
@@ -299,21 +258,21 @@ final class SetupModel: ObservableObject {
     func open(_ purpose: Purpose = .resume) {
         guard !isOpen else { return }
         isOpen = true
-        welcomeBack = nil
+        facts.welcomeBack = nil
         rescan()
-        problem = nil
-        sessionNote = nil
+        facts.problem = nil
+        facts.sessionNote = nil
         failedTrainings = 0
         switch purpose {
         case .resume, .atLaunch:
-            targetSessions = max(SessionScript.sessionsBeforeTraining, info == nil ? 0 : sessions.count)
-            let next = Self.resumeStep(completeSessions: sessions.count, info: info, welcomed: monitor.preferences.welcomed)
-            if Self.waitsForContinue(next, purpose: purpose) { welcomeBack = next } else { enter(next) }
+            facts.targetSessions = max(SessionScript.sessionsBeforeTraining, facts.info == nil ? 0 : facts.sessions.count)
+            let next = Self.resumeStep(completeSessions: facts.sessions.count, info: facts.info, welcomed: monitor.preferences.welcomed)
+            if Self.waitsForContinue(next, purpose: purpose) { facts.welcomeBack = next } else { enter(next) }
         case .addSession:
-            targetSessions = max(SessionScript.sessionsBeforeTraining, sessions.count + 1)
+            facts.targetSessions = max(SessionScript.sessionsBeforeTraining, facts.sessions.count + 1)
             enter(.camera)
         case .test:
-            enter(info == nil ? .camera : .proof)
+            enter(facts.info == nil ? .camera : .proof)
         }
     }
 
@@ -321,7 +280,7 @@ final class SetupModel: ObservableObject {
     func close() {
         guard isOpen else { return }
         isOpen = false
-        welcomeBack = nil
+        facts.welcomeBack = nil
         cameraRequest += 1
         sessionTask?.cancel()
         testTask?.cancel()
@@ -332,7 +291,7 @@ final class SetupModel: ObservableObject {
         parts.store.discardStaging()
         // A model trained again but not yet tested must not leave you with nothing: the
         // one you were using comes back. The new recordings are kept; training is 20 s.
-        if let info, !info.isAccepted, parts.store.hasPrevious {
+        if let installed = facts.info, !installed.isAccepted, parts.store.hasPrevious {
             try? parts.store.restorePrevious()
         }
         releaseCamera()
@@ -340,35 +299,35 @@ final class SetupModel: ObservableObject {
     }
 
     private func rescan() {
-        sessions = SessionStore.sessions(in: parts.sessionsRoot).filter {
+        facts.sessions = SessionStore.sessions(in: parts.sessionsRoot).filter {
             SessionCheck.isComplete(pictures: $0.pictures, pace: parts.pace)
         }
-        info = parts.store.info()
-        hasPrevious = parts.store.hasPrevious
+        facts.info = parts.store.info()
+        facts.hasPrevious = parts.store.hasPrevious
     }
 
     /// Where the recordings and the model are, as a person writes a path: ~/Library/...
     var place: String {
-        statedPlace ?? (parts.store.base.path as NSString).abbreviatingWithTildeInPath
+        facts.statedPlace ?? (parts.store.base.path as NSString).abbreviatingWithTildeInPath
     }
 
     /// The disk space of the recordings and the model, in megabytes.
     var megabytesOnDisk: Double {
-        if let statedMegabytes { return statedMegabytes }
+        if let stated = facts.statedMegabytes { return stated }
         return Double(SessionStore.bytes(under: parts.sessionsRoot) + SessionStore.bytes(under: parts.store.folder)) / 1_000_000
     }
 
     // MARK: - Moving between steps
 
     private func enter(_ new: Step) {
-        step = new
+        facts.step = new
         Log.app.notice("Setup: \(String(describing: new), privacy: .public)")
         switch new {
         case .welcome:
             releaseCamera()
             monitor.leaveSetup()
         case .camera:
-            if !isDemo { cameras = monitor.cameraOptions() }
+            if !isDemo { facts.cameras = monitor.cameraOptions() }
             useCamera(for: .checkingCamera)
         case .record:
             useCamera(for: .recording)
@@ -376,8 +335,8 @@ final class SetupModel: ObservableObject {
             releaseCamera()
             monitor.enterSetup(.training)
         case .proof:
-            proof = .ready
-            proofTest = ProofTest()
+            facts.proof = .ready
+            facts.proofTest = ProofTest()
             useCamera(for: .testing)
         case .done:
             releaseCamera()
@@ -407,7 +366,7 @@ final class SetupModel: ObservableObject {
             do {
                 pipeline.setJudge(try parts.store.network())
             } catch {
-                camera = .failed("The model could not be read back from disk: \(error)")
+                facts.camera = .failed("The model could not be read back from disk: \(error)")
                 return
             }
         } else {
@@ -420,25 +379,25 @@ final class SetupModel: ObservableObject {
             monitor.enterSetup(stage)
             painted.follow(.look)
             painted.start(into: pipeline)
-            camera = .on
+            facts.camera = .on
             watchForSilence()
             return
         }
-        if camera != .on { camera = .asking }
+        if facts.camera != .on { facts.camera = .asking }
         Task {
             do {
                 try await monitor.enterSetup(stage) { pipeline.process($0, time: $1) }
                 guard request == cameraRequest else { return }
-                camera = .on
+                facts.camera = .on
                 watchForSilence()
             } catch CameraCapture.CameraError.refused {
                 guard request == cameraRequest else { return }
-                camera = .refused
+                facts.camera = .refused
             } catch {
                 guard request == cameraRequest else { return }
                 // A sentence for a person, with what to do. The error's own text goes to the log.
                 Log.app.error("Setup: the camera could not be started: \(String(describing: error), privacy: .public)")
-                camera = .failed(Self.cameraTrouble(error))
+                facts.camera = .failed(Self.cameraTrouble(error))
             }
         }
     }
@@ -450,28 +409,28 @@ final class SetupModel: ObservableObject {
         pipeline.setJudge(nil)
         silenceTimer?.invalidate()
         silenceTimer = nil
-        if camera == .on || camera == .asking { camera = .off }
-        preview = nil
+        if facts.camera == .on || facts.camera == .asking { facts.camera = .off }
+        facts.preview = nil
         resetCameraFacts()
     }
 
     private func resetCameraFacts() {
-        faceFound = false
-        faceMissing = false
-        cameraSilent = false
-        eyeRects = []
+        facts.faceFound = false
+        facts.faceMissing = false
+        facts.cameraSilent = false
+        facts.eyeRects = []
         recentFaces = []
         recentLevels = []
         lastFaceAt = nil
         firstFrameAt = nil
         lastFrame = nil
-        eyesClosed = false
+        facts.eyesClosed = false
     }
 
     /// "Check Again", after the camera was refused.
     func askForCameraAgain() {
-        guard step == .camera || step == .record || step == .proof else { return }
-        enter(step)
+        guard facts.step == .camera || facts.step == .record || facts.step == .proof else { return }
+        enter(facts.step)
     }
 
     /// A face has been in view steadily: recording an empty chair teaches nothing.
@@ -479,17 +438,17 @@ final class SetupModel: ObservableObject {
         recentFaces.count >= 15 && recentFaces.filter { $0 }.count * 5 >= recentFaces.count * 4
     }
 
-    var eyesLargeEnough: Bool { cropSide >= Self.smallestCropSide }
-    var lightEnough: Bool { (brightness ?? 255) >= Self.dimBelow }
+    var eyesLargeEnough: Bool { facts.cropSide >= Self.smallestCropSide }
+    var lightEnough: Bool { (facts.brightness ?? 255) >= Self.dimBelow }
 
     /// (The screenshots have no frames: they state `faceFound` instead.)
-    var faceInView: Bool { recentFaces.isEmpty ? faceFound : faceSteady }
-    var canLeaveCameraCheck: Bool { camera == .on && faceInView }
+    var faceInView: Bool { recentFaces.isEmpty ? facts.faceFound : faceSteady }
+    var canLeaveCameraCheck: Bool { facts.camera == .on && faceInView }
 
     /// A training is under way (for the question asked before quitting).
     var trainingUnderWay: Bool {
-        guard isOpen, step == .train else { return false }
-        switch training {
+        guard isOpen, facts.step == .train else { return false }
+        switch facts.training {
         case .done, .failed: return false
         default: return true
         }
@@ -499,12 +458,12 @@ final class SetupModel: ObservableObject {
     @discardableResult
     func checkTraining(now: Date = Date()) -> Bool {
         let working: Bool
-        switch training {
+        switch facts.training {
         case .done, .failed: working = false
-        default: working = step == .train
+        default: working = facts.step == .train
         }
         let silent = working && TrainingSilence.isSilent(lastWord: lastTrainingWord, now: now)
-        if silent != trainingSilent { trainingSilent = silent }
+        if silent != facts.trainingSilent { facts.trainingSilent = silent }
         return working
     }
 
@@ -530,60 +489,60 @@ final class SetupModel: ObservableObject {
     /// "Play the Voice": one sentence, to hear that the guide can be heard BEFORE closing
     /// your eyes. On a muted Mac a session looked like a frozen app, seen two minutes later.
     func playVoice() {
-        guard !sessionRunning else { return }
+        guard !facts.sessionRunning else { return }
         speaker.stop()
         Task { await speaker.say("This is the voice that will guide you. If you can hear it, you are ready.") }
     }
 
     private func checkSound() {
-        let muted = step == .record && !sessionRunning && parts.painted == nil && SoundOutput.isMuted
-        if muted != soundMuted { soundMuted = muted }
+        let muted = facts.step == .record && !facts.sessionRunning && parts.painted == nil && SoundOutput.isMuted
+        if muted != facts.soundMuted { facts.soundMuted = muted }
     }
 
     func checkForSilence(now: Date = Date()) {
-        guard camera == .on else { return }
+        guard facts.camera == .on else { return }
         let silent = lastFrame.map { now.timeIntervalSince($0) > MonitorModel.silenceSeconds } ?? false
-        if silent != cameraSilent { cameraSilent = silent }
+        if silent != facts.cameraSilent { facts.cameraSilent = silent }
     }
 
     // MARK: - Frames
 
     func apply(_ frame: SessionFrame, now: Date = Date()) {
-        guard camera == .on else { return }      // a last frame can arrive after the camera was let go
+        guard facts.camera == .on else { return }      // a last frame can arrive after the camera was let go
         lastFrame = now
-        if cameraSilent { cameraSilent = false }
-        if let image = frame.preview { preview = image }
-        frameSize = frame.frameSize
-        if eyeRects != frame.eyeRects { eyeRects = frame.eyeRects }
-        if faceFound != frame.faceFound { faceFound = frame.faceFound }
+        if facts.cameraSilent { facts.cameraSilent = false }
+        if let image = frame.preview { facts.preview = image }
+        facts.frameSize = frame.frameSize
+        if facts.eyeRects != frame.eyeRects { facts.eyeRects = frame.eyeRects }
+        if facts.faceFound != frame.faceFound { facts.faceFound = frame.faceFound }
 
         recentFaces.append(frame.faceFound)
         if recentFaces.count > 30 { recentFaces.removeFirst() }
         if firstFrameAt == nil { firstFrameAt = frame.time }
         if frame.faceFound { lastFaceAt = frame.time }
         let missing = frame.time - (lastFaceAt ?? firstFrameAt ?? frame.time) > Self.faceMissingAfter
-        if missing != faceMissing { faceMissing = missing }
+        if missing != facts.faceMissing { facts.faceMissing = missing }
 
         if frame.faceFound {
-            if frame.cropSide > 0, cropSide != frame.cropSide { cropSide = frame.cropSide }
-            leftCrop = frame.leftCrop
-            rightCrop = frame.rightCrop
+            if frame.cropSide > 0, facts.cropSide != frame.cropSide { facts.cropSide = frame.cropSide }
+            facts.leftCrop = frame.leftCrop
+            facts.rightCrop = frame.rightCrop
             if let level = frame.brightness {
                 recentLevels.append(level)
                 if recentLevels.count > 30 { recentLevels.removeFirst() }
                 let average = (recentLevels.reduce(0, +) / Double(recentLevels.count)).rounded()
-                if brightness != average { brightness = average }
+                if facts.brightness != average { facts.brightness = average }
             }
         }
-        sessionOpen += frame.savedOpen
-        sessionClosed += frame.savedClosed
-        if let error = frame.error { problem = error }
+        facts.sessionOpen += frame.savedOpen
+        facts.sessionClosed += frame.savedClosed
+        if let error = frame.error { facts.problem = error }
 
-        if eyesClosed != frame.eyesClosed { eyesClosed = frame.eyesClosed }
-        if proof == .running {
-            if frame.tick { proofTest.tick(at: frame.time) }
+        if facts.eyesClosed != frame.eyesClosed { facts.eyesClosed = frame.eyesClosed }
+        if facts.proof == .running {
+            if frame.tick { facts.proofTest.tick(at: frame.time) }
             if let blink = frame.blink {
-                proofTest.blink(blink)
+                facts.proofTest.blink(blink)
                 monitor.blinked.send()             // the menu-bar eye answers too
             }
         }
@@ -592,17 +551,17 @@ final class SetupModel: ObservableObject {
     // MARK: - Recording
 
     /// The number the next session will have, counting from 1.
-    var nextSession: Int { sessions.count + 1 }
-    var enoughSessions: Bool { sessions.count >= targetSessions }
-    var canStartSession: Bool { step == .record && camera == .on && faceFound && !sessionRunning }
+    var nextSession: Int { facts.sessions.count + 1 }
+    var enoughSessions: Bool { facts.sessions.count >= facts.targetSessions }
+    var canStartSession: Bool { facts.step == .record && facts.camera == .on && facts.faceFound && !facts.sessionRunning }
 
     func startSession() {
         guard canStartSession else { return }
-        sessionRunning = true
+        facts.sessionRunning = true
         stayAwake("Recording a session of the setup")
         sessionTask = Task {
             await runSession()
-            sessionRunning = false
+            facts.sessionRunning = false
             letSleep()
         }
     }
@@ -612,11 +571,11 @@ final class SetupModel: ObservableObject {
     func show(_ signal: PoseSignal) {
         switch signal {
         case .none: break
-        case .steady: glow = signal.strength
+        case .steady: facts.glow = signal.strength
         case .pulse(let rise, let hold, let fall):
-            withAnimation(.easeInOut(duration: rise)) { glow = signal.strength }
+            withAnimation(.easeInOut(duration: rise)) { facts.glow = signal.strength }
             DispatchQueue.main.asyncAfter(deadline: .now() + rise + hold) { [weak self] in
-                withAnimation(.easeInOut(duration: fall)) { self?.glow = 0 }
+                withAnimation(.easeInOut(duration: fall)) { self?.facts.glow = 0 }
             }
         }
     }
@@ -651,19 +610,19 @@ final class SetupModel: ObservableObject {
             try PrivateFolder.create(at: parts.sessionsRoot)
             writer = try SessionWriter(root: parts.sessionsRoot, session: SessionScript.sessionName(at: Date()), condition: "")
         } catch {
-            problem = "The recording could not be saved: \(error.localizedDescription)"
+            facts.problem = "The recording could not be saved: \(error.localizedDescription)"
             return
         }
-        let number = sessions.count
-        sessionOpen = 0
-        sessionClosed = 0
-        problem = nil
-        sessionNote = nil
-        phaseIndex = 0
-        phaseState = .listening
+        let number = facts.sessions.count
+        facts.sessionOpen = 0
+        facts.sessionClosed = 0
+        facts.problem = nil
+        facts.sessionNote = nil
+        facts.phaseIndex = 0
+        facts.phaseState = .listening
         if pace.spoken { await speaker.say("Starting. Follow my voice, and blink whenever you need to.") }
 
-        lostPoses = []
+        facts.lostPoses = []
         for (index, phase) in SessionScript.phases.enumerated() {
             // A POSE THAT LOST THE FACE IS ASKED FOR AGAIN, ONCE. Chin down, head turned,
             // leaned back: the poses themselves are what hides a face from the camera, and
@@ -671,54 +630,54 @@ final class SetupModel: ObservableObject {
             // whole session was refused two minutes later.
             for attempt in 0..<2 {
                 if Task.isCancelled { break }
-                phaseIndex = index
-                phaseState = .listening
+                facts.phaseIndex = index
+                facts.phaseState = .listening
                 parts.painted?.follow(.hold(phase, session: number))
                 if attempt > 0, pace.spoken { await speaker.say(SessionCheck.faceLostWords) }
                 if attempt == 0, pace.spoken, let words = SessionScript.progressWords(before: index) { await speaker.say(words) }
                 if pace.spoken { await speaker.say(phase.instruction) }
                 if Task.isCancelled { break }
 
-                phaseState = .settling
+                facts.phaseState = .settling
                 // A steady change of brightness ends here, a second before pictures are
                 // taken again: the screen lights the face, and the camera needs a moment.
-                if glow != 0, reduceMotion() { glow = 0 }
+                if facts.glow != 0, reduceMotion() { facts.glow = 0 }
                 await pause(pace.settleSeconds)
                 if Task.isCancelled { break }
 
-                phaseState = .recording
-                let before = sessionOpen + sessionClosed
-                withAnimation(.linear(duration: pace.recordSeconds)) { recordProgress = 1 }
+                facts.phaseState = .recording
+                let before = facts.sessionOpen + facts.sessionClosed
+                withAnimation(.linear(duration: pace.recordSeconds)) { facts.recordProgress = 1 }
                 pipeline.setRecording(SessionPipeline.Recording(writer: writer, phaseIndex: index, phase: phase))
                 await pause(pace.recordSeconds)
                 pipeline.setRecording(nil)
-                recordProgress = 0
+                facts.recordProgress = 0
                 if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
                 if !Task.isCancelled { show(PoseSignal.atEnd(of: phase.label, pace: pace, reduceMotion: reduceMotion())) }
 
                 if Task.isCancelled { break }
-                if SessionCheck.poseIsWhole(pictures: sessionOpen + sessionClosed - before, pace: pace) { break }
-                if attempt == 1 { lostPoses.append(phase) }
+                if SessionCheck.poseIsWhole(pictures: facts.sessionOpen + facts.sessionClosed - before, pace: pace) { break }
+                if attempt == 1 { facts.lostPoses.append(phase) }
             }
         }
 
         pipeline.setRecording(nil)
         parts.painted?.follow(.look)
         let stopped = Task.isCancelled
-        phaseState = .idle
-        recordProgress = 0
-        if stopped { glow = 0 }
+        facts.phaseState = .idle
+        facts.recordProgress = 0
+        if stopped { facts.glow = 0 }
         if !stopped && pace.spoken { await speaker.say("Finished. You can open your eyes.") }
         // A steady brightening after a last closed-eye pose lasts as long as those words.
         // (A pulse ends by itself.)
-        if reduceMotion(), glow != 0 { glow = 0 }
+        if reduceMotion(), facts.glow != 0 { facts.glow = 0 }
         await pause(0.1)                         // the last frames' counts are on their way
         sessionEnded(folder: writer.folder, stopped: stopped)
     }
 
     /// A session is over: keep it if it is whole, say why not otherwise.
     func sessionEnded(folder: URL, stopped: Bool) {
-        let pictures = sessionOpen + sessionClosed
+        let pictures = facts.sessionOpen + facts.sessionClosed
         let share = SessionCheck.share(pictures: pictures, pace: parts.pace)
         // Stopped late, a recording that passes its check is kept: a stray click at pose 15
         // of 16 threw two minutes away (audit of 22 November 2026, item 2.1).
@@ -726,8 +685,8 @@ final class SetupModel: ObservableObject {
             // A developer's folder is not ours to empty: there, the session goes to the Trash.
             try? SessionStore.discard(folder, toTrash: !parts.ownSessions)
             let fate = parts.ownSessions ? "It was not kept." : "It was moved to the Trash."
-            let lost = lostPoses.map(\.poseName).joined(separator: "; ")
-            sessionNote = stopped
+            let lost = facts.lostPoses.map(\.poseName).joined(separator: "; ")
+            facts.sessionNote = stopped
                 ? "Stopped. A recording is only used when it is complete. \(fate)"
                 : "The camera lost your face for about \(100 - Int(share * 100))% of that recording"
                     + (lost.isEmpty ? ". " : ", most of all during: \(lost). ")
@@ -740,7 +699,7 @@ final class SetupModel: ObservableObject {
 
     /// "Train my model": leaves the camera and starts a training.
     func train() {
-        guard !sessionRunning, !sessions.isEmpty else { return }
+        guard !facts.sessionRunning, !facts.sessions.isEmpty else { return }
         enter(.train)
         startTraining()
     }
@@ -751,9 +710,9 @@ final class SetupModel: ObservableObject {
 
     private func startTraining() {
         job?.cancel()
-        training = .waiting
+        facts.training = .waiting
         lastTrainingWord = Date()
-        trainingSilent = false
+        facts.trainingSilent = false
         // The camera's own timer is off during a training: this one asks once a second,
         // and ends with the training.
         trainingWatch?.cancel()
@@ -763,41 +722,41 @@ final class SetupModel: ObservableObject {
                 guard let self, !Task.isCancelled, self.checkTraining() else { return }
             }
         }
-        alteredSamples = []
+        facts.alteredSamples = []
         prepareSamples()
         do {
             try parts.store.prepareStaging()
         } catch {
-            training(.failed("The model's folder could not be prepared: \(error.localizedDescription)"))
+            trainerSaid(.failed("The model's folder could not be prepared: \(error.localizedDescription)"))
             return
         }
         let job = TrainingJob(way: parts.trainingWay, sessions: parts.sessionsRoot, staging: parts.store.staging,
-                              passes: parts.passes) { [weak self] in self?.training($0) }
+                              passes: parts.passes) { [weak self] in self?.trainerSaid($0) }
         self.job = job
         job.start()
     }
 
     /// What the trainer says, as it says it.
-    func training(_ progress: TrainingProgress) {
-        guard step == .train else { return }
+    func trainerSaid(_ progress: TrainingProgress) {
+        guard facts.step == .train else { return }
         lastTrainingWord = Date()
-        trainingSilent = false
+        facts.trainingSilent = false
         switch progress {
         case .reading(let done, let total):
-            training = .reading(done: done, total: total)
+            facts.training = .reading(done: done, total: total)
         case .learning(let pass, let of, _, let seconds):
             // The time left is measured, not guessed: the passes made so far say how long
             // one takes on THIS Mac. The first includes warming up, so it is not trusted alone.
             let left = pass >= 2 ? seconds / Double(pass) * Double(of - pass) : nil
-            training = .learning(pass: pass, of: of, secondsLeft: left)
+            facts.training = .learning(pass: pass, of: of, secondsLeft: left)
             showSamples(pass: pass)
         case .checking:
-            training = .checking
+            facts.training = .checking
         case .failed(let reason):
             failedTrainings += 1
             job = nil
             parts.store.discardStaging()
-            training = .failed(reason: reason, attempts: failedTrainings)
+            facts.training = .failed(reason: reason, attempts: failedTrainings)
             Log.app.error("Training failed: \(reason, privacy: .public)")
         case .finished:
             job = nil
@@ -806,10 +765,10 @@ final class SetupModel: ObservableObject {
                 try parts.store.installStaged()
                 failedTrainings = 0
                 rescan()
-                training = .done
+                facts.training = .done
             } catch {
                 failedTrainings += 1
-                training = .failed(reason: "The trained model could not be put in place: \(error)", attempts: failedTrainings)
+                facts.training = .failed(reason: "The trained model could not be put in place: \(error)", attempts: failedTrainings)
             }
         }
     }
@@ -829,7 +788,7 @@ final class SetupModel: ObservableObject {
     /// The same pictures, altered the way this pass alters them.
     private func showSamples(pass: Int) {
         var altered = [Float](repeating: 0, count: EyeNetwork.pixels)
-        alteredSamples = sampleSources.enumerated().compactMap { index, source in
+        facts.alteredSamples = sampleSources.enumerated().compactMap { index, source in
             guard pass > 0 else { return TrainingSet.image(fromGray: source) }
             var random = SeededRandom(seed: UInt64(pass * 100 + index))
             PictureAlteration.apply(source, into: &altered, random: &random)
@@ -841,17 +800,17 @@ final class SetupModel: ObservableObject {
 
     /// "Test it", after a training.
     func beginProof() {
-        guard info != nil else { return }
+        guard facts.info != nil else { return }
         enter(.proof)
     }
 
-    var canStartTest: Bool { step == .proof && camera == .on && faceFound && proof != .running }
+    var canStartTest: Bool { facts.step == .proof && facts.camera == .on && facts.faceFound && facts.proof != .running }
 
     /// Ten ticks; a blink at each.
     func startTest() {
         guard canStartTest else { return }
-        proofTest = ProofTest()
-        proof = .running
+        facts.proofTest = ProofTest()
+        facts.proof = .running
         stayAwake("The test at the end of the setup")
         testTask = Task {
             defer { letSleep() }
@@ -870,9 +829,9 @@ final class SetupModel: ObservableObject {
 
     /// The test is over: its result is written next to the model it tested.
     func testEnded(now: Date = Date()) {
-        let result = proofTest.result
-        proof = .finished(result)
-        failedTests = result.passed ? 0 : failedTests + 1
+        let result = facts.proofTest.result
+        facts.proof = .finished(result)
+        facts.failedTests = result.passed ? 0 : facts.failedTests + 1
         try? parts.store.setProof(ModelInfo.Proof(found: result.found, of: result.of, extra: result.extra, on: now,
                                                   accepted: result.passed))
         rescan()
@@ -881,25 +840,25 @@ final class SetupModel: ObservableObject {
     /// "Test again".
     func testAgain() {
         testTask?.cancel()
-        proof = .ready
-        proofTest = ProofTest()
+        facts.proof = .ready
+        facts.proofTest = ProofTest()
     }
 
     /// "Record one more session", after a test that failed: back to the camera, then
     /// train again on everything.
     func recordOneMore() {
         testTask?.cancel()
-        targetSessions = sessions.count + 1
-        sessionNote = nil
-        failedTests = 0
+        facts.targetSessions = facts.sessions.count + 1
+        facts.sessionNote = nil
+        facts.failedTests = 0
         enter(.record)
     }
 
     /// "Use it anyway": your call. The result stays written as it was.
     func useAnyway() {
-        if var proof = info?.proof {
-            proof.accepted = true
-            try? parts.store.setProof(proof)
+        if var tested = facts.info?.proof {
+            tested.accepted = true
+            try? parts.store.setProof(tested)
         }
         finish()
     }
@@ -923,28 +882,28 @@ final class SetupModel: ObservableObject {
             if !done() { Log.app.error("Setup by itself: gave up waiting for \(what, privacy: .public)") }
             return done()
         }
-        if step == .welcome { begin() }
+        if facts.step == .welcome { begin() }
         guard await wait(for: "a face", { self.canLeaveCameraCheck }) else { return }
         cameraLooksRight()
         while !enoughSessions {
             guard await wait(for: "a face before a session", { self.canStartSession }) else { return }
             startSession()
-            guard await wait(for: "the end of the session", { !self.sessionRunning }) else { return }
-            Log.app.notice("Setup by itself: \(self.sessions.count, privacy: .public) sessions, \(self.sessionOpen + self.sessionClosed, privacy: .public) pictures in the last")
-            if sessionNote != nil { return }
+            guard await wait(for: "the end of the session", { !self.facts.sessionRunning }) else { return }
+            Log.app.notice("Setup by itself: \(self.facts.sessions.count, privacy: .public) sessions, \(self.facts.sessionOpen + self.facts.sessionClosed, privacy: .public) pictures in the last")
+            if facts.sessionNote != nil { return }
         }
         train()
-        guard await wait(for: "the training", { self.training == .done || self.failedTrainings > 0 }) else { return }
-        guard training == .done, let info else {
+        guard await wait(for: "the training", { self.facts.training == .done || self.failedTrainings > 0 }) else { return }
+        guard facts.training == .done, let trained = facts.info else {
             Log.app.error("Setup by itself: the training failed")
             return
         }
-        Log.app.notice("Setup by itself: trained on \(info.pictures, privacy: .public) pictures in \(info.seconds, privacy: .public) s, \(info.rightOnOwnPictures, privacy: .public) of its own right")
+        Log.app.notice("Setup by itself: trained on \(trained.pictures, privacy: .public) pictures in \(trained.seconds, privacy: .public) s, \(trained.rightOnOwnPictures, privacy: .public) of its own right")
         beginProof()
         guard await wait(for: "a face before the test", { self.canStartTest }) else { return }
         startTest()
-        guard await wait(for: "the end of the test", { if case .finished = self.proof { return true } else { return false } }) else { return }
-        if case .finished(let result) = proof {
+        guard await wait(for: "the end of the test", { if case .finished = self.facts.proof { return true } else { return false } }) else { return }
+        if case .finished(let result) = facts.proof {
             Log.app.notice("Setup by itself: \(result.found, privacy: .public) of \(result.of, privacy: .public) blinks counted, \(result.extra, privacy: .public) more")
         }
         finish()
@@ -954,7 +913,7 @@ final class SetupModel: ObservableObject {
     func finish() {
         testTask?.cancel()
         rescan()
-        guard info?.isAccepted ?? false else { return }
+        guard facts.info?.isAccepted ?? false else { return }
         enter(.done)
         Task {
             // The model first, the camera second: it then never goes off in between.

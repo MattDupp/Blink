@@ -43,61 +43,79 @@ struct Curve: Equatable {
 ///
 /// Main thread only; the camera thread hands its results over through `apply`.
 @MainActor
+@dynamicMemberLookup
 final class MonitorModel: ObservableObject {
 
-    /// What a model can be started with, instead of the camera: the screenshots build
-    /// their screens from one of these (see Snapshots.swift).
-    struct InitialState {
-        var lifecycle: Lifecycle = .running
+    /// THE MODEL'S FACTS, as one value. The windows read them through the model
+    /// (`model.live`: see the subscript below).
+    struct Facts {
+        var lifecycle: Lifecycle = .starting
+        /// You chose Pause: the camera is off until the pause ends, or until you choose Resume.
         var pause: PauseState = .running
+        /// The screen sleeps or the session is locked: the camera is off until it wakes.
+        var asleep = false
+        /// Counting rests to save energy (`EnergyPause`): on battery, or in Low Power Mode,
+        /// when the user chose so. The camera is off, as during sleep.
+        var energyHold: EnergyPause.Reason?
+        /// What ended while the Mac slept, said in the panel once (`WhileAway`).
+        var whileAway = WhileAway()
+        /// The camera is meant to be on, and no picture has arrived for a while.
+        var cameraSilent = false
         var live = LiveState()
+        var preview: CGImage?
         var curve = Curve()
         var timings: StageTimings.Summary?
+        var problem: String?
+        /// Which model reads the eyes: decided at start, and again when setup installs one or
+        /// Settings deletes one.
+        var modelSource = ModelSource.none
+        /// What the setup window is doing; nil when it is not at work. While it is, nothing is
+        /// counted: the poses of a recording are not how you blink.
+        var setupStage: MonitorStatus.SetupStage?
+        /// Why counting could not start, while `lifecycle` is `.failed`.
+        var failure: StartFailure?
+        /// Automatic moved to this camera because the other sent no picture. Said in the
+        /// panel until a camera is chosen: the model was trained on another one.
+        var cameraMovedTo: String?
+    }
+
+    /// What a model can be started with, instead of the camera: the screenshots build
+    /// their screens from one of these (see Snapshots.swift). Its facts are read and
+    /// written by name (`initial.live`); the facts start where a window that runs would.
+    @dynamicMemberLookup
+    struct InitialState {
+        var facts = Facts(lifecycle: .running)
         /// Shown in place of the camera picture.
         var cameraNote: String?
         var screenMinutes = 0
         var blinkBreak: BlinkBreak?
-        var cameraSilent = false
-        var modelSource = ModelSource.none
-        var setupStage: MonitorStatus.SetupStage?
-        var failure: StartFailure?
+
+        subscript<Value>(dynamicMember path: WritableKeyPath<Facts, Value>) -> Value {
+            get { facts[keyPath: path] }
+            set { facts[keyPath: path] = newValue }
+        }
     }
 
     // MARK: Facts
 
-    @Published private(set) var lifecycle: Lifecycle = .starting
+    @Published private(set) var facts = Facts()
+
+    /// `model.live` reads `model.facts.live`: the windows and the tests read the facts as before.
+    subscript<Value>(dynamicMember path: KeyPath<Facts, Value>) -> Value { facts[keyPath: path] }
+    /// (Named, because `pause(for:)` and `pause(until:)` share its name.)
     /// You chose Pause: the camera is off until the pause ends, or until you choose Resume.
-    @Published private(set) var pause: PauseState = .running
-    /// The screen sleeps or the session is locked: the camera is off until it wakes.
-    @Published private(set) var asleep = false
-    /// Counting rests to save energy (`EnergyPause`): on battery, or in Low Power Mode,
-    /// when the user chose so. The camera is off, as during sleep.
-    @Published private(set) var energyHold: EnergyPause.Reason?
+    var pause: PauseState { facts.pause }
+
     /// "Resume" was pressed during such a rest: count anyway, until the reason goes.
     private var energyOverridden = false
     /// The camera is off for a reason that is not a pause: the screen sleeps, or energy.
-    private var resting: Bool { asleep || energyHold != nil }
+    private var resting: Bool { facts.asleep || facts.energyHold != nil }
     /// The panel's Pause tile reads Resume: paused by hand, or resting to save energy.
-    var showsResume: Bool { isPaused || energyHold != nil }
-    /// What ended while the Mac slept, said in the panel once (`WhileAway`).
-    @Published private(set) var whileAway = WhileAway()
+    var showsResume: Bool { isPaused || facts.energyHold != nil }
     /// Whether the Mac is on its battery, in Low Power Mode, in a call. Closures, so that
     /// a test can state them.
     var powerFacts: () -> (onBattery: Bool, lowPower: Bool) = { (MacState.onBattery, MacState.lowPowerMode) }
     var microphoneInUse: () -> Bool = { MacState.microphoneInUse }
-    /// The camera is meant to be on, and no picture has arrived for a while.
-    @Published private(set) var cameraSilent = false
-    @Published private(set) var live = LiveState()
-    @Published private(set) var preview: CGImage?
-    @Published private(set) var curve = Curve()
-    @Published private(set) var timings: StageTimings.Summary?
-    @Published private(set) var problem: String?
-    /// Which model reads the eyes: decided at start, and again when setup installs one or
-    /// Settings deletes one.
-    @Published private(set) var modelSource = ModelSource.none
-    /// What the setup window is doing; nil when it is not at work. While it is, nothing is
-    /// counted: the poses of a recording are not how you blink.
-    @Published private(set) var setupStage: MonitorStatus.SetupStage?
 
 
     /// Fires at every counted blink: the menu-bar eye blinks back.
@@ -110,8 +128,6 @@ final class MonitorModel: ObservableObject {
     let reminders: ReminderController
     let blinkBreak: BlinkBreakController
     let loginItem: LoginItem
-    /// Why counting could not start, while `lifecycle` is `.failed`.
-    @Published private(set) var failure: StartFailure?
     let routines: RoutineController
     let captures = CaptureController()
     /// The break log: what was taken, finished and shown.
@@ -177,17 +193,9 @@ final class MonitorModel: ObservableObject {
         demoCamera = demo ? DemoCamera() : nil
         cameraNoteOverride = initial?.cameraNote
         if let initial {
-            lifecycle = initial.lifecycle
-            pause = initial.pause
-            live = initial.live
-            curve = initial.curve
-            timings = initial.timings
-            cameraSilent = initial.cameraSilent
-            modelSource = initial.modelSource
-            setupStage = initial.setupStage
-            failure = initial.failure
+            facts = initial.facts
         } else {
-            pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
+            facts.pause = preferences.pause.resolved(at: Date())      // a pause survives a relaunch
         }
         routines.connect(to: self)
         blinkBreak.onDone = { [weak self] in
@@ -209,12 +217,12 @@ final class MonitorModel: ObservableObject {
         routines.session.onEndedLate = { [weak self] session in
             guard let self else { return }
             let title = self.routines.routines.first { $0.id == session.routine }?.title ?? "a routine"
-            self.whileAway.timersEnded.append(title)
+            self.facts.whileAway.timersEnded.append(title)
         }
         reminders.busy = { [weak self] in
             guard let self else { return .free }
             return BannerGate.Busy(lookAwayBreak: self.reminders.breaks.current != nil, blinkBreak: self.blinkBreak.exercise != nil,
-                                   timer: self.routines.session.session != nil, setup: self.setupStage != nil,
+                                   timer: self.routines.session.session != nil, setup: self.facts.setupStage != nil,
                                    call: self.preferences.quietDuringCalls && self.microphoneInUse())
         }
     }
@@ -223,9 +231,6 @@ final class MonitorModel: ObservableObject {
 
     /// The camera in use, as macOS names it.
     var cameraName: String? { isDemo ? nil : camera.deviceName }
-    /// Automatic moved to this camera because the other sent no picture. Said in the
-    /// panel until a camera is chosen: the model was trained on another one.
-    @Published private(set) var cameraMovedTo: String?
     /// The cameras tried during the silence in progress (`CameraChoice.fallback`).
     private var camerasTried: Set<String> = []
     /// The cameras this Mac offers. A closure, so that a test can state them.
@@ -246,7 +251,7 @@ final class MonitorModel: ObservableObject {
         guard !isDemo else { return }
         preferences.cameraID = id
         camera.wantedCamera = id
-        cameraMovedTo = nil
+        facts.cameraMovedTo = nil
         camerasTried = []
         guard cameraBuilt, let picked = CameraChoice.pick(from: cameraOptions(), wanted: id) else { return }
         lastFrame = Date()          // the new camera needs a moment: not "silent" yet
@@ -255,10 +260,21 @@ final class MonitorModel: ObservableObject {
 
     // MARK: - What the windows say
 
+    /// Whether somebody is at the screen, as far as the app can tell.
+    ///
+    /// While the camera is read, it is the face being in view. While it is not (a pause,
+    /// the camera refused, a closed lid on an external screen), the app cannot know: a
+    /// screen that is awake is taken as somebody being there, so that a pause of the
+    /// camera does not silence the routines.
+    func someoneAtScreen(now: Date = Date()) -> Bool {
+        status(now: now).isCameraOn ? facts.live.faceFound : !facts.asleep
+    }
+
+
     /// The situation, decided from the facts at the moment it is asked.
     func status(now: Date = Date()) -> MonitorStatus {
-        MonitorStatus(lifecycle: lifecycle, setup: setupStage, pause: pause.resolved(at: now), asleep: resting,
-                      cameraSilent: cameraSilent, faceFound: live.faceFound, rate: live.counters.ratePerMinute,
+        MonitorStatus(lifecycle: facts.lifecycle, setup: facts.setupStage, pause: facts.pause.resolved(at: now), asleep: resting,
+                      cameraSilent: facts.cameraSilent, faceFound: facts.live.faceFound, rate: facts.live.counters.ratePerMinute,
                       recentLowRate: reminders.lowRate(in: history.minutes, now: now))
     }
 
@@ -266,16 +282,16 @@ final class MonitorModel: ObservableObject {
     var cameraNote: String {
         if let cameraNoteOverride { return cameraNoteOverride }
         if isDemo { return "Demo: the camera is off, and the blinks are made up." }
-        if setupStage != nil { return "Setup is at work: nothing is counted meanwhile." }
-        if lifecycle == .running && (isPaused || resting) { return "Paused: the camera is off." }
-        if lifecycle == .running && cameraSilent { return CameraNote.silent }
-        return CameraNote.text(for: lifecycle, appName: "Blink")
+        if facts.setupStage != nil { return "Setup is at work: nothing is counted meanwhile." }
+        if facts.lifecycle == .running && (isPaused || resting) { return "Paused: the camera is off." }
+        if facts.lifecycle == .running && facts.cameraSilent { return CameraNote.silent }
+        return CameraNote.text(for: facts.lifecycle, appName: "Blink")
     }
 
     // MARK: - Starting and stopping
 
     func start() async {
-        guard lifecycle == .starting, pipeline == nil else { return }
+        guard facts.lifecycle == .starting, pipeline == nil else { return }
         loginItem.refresh()
         routines.start()
         if let demoCamera {
@@ -289,19 +305,19 @@ final class MonitorModel: ObservableObject {
     /// Loads the model there is and starts counting with it. With none, the app waits
     /// for its setup (`Lifecycle.needsSetup`), the camera off.
     private func startCounting() async {
-        modelSource = ModelSource.resolve(store: modelStore)
+        facts.modelSource = ModelSource.resolve(store: modelStore)
         let judge: EyeJudging
         do {
-            guard let loaded = try modelSource.judge(store: modelStore) else {
+            guard let loaded = try facts.modelSource.judge(store: modelStore) else {
                 Log.app.notice("No model of the eyes yet: waiting for setup")
-                lifecycle = .needsSetup
+                facts.lifecycle = .needsSetup
                 return
             }
             judge = loaded
         } catch {
             var trainedHere = false
-            if case .trainedHere = modelSource { trainedHere = true }
-            fail(.model(trainedHere: trainedHere), detail: "The eye model could not be loaded.\n\(modelSource.remedy)\n\(error)")
+            if case .trainedHere = facts.modelSource { trainedHere = true }
+            fail(.model(trainedHere: trainedHere), detail: "The eye model could not be loaded.\n\(facts.modelSource.remedy)\n\(error)")
             return
         }
         let pipeline = MonitorPipeline(classifier: judge, strategy: Options.eyeSearch, effort: preferences.effort)
@@ -317,7 +333,7 @@ final class MonitorModel: ObservableObject {
             began()
             reminders.prepare()
         } catch CameraCapture.CameraError.refused {
-            lifecycle = .cameraRefused
+            facts.lifecycle = .cameraRefused
         } catch CameraCapture.CameraError.noCamera {
             fail(.noCamera, detail: "No camera was found")
         } catch {
@@ -329,12 +345,12 @@ final class MonitorModel: ObservableObject {
     /// refusal. Before this, both were final until the app was quit, and nothing said so.
     func tryAgain() async {
         guard !isDemo else { return }
-        switch lifecycle {
+        switch facts.lifecycle {
         case .failed, .cameraRefused: break
         case .starting, .needsSetup, .running: return
         }
-        failure = nil
-        lifecycle = .starting
+        facts.failure = nil
+        facts.lifecycle = .starting
         await startCounting()
     }
 
@@ -342,7 +358,7 @@ final class MonitorModel: ObservableObject {
     /// often just been to System Settings to allow it: look, instead of waiting for a quit.
     func comeForward() {
         reminders.rereadNotifications()
-        guard lifecycle == .cameraRefused, !isDemo,
+        guard facts.lifecycle == .cameraRefused, !isDemo,
               AVCaptureDevice.authorizationStatus(for: .video) == .authorized else { return }
         Task { await tryAgain() }
     }
@@ -369,9 +385,9 @@ final class MonitorModel: ObservableObject {
     /// painted eyes): the camera is switched off. Nothing is counted until `leaveSetup`.
     func enterSetup(_ stage: MonitorStatus.SetupStage) {
         reminders.breaks.notObserved()      // the setup's time is not time at the screen, nor a break
-        setupStage = stage
-        live = live.withCameraOff
-        preview = nil
+        facts.setupStage = stage
+        facts.live = facts.live.withCameraOff
+        facts.preview = nil
         cameraLent = false
         if !isDemo { frames.withLock { $0 = .nobody } }
         applyCameraState()
@@ -385,9 +401,9 @@ final class MonitorModel: ObservableObject {
             throw CameraCapture.CameraError.cannotConfigure("it was left off when the app was started")
         }
         reminders.breaks.notObserved()
-        setupStage = stage
-        live = live.withCameraOff
-        preview = nil
+        facts.setupStage = stage
+        facts.live = facts.live.withCameraOff
+        facts.preview = nil
         frames.withLock { $0 = .setup(handler) }
         cameraLent = true
         try await startCamera()
@@ -397,8 +413,8 @@ final class MonitorModel: ObservableObject {
     /// The setup window is done with the camera, or was closed: counting goes on if there
     /// is a model, and the camera goes off if there is none.
     func leaveSetup() {
-        guard setupStage != nil || cameraLent else { return }
-        setupStage = nil
+        guard facts.setupStage != nil || cameraLent else { return }
+        facts.setupStage = nil
         cameraLent = false
         if !isDemo { frames.withLock { [pipeline] in $0 = pipeline.map { .monitor($0) } ?? .nobody } }
         applyCameraState()
@@ -409,20 +425,20 @@ final class MonitorModel: ObservableObject {
     func modelChanged() async {
         guard !isDemo else { return }
         let source = ModelSource.resolve(store: modelStore)
-        switch lifecycle {
+        switch facts.lifecycle {
         case .needsSetup:
             // The first model: this is where counting begins.
-            lifecycle = .starting
+            facts.lifecycle = .starting
             await startCounting()
         case .running:
-            modelSource = source
+            facts.modelSource = source
             guard let judge = try? source.judge(store: modelStore) else {
                 stopCounting()
                 return
             }
             pipeline?.setJudge(judge)
         case .starting, .cameraRefused, .failed:
-            modelSource = source
+            facts.modelSource = source
         }
     }
 
@@ -431,11 +447,11 @@ final class MonitorModel: ObservableObject {
         watchdog?.invalidate()
         watchdog = nil
         pipeline = nil
-        lifecycle = .needsSetup
-        live = LiveState()
-        preview = nil
-        curve = Curve()
-        if cameraSilent { cameraSilent = false }
+        facts.lifecycle = .needsSetup
+        facts.live = LiveState()
+        facts.preview = nil
+        facts.curve = Curve()
+        if facts.cameraSilent { facts.cameraSilent = false }
         if !cameraLent {
             frames.withLock { $0 = .nobody }
             camera.stop()
@@ -491,12 +507,12 @@ final class MonitorModel: ObservableObject {
 
     /// Frames are on their way.
     private func began(now: Date = Date()) {
-        lifecycle = .running
+        facts.lifecycle = .running
         lastFrame = now
         watchdog = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.checkCamera() }
         }
-        if isPaused { setPause(pause) }     // still paused from before the relaunch: camera off again
+        if isPaused { setPause(facts.pause) }     // still paused from before the relaunch: camera off again
     }
 
     /// Notices a camera that has stopped sending pictures, says so, and nudges it.
@@ -506,14 +522,14 @@ final class MonitorModel: ObservableObject {
     /// for hours. Called every two seconds while the camera is meant to run.
     func checkCamera(now: Date = Date()) {
         checkEnergy()
-        let expected = lifecycle == .running && !isPaused && !resting && setupStage == nil
+        let expected = facts.lifecycle == .running && !isPaused && !resting && facts.setupStage == nil
         let silent = expected && now.timeIntervalSince(lastFrame ?? now) > Self.silenceSeconds
-        if silent != cameraSilent { cameraSilent = silent }
+        if silent != facts.cameraSilent { facts.cameraSilent = silent }
         guard silent else {
             if !camerasTried.isEmpty { camerasTried = [] }      // pictures again: the next silence starts afresh
             return
         }
-        if live.faceFound { live = live.withCameraOff }
+        if facts.live.faceFound { facts.live = facts.live.withCameraOff }
         // AUTOMATIC: ten seconds without a picture (a closed lid, docked) and the app
         // tries the next camera, once round. A camera the user chose is never left.
         let options = isDemo ? [] : cameraOptions()
@@ -523,7 +539,7 @@ final class MonitorModel: ObservableObject {
                                             silentSeconds: now.timeIntervalSince(lastFrame ?? now), tried: camerasTried) {
             if let current { camerasTried.insert(current) }
             camerasTried.insert(next.id)
-            cameraMovedTo = next.name
+            facts.cameraMovedTo = next.name
             lastFrame = now
             camera.use(camera: next.id)
             return
@@ -533,13 +549,13 @@ final class MonitorModel: ObservableObject {
 
     /// The panel gets a sentence for a person (`StartFailure`); what the system said
     /// goes to the log.
-    private func fail(_ failure: StartFailure, detail: String) {
+    private func fail(_ reason: StartFailure, detail: String) {
         Log.app.error("Not started: \(detail, privacy: .private)")   // the detail can hold a path
-        self.failure = failure
-        lifecycle = .failed(failure.sentence)
+        self.facts.failure = reason
+        facts.lifecycle = .failed(reason.sentence)
     }
 
-    var isPaused: Bool { pause != .running }
+    var isPaused: Bool { facts.pause != .running }
 
     /// Pause turns the camera off for real: its green light goes out. A timed pause ends
     /// by itself; the first version's pause had no end, and a pause you forget is a
@@ -556,9 +572,9 @@ final class MonitorModel: ObservableObject {
 
     func resume() {
         // Pressed during a rest to save energy: count anyway, until the reason goes.
-        if energyHold != nil {
+        if facts.energyHold != nil {
             energyOverridden = true
-            energyHold = nil
+            facts.energyHold = nil
         }
         setPause(.running)
     }
@@ -567,20 +583,20 @@ final class MonitorModel: ObservableObject {
     /// chose so, and comes back by itself. Asked every two seconds with the camera's check.
     func checkEnergy() {
         guard !isDemo else { return }
-        let facts = powerFacts()
-        let reason = EnergyPause.reason(onBattery: facts.onBattery, lowPower: facts.lowPower,
+        let power = powerFacts()
+        let reason = EnergyPause.reason(onBattery: power.onBattery, lowPower: power.lowPower,
                                         pauseOnBattery: preferences.pauseOnBattery, pauseInLowPower: preferences.pauseInLowPower)
         if reason == nil { energyOverridden = false }
         let hold = energyOverridden ? nil : reason
-        guard hold != energyHold else { return }
-        energyHold = hold
+        guard hold != facts.energyHold else { return }
+        facts.energyHold = hold
         if hold != nil { reminders.breaks.notObserved() }      // time the app chose not to look at
         applyCameraState()
     }
 
     /// The panel was looked at: what ended during sleep has been said.
     func seenWhileAway() {
-        if !whileAway.isEmpty { whileAway = WhileAway() }
+        if !facts.whileAway.isEmpty { facts.whileAway = WhileAway() }
     }
 
     private func setPause(_ state: PauseState) {
@@ -590,7 +606,7 @@ final class MonitorModel: ObservableObject {
             reminders.breaks.notObserved()
             reminders.stoppedLooking()
         }
-        pause = state
+        facts.pause = state
         preferences.pause = state
         resumeTimer?.invalidate()
         resumeTimer = state.end.map { end in
@@ -604,11 +620,11 @@ final class MonitorModel: ObservableObject {
     /// The Mac's screen went to sleep, or woke up. Nobody is in front of a sleeping
     /// screen: the camera is switched off until it wakes.
     func setAsleep(_ value: Bool, now: Date = Date()) {
-        asleep = value
+        facts.asleep = value
         if value { reminders.stoppedLooking() }
         // A timer does not run while the Mac sleeps: a pause that ended meanwhile ends now.
-        if !value && isPaused && !pause.isPaused(at: now) {
-            whileAway.pauseEnded = true         // said in the panel, once: it ended with nobody there
+        if !value && isPaused && !facts.pause.isPaused(at: now) {
+            facts.whileAway.pauseEnded = true         // said in the panel, once: it ended with nobody there
             resume()
         } else {
             applyCameraState()
@@ -617,19 +633,19 @@ final class MonitorModel: ObservableObject {
 
     private func applyCameraState(now: Date = Date()) {
         // Before the camera has ever been started there is nothing to switch.
-        guard isDemo ? lifecycle == .running : cameraBuilt else { return }
+        guard isDemo ? facts.lifecycle == .running : cameraBuilt else { return }
         // On for the setup window when it borrowed it; else on while counting.
-        let counting = lifecycle == .running && !isPaused && setupStage == nil
+        let counting = facts.lifecycle == .running && !isPaused && facts.setupStage == nil
         // (The setup may borrow the camera whatever the energy rule says: it was asked for.)
-        let run = !asleep && (cameraLent || (counting && energyHold == nil))
+        let run = !facts.asleep && (cameraLent || (counting && facts.energyHold == nil))
         // Neither call blocks: each camera does its work on a queue of its own, in order.
         if run { source.resume() } else { source.stop() }
         if run {
             lastFrame = now          // the camera needs a moment to wake: not "silent" yet
         } else {
-            live = live.withCameraOff
-            preview = nil
-            if cameraSilent { cameraSilent = false }
+            facts.live = facts.live.withCameraOff
+            facts.preview = nil
+            if facts.cameraSilent { facts.cameraSilent = false }
         }
     }
 
@@ -639,25 +655,25 @@ final class MonitorModel: ObservableObject {
         liveViewOpen = open
         pipeline?.setLiveView(open)
         if !open {
-            preview = nil
-            curve = Curve()
+            facts.preview = nil
+            facts.curve = Curve()
         }
     }
 
     // MARK: - Frames
 
     func apply(_ update: MonitorUpdate, now: Date = Date()) {
-        guard !isPaused, !resting, setupStage == nil else { return }   // a last frame can arrive after Pause
+        guard !isPaused, !resting, facts.setupStage == nil else { return }   // a last frame can arrive after Pause
         lastFrame = now
-        if cameraSilent { cameraSilent = false }
-        if live != update.live { live = update.live }
-        if let image = update.preview { preview = image }
+        if facts.cameraSilent { facts.cameraSilent = false }
+        if facts.live != update.live { facts.live = update.live }
+        if let image = update.preview { facts.preview = image }
 
         var counted: Blink?
         if case .blink(let blink) = update.event { counted = blink }
         if counted != nil { blinked.send() }
         if liveViewOpen {
-            curve.add(time: update.time, probability: update.live.probability, blink: counted)
+            facts.curve.add(time: update.time, probability: update.live.probability, blink: counted)
             // Silent during a capture: the ticks are the only sound to follow then.
             if counted != nil && preferences.liveViewSound && !captures.isCapturing {
                 // A copy per blink: one NSSound cannot overlap itself.
@@ -668,9 +684,9 @@ final class MonitorModel: ObservableObject {
         if let event = update.event { blinkBreak.record(event) }
         reminders.frame(faceFound: update.live.faceFound, now: now)
 
-        if let timings = update.timings { self.timings = timings }
+        if let summary = update.timings { self.facts.timings = summary }
         if let minuteTimings = update.minuteTimings, !isDemo { performanceLog.append(minuteTimings) }
-        if let error = update.error { problem = error }
+        if let error = update.error { facts.problem = error }
 
         history.update(current: update.currentMinute)
         if let finished = update.completedMinute {
@@ -711,7 +727,7 @@ final class MonitorModel: ObservableObject {
 
     func resetCounters() {
         pipeline?.requestReset()
-        curve = Curve()
+        facts.curve = Curve()
     }
 
     func startCapture(cued: Bool) {

@@ -260,23 +260,23 @@ struct SetupTests {
         bench.setup.cameraLooksRight()
         bench.setup.train()
 
-        bench.setup.training(.reading(done: 10, total: 400))
+        bench.setup.trainerSaid(.reading(done: 10, total: 400))
         #expect(bench.setup.training == .reading(done: 10, total: 400))
-        bench.setup.training(.learning(pass: 1, of: 8, loss: 0.6, seconds: 0.9))
+        bench.setup.trainerSaid(.learning(pass: 1, of: 8, loss: 0.6, seconds: 0.9))
         #expect(bench.setup.training == .learning(pass: 1, of: 8, secondsLeft: nil))       // one pass is not a measure
-        bench.setup.training(.learning(pass: 4, of: 8, loss: 0.2, seconds: 2.0))
+        bench.setup.trainerSaid(.learning(pass: 4, of: 8, loss: 0.2, seconds: 2.0))
         #expect(bench.setup.training == .learning(pass: 4, of: 8, secondsLeft: 2.0))       // 0.5 s a pass, 4 to go
 
-        bench.setup.training(.failed("signal 6"))
+        bench.setup.trainerSaid(.failed("signal 6"))
         #expect(bench.setup.training == .failed(reason: "signal 6", attempts: 1))
         bench.setup.retryTraining()
-        bench.setup.training(.failed("signal 6 again"))
+        bench.setup.trainerSaid(.failed("signal 6 again"))
         #expect(bench.setup.training == .failed(reason: "signal 6 again", attempts: 2))
         #expect(bench.setup.info == nil)
 
         bench.setup.retryTraining()
         try bench.stageModel()
-        bench.setup.training(.finished(bench.info()))
+        bench.setup.trainerSaid(.finished(bench.info()))
         #expect(bench.setup.training == .done)
         #expect(bench.setup.info == bench.info())
         #expect(bench.parts.store.info() == bench.info())

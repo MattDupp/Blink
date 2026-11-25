@@ -562,16 +562,3 @@ final class RoutineController: ObservableObject {
         if let data = try? JSONEncoder().encode(routines) { defaults.set(data, forKey: Self.key) }
     }
 }
-
-extension MonitorModel {
-
-    /// Whether somebody is at the screen, as far as the app can tell.
-    ///
-    /// While the camera is read, it is the face being in view. While it is not (a pause,
-    /// the camera refused, a closed lid on an external screen), the app cannot know: a
-    /// screen that is awake is taken as somebody being there, so that a pause of the
-    /// camera does not silence the routines.
-    func someoneAtScreen(now: Date = Date()) -> Bool {
-        status(now: now).isCameraOn ? live.faceFound : !asleep
-    }
-}

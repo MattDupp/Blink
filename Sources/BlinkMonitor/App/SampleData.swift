@@ -99,9 +99,9 @@ enum SampleData {
         timings.framesPerSecond = 30
         timings.analysedShare = 1
 
-        var initial = MonitorModel.InitialState(live: live, curve: curve(), timings: timings,
-                                                cameraNote: "The camera picture is left out of screenshots.",
-                                                modelSource: .trainedHere(modelInfo(now: now)))
+        var initial = MonitorModel.InitialState(cameraNote: "The camera picture is left out of screenshots.")
+        (initial.live, initial.curve, initial.timings) = (live, curve(), timings)
+        initial.modelSource = .trainedHere(modelInfo(now: now))
         var minutes = self.minutes(now: now, low: isLow)
         // A store of their own: the screenshots must not depend on the user's settings.
         let preferences = Preferences.temporary()
@@ -249,7 +249,10 @@ enum SampleData {
         let openEyes = [PaintedEye(openness: 0.9, light: 0.72).image(), PaintedEye(openness: 0.9, light: 0.66, noseOnRight: false).image()]
         let closedEyes = [PaintedEye(openness: 0, light: 0.72).image(), PaintedEye(openness: 0, light: 0.66, noseOnRight: false).image()]
 
-        var state = SetupModel.InitialState()
+        // The screenshots start where a window that runs would be: the camera on, a face in
+        // view, eyes large enough and light enough. The app itself starts from nothing.
+        var state = SetupModel.Facts()
+        (state.camera, state.faceFound, state.cropSide, state.brightness) = (.on, true, 118, 128)
         state.crops = openEyes
         switch scene {
         case .welcome, .demoWelcome:
@@ -342,9 +345,9 @@ enum SampleData {
             state.step = .done
             state.sessions = [first, second]
             state.info = modelInfo(now: now, found: 10)
-            (state.megabytes, state.place) = (19, "~/Library/Application Support/BlinkMonitor")
+            (state.statedMegabytes, state.statedPlace) = (19, "~/Library/Application Support/BlinkMonitor")
         }
-        return SetupModel(parts: parts, initial: state)
+        return SetupModel(parts: parts, facts: state)
     }
 
     /// A test in progress: `ticks` played, each answered by a blink except the `missed`
