@@ -34,9 +34,11 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     }
 
     /// The camera in use, as macOS names it ("FaceTime HD Camera"). Nil before `start`.
-    public private(set) var deviceName: String?
+    public var deviceName: String? { device.withLock { $0?.name } }
     /// The same camera, as macOS knows it (`CameraOption.id`).
-    public private(set) var deviceID: String?
+    public var deviceID: String? { device.withLock { $0?.id } }
+    /// Written on the session's queue, read by the windows: behind a lock.
+    private let device = Locked<(name: String, id: String)?>(nil)
     /// The camera the user chose; nil for Automatic (`CameraChoice`). Set before `start`.
     public var wantedCamera: String? {
         get { wantedDevice.withLock { $0 } }
@@ -45,6 +47,12 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     private let wantedDevice = Locked<String?>(nil)
 
     private let session = AVCaptureSession()
+    /// EVERY CALL THAT TOUCHES THE SESSION RUNS HERE, one at a time, in the order asked.
+    /// Starting and stopping block while the camera wakes or sleeps, so they are kept off
+    /// the main thread; and a session must not be reconfigured on two threads at once. The
+    /// first versions sent each call to the shared global queue instead, from seven places,
+    /// where a pause and a change of camera could reach the session together.
+    private let sessionQueue = DispatchQueue(label: "blink.camera.session", qos: .userInitiated)
     /// The camera is meant to be running (it was started, and not stopped since).
     private let wanted = Locked(false)
     private var errorObserver: NSObjectProtocol?
@@ -63,7 +71,7 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     public func start(onFrame: @escaping FrameHandler) async throws {
         guard await Self.requestPermission() else { throw CameraError.refused }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            DispatchQueue.global(qos: .userInitiated).async {
+            sessionQueue.async {
                 do {
                     try self.startSession(onFrame: onFrame)
                     continuation.resume()
@@ -84,14 +92,13 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
         }
     }
 
-    /// Builds the graph and starts the camera. `startRunning` blocks for a moment,
-    /// so this runs away from the main thread.
+    /// Builds the graph and starts the camera. On the session's queue: `startRunning`
+    /// blocks for a moment.
     private func startSession(onFrame: @escaping FrameHandler) throws {
         self.onFrame = onFrame
 
         guard let device = Self.pickCamera(wanted: wantedCamera) else { throw CameraError.noCamera }
-        deviceName = device.localizedName
-        deviceID = device.uniqueID
+        self.device.withLock { $0 = (device.localizedName, device.uniqueID) }
         let input = try AVCaptureDeviceInput(device: device)
 
         session.beginConfiguration()
@@ -137,7 +144,7 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
         ) { [weak self] notification in
             let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
             Log.app.error("Camera stopped: \(error?.localizedDescription ?? "unknown error", privacy: .public)")
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) { self?.recover() }
+            self?.sessionQueue.asyncAfter(deadline: .now() + 2) { self?.recoverNow() }
         }
 
         wanted.withLock { $0 = true }
@@ -172,20 +179,22 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
     }
 
     /// Moves a camera that is built to another device: the user chose it, or the one in
-    /// use sent nothing (`CameraChoice.fallback`). Blocks for a moment, like `start`: call
-    /// it away from the main thread. Answers the name of the camera now in use, nil when
-    /// nothing changed (the device is gone, or would not be added).
-    @discardableResult
-    public func use(camera id: String) -> String? {
+    /// use sent nothing (`CameraChoice.fallback`). Returns at once; the change is made on
+    /// the session's queue. Nothing changes when the device is gone, or would not be added.
+    public func use(camera id: String) {
+        sessionQueue.async { self.switchTo(camera: id) }
+    }
+
+    private func switchTo(camera id: String) {
         guard id != deviceID, let device = Self.devices().first(where: { $0.uniqueID == id }),
-              let input = try? AVCaptureDeviceInput(device: device) else { return nil }
+              let input = try? AVCaptureDeviceInput(device: device) else { return }
         session.beginConfiguration()
         let old = session.inputs
         old.forEach { session.removeInput($0) }
         guard session.canAddInput(input) else {
             old.forEach { if session.canAddInput($0) { session.addInput($0) } }
             session.commitConfiguration()
-            return nil
+            return
         }
         session.addInput(input)
         // A new input makes a new connection: it must not be mirrored either.
@@ -196,27 +205,41 @@ public final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBuffer
             }
         }
         session.commitConfiguration()
-        deviceName = device.localizedName
-        deviceID = device.uniqueID
-        Log.app.notice("Camera changed to \(device.localizedName, privacy: .public)")
-        return device.localizedName
+        self.device.withLock { $0 = (device.localizedName, device.uniqueID) }
+        Log.app.notice("Camera changed to \(device.localizedName, privacy: .private)")
     }
 
-    /// Turns the camera off (its green light goes out). The graph stays built.
+    /// Turns the camera off (its green light goes out). The graph stays built. Returns at
+    /// once, like the three below: the work is done on the session's queue, in order.
     public func stop() {
         wanted.withLock { $0 = false }
-        session.stopRunning()
+        sessionQueue.async { self.session.stopRunning() }
     }
 
-    /// Turns the camera back on after `stop`. Blocks for a moment like `start`.
+    /// Turns the camera back on after `stop`.
     public func resume() {
         wanted.withLock { $0 = true }
-        if !session.isRunning { session.startRunning() }
+        sessionQueue.async { if !self.session.isRunning { self.session.startRunning() } }
+    }
+
+    /// The same, returning once the camera runs again.
+    public func resumeAndWait() async {
+        wanted.withLock { $0 = true }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            sessionQueue.async {
+                if !self.session.isRunning { self.session.startRunning() }
+                continuation.resume()
+            }
+        }
     }
 
     /// Starts the camera again if it stopped BY ITSELF. Does nothing when it runs, and
     /// nothing when it was stopped on purpose: a pause must stay a pause.
     public func recover() {
+        sessionQueue.async { self.recoverNow() }
+    }
+
+    private func recoverNow() {
         guard wanted.withLock({ $0 }), !session.isRunning else { return }
         session.startRunning()
     }

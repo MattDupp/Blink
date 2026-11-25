@@ -246,9 +246,8 @@ final class MonitorModel: ObservableObject {
         cameraMovedTo = nil
         camerasTried = []
         guard cameraBuilt, let picked = CameraChoice.pick(from: cameraOptions(), wanted: id) else { return }
-        let camera = self.camera
         lastFrame = Date()          // the new camera needs a moment: not "silent" yet
-        DispatchQueue.global(qos: .userInitiated).async { camera.use(camera: picked.id) }
+        camera.use(camera: picked.id)
     }
 
     // MARK: - What the windows say
@@ -348,16 +347,7 @@ final class MonitorModel: ObservableObject {
     /// Starts the camera the first time (macOS asks for it then), and resumes it afterwards.
     /// Its frames go to whoever `frames` names at that moment.
     private func startCamera() async throws {
-        guard !cameraBuilt else {
-            let camera = self.camera
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    camera.resume()
-                    continuation.resume()
-                }
-            }
-            return
-        }
+        guard !cameraBuilt else { return await camera.resumeAndWait() }
         let frames = self.frames
         camera.wantedCamera = preferences.cameraID
         try await camera.start { pixelBuffer, time in
@@ -445,8 +435,7 @@ final class MonitorModel: ObservableObject {
         if cameraSilent { cameraSilent = false }
         if !cameraLent {
             frames.withLock { $0 = .nobody }
-            let camera = self.camera
-            DispatchQueue.global(qos: .userInitiated).async { camera.stop() }
+            camera.stop()
         }
     }
 
@@ -457,9 +446,7 @@ final class MonitorModel: ObservableObject {
         resumeTimer?.invalidate()
         paceOfDemo = nil
         frames.withLock { $0 = .nobody }
-        let source = self.source
-        let built = cameraBuilt || isDemo
-        if built { DispatchQueue.global(qos: .userInitiated).async { source.stop() } }
+        if cameraBuilt || isDemo { source.stop() }
     }
 
     /// Deletes what setup made: the model trained here and, unless their folder was named
@@ -535,12 +522,10 @@ final class MonitorModel: ObservableObject {
             camerasTried.insert(next.id)
             cameraMovedTo = next.name
             lastFrame = now
-            let camera = self.camera
-            DispatchQueue.global(qos: .userInitiated).async { camera.use(camera: next.id) }
+            camera.use(camera: next.id)
             return
         }
-        let source = self.source
-        DispatchQueue.global(qos: .utility).async { source.recover() }
+        source.recover()
     }
 
     /// The panel gets a sentence for a person (`StartFailure`); what the system said
@@ -634,10 +619,8 @@ final class MonitorModel: ObservableObject {
         let counting = lifecycle == .running && !isPaused && setupStage == nil
         // (The setup may borrow the camera whatever the energy rule says: it was asked for.)
         let run = !asleep && (cameraLent || (counting && energyHold == nil))
-        let source = self.source
-        DispatchQueue.global(qos: .userInitiated).async {
-            if run { source.resume() } else { source.stop() }
-        }
+        // Neither call blocks: each camera does its work on a queue of its own, in order.
+        if run { source.resume() } else { source.stop() }
         if run {
             lastFrame = now          // the camera needs a moment to wake: not "silent" yet
         } else {

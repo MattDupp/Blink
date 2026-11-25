@@ -3,6 +3,9 @@ import CoreGraphics
 import BlinkCore
 
 /// What delivers frames to the model: the camera, or the demo's stand-in for it.
+///
+/// Every call returns at once and may be made from the main thread: each source does the
+/// work on a serial queue of its own, in the order it was asked.
 protocol FrameSource: AnyObject, Sendable {
     func stop()
     func resume()
