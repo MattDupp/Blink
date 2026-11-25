@@ -38,10 +38,14 @@ final class TrainingJob {
     private let report: (TrainingProgress) -> Void
 
     private var process: Process?
+    /// The helper's two outputs, read line by line until it closes them (`PipeLines`).
+    private var readers: [PipeLines] = []
     private var over = false
     private var silence: Timer?
-    private var unread = Data()
-    private var complaints = ""
+    private var complaints: [String] = []
+
+    /// One of the helper's outputs is still being read (the tests ask).
+    var isReading: Bool { readers.contains(where: \.isReading) }
 
     /// `report` is called on the main thread; its last call is `.finished` or `.failed`.
     init(way: Way = .usual, sessions: URL, staging: URL, passes: Int = TrainingRun.passes,
@@ -73,26 +77,23 @@ final class TrainingJob {
         silence?.invalidate()
         process?.terminate()
         process = nil
+        readers.forEach { $0.stop() }
     }
 
     private func launch(_ program: URL) {
         let process = Process()
         process.executableURL = program
         process.arguments = ["--train", "--sessions-dir=\(sessions.path)", "--model-out=\(staging.path)", "--passes=\(passes)"]
-        let output = Pipe(), errors = Pipe()
-        process.standardOutput = output
-        process.standardError = errors
         // The pipes are read on a background queue; everything else happens on the main one.
-        output.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.read(data) } }
+        let output = PipeLines { [weak self] line in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.read(line) } }
         }
-        errors.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.complaints += text } }
+        let errors = PipeLines { [weak self] line in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.complaints.append(line) } }
         }
+        readers = [output, errors]
+        process.standardOutput = output.pipe
+        process.standardError = errors.pipe
         process.terminationHandler = { [weak self] ended in
             let (reason, code) = (ended.terminationReason, ended.terminationStatus)
             // A moment later: the last lines may still be on their way through the pipe.
@@ -109,13 +110,8 @@ final class TrainingJob {
         }
     }
 
-    private func read(_ data: Data) {
-        unread.append(data)
-        while let lineEnd = unread.firstIndex(of: 0x0A) {
-            let line = String(data: unread[unread.startIndex..<lineEnd], encoding: .utf8) ?? ""
-            unread.removeSubrange(unread.startIndex...lineEnd)
-            if let progress = TrainingProgress(line: line) { received(progress) }
-        }
+    private func read(_ line: String) {
+        if let progress = TrainingProgress(line: line) { received(progress) }
     }
 
     private func received(_ progress: TrainingProgress) {
@@ -132,8 +128,10 @@ final class TrainingJob {
 
     /// The helper has ended. If it never said how, it was cut short: say what is known.
     private func ended(crashed: Bool, code: Int32) {
+        // The helper is gone: whatever its pipes still hold was read in the 0.3 s before this.
+        readers.forEach { $0.stop() }
         guard !over else { return }
-        let last = complaints.split(whereSeparator: \.isNewline).suffix(3).joined(separator: "\n")
+        let last = complaints.suffix(3).joined(separator: "\n")
         Log.app.error("Trainer ended early (code \(code, privacy: .public)): \(last, privacy: .public)")
         received(.failed("The training program stopped before the end (\(crashed ? "signal" : "code") \(code))."
                          + (last.isEmpty ? "" : "\n\(last)")))
