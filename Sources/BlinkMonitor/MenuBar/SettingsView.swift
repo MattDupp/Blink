@@ -212,10 +212,13 @@ final class SettingsState: ObservableObject {
     /// Set by the screenshots, which state what is on disk instead of counting it.
     var onDiskIsStated = false
     @Published var deleteProblem: String?
+    /// The captures could not be erased: said in their row.
+    @Published var capturesProblem: String?
 
     func reset() {
         measurement = nil
         deleteProblem = nil
+        capturesProblem = nil
     }
 
     /// Counts what is on disk again.
@@ -734,12 +737,19 @@ struct SettingsView: View {
                 }
                 if state.onDisk.captures > 0, let captures = files.capturesRoot {
                     Divider()
-                    Row("Captures folder", detail: "Small pictures of your eyes, frame by frame, saved from Live View."
-                            + String(format: " %.0f MB.", state.onDisk.captureMegabytes)) {
+                    Row("Captures folder", detail: state.capturesProblem ?? ("Small pictures of your eyes, frame by frame, saved from Live View."
+                            + String(format: " %.0f MB.", state.onDisk.captureMegabytes))) {
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([captures]) }
                         Button("Erase…") {
                             guard Confirm.destructive(EraseWords.captures(state.onDisk.captures)) else { return }
-                            try? FileManager.default.removeItem(at: captures)
+                            // Said in the row when it fails, as the model's own Delete does: it
+                            // used to fail without a word.
+                            do {
+                                try FileManager.default.removeItem(at: captures)
+                                state.capturesProblem = nil
+                            } catch {
+                                state.capturesProblem = "They could not be erased: \(error.localizedDescription)"
+                            }
                             state.refresh(files)
                         }
                     }

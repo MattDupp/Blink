@@ -867,51 +867,9 @@ struct RoutineSettings: View {
     }
 }
 
-// The Settings window's own `Card` and `Row` are private to SettingsView.swift (and the
-// Live View has another `Row`). These two are the same pieces, kept here so that the
-// routines touch that shared file by two lines only.
-
-/// A group of rows on one background.
-private struct Card<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) { content }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-    }
-}
-
-/// One setting: what it is, what it means, and its control on the right.
-private struct Row<Control: View>: View {
-    private let title: String
-    private let detail: String
-    private let control: Control
-
-    init(_ title: String, detail: String, @ViewBuilder control: () -> Control) {
-        self.title = title
-        self.detail = detail
-        self.control = control()
-    }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(detail)
-                    .textStyle(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 12)
-            control
-                .labelsHidden()
-                .toggleStyle(.switch)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-}
+// The Settings window's pieces (SettingsView.swift), as the Breaks tab uses them too.
+private typealias Card = SettingsCard
+private typealias Row = SettingsRow
 
 /// Seven days to choose from, in the order of this Mac's week: Monday first, or Sunday.
 /// The routines and the working hours share it.
