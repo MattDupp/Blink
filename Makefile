@@ -147,7 +147,7 @@ monitor: one-copy monitor-app  ## Install the menu-bar app in ~/Applications and
 	@echo "macOS asks for the camera the first time, and again after each rebuild."
 	@# Which model it uses: the one trained in the app when there is one, else the one built in.
 	@if [ -f "$(HOME)/Library/Application Support/BlinkMonitor/model/eyenet.weights" ] && [ -d "$(MODEL)" ]; then \
-		echo "Note: a model trained in the app is in use, not $(MODEL). Settings > Your Model deletes it."; fi
+		echo "Note: a model trained in the app is in use, not $(MODEL). Settings > Model deletes it."; fi
 	@# (No comma in this sentence: inside make's "if" function a comma starts the "else"
 	@# part, which make then ran as a command whenever WHOLE_FRAMES was not set.)
 	@$(if $(WHOLE_FRAMES),echo "WHOLE FRAMES: the captures of the Live View window also keep the whole camera picture in $(DATA)/replay.")

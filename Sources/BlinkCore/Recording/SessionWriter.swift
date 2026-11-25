@@ -148,15 +148,6 @@ public enum SessionStore {
         return total
     }
 
-    /// The most recent session folder. Their names are dates (20261120-101147), so the
-    /// last one in alphabetical order is the newest.
-    public static func latest(in root: URL) -> URL? {
-        let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        return folders
-            .filter { $0.hasDirectoryPath }
-            .max { $0.lastPathComponent < $1.lastPathComponent }
-    }
-
     /// Removes a whole session. `toTrash` puts it in the Trash, where a mistake can still
     /// be undone; without it the folder is deleted for good.
     public static func discard(_ folder: URL, toTrash: Bool) throws {
@@ -165,37 +156,5 @@ public enum SessionStore {
         } else {
             try FileManager.default.removeItem(at: folder)
         }
-    }
-}
-
-/// How many pictures are on disk, over every session.
-public struct DatasetStats: Equatable {
-    public var sessions = 0
-    public var open = 0
-    public var closed = 0
-
-    public init(sessions: Int = 0, open: Int = 0, closed: Int = 0) {
-        self.sessions = sessions
-        self.open = open
-        self.closed = closed
-    }
-
-    public static func scan(_ root: URL) -> DatasetStats {
-        var stats = DatasetStats()
-        let files = FileManager.default
-        guard let sessions = try? files.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return stats }
-        for session in sessions where session.hasDirectoryPath {
-            func count(_ label: EyeLabel) -> Int {
-                let names = (try? files.contentsOfDirectory(atPath: session.appendingPathComponent(label.rawValue).path)) ?? []
-                return names.filter { $0.hasSuffix(".png") }.count
-            }
-            let open = count(.open), closed = count(.closed)
-            if open + closed > 0 {
-                stats.sessions += 1
-                stats.open += open
-                stats.closed += closed
-            }
-        }
-        return stats
     }
 }

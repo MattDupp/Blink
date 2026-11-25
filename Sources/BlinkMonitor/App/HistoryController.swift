@@ -146,14 +146,4 @@ final class HistoryController: ObservableObject {
         }
         return byHour.map { DaySummary(records: $0, threshold: threshold) }
     }
-
-    /// The last `count` days, oldest first, today last.
-    func lastDays(_ count: Int, threshold: Double, now: Date = Date(),
-                  calendar: Calendar = .current) -> [(day: Date, summary: DaySummary)] {
-        (0..<count).reversed().compactMap { back in
-            calendar.date(byAdding: .day, value: -back, to: calendar.startOfDay(for: now)).map {
-                ($0, summary(of: $0, threshold: threshold))
-            }
-        }
-    }
 }

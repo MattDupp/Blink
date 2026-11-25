@@ -48,9 +48,6 @@ extension PublishedRates {
         "Dots: one experiment on people with dry eye symptoms (\(experiment.source.name)). After half an hour at \(StudyRange.written(experiment.worseAt)) blinks a minute their eyes fared worse than at \(StudyRange.written(experiment.fineAt)) or at their own rate. Bars: averages of groups of healthy adults (\(atScreen.source.name)). People differ a lot, and no rate is established as enough: none of this is a target."
     }
 
-    /// Said after a comparison in the History window, which has no room for the list.
-    static let whereTheSourcesAre = "The sources are in Settings."
-
     /// Said in Settings when the limit sits above the user's own usual rate
     /// (`Baseline.limitAboveUsual`): what will happen, why it is nothing to worry about,
     /// and the way out. `canLower`: the floor is not yet as low as its control goes.

@@ -78,7 +78,7 @@ struct RecordingTests {
         #expect(lines[0] == SessionWriter.header)
         #expect(lines[1] == "test,lamp glasses,1,closed,gentle,42,1.500,L,closed/p01_f000042_L.png,1000,200,128,200.0,0.050,,1920,1080")
 
-        #expect(DatasetStats.scan(root) == DatasetStats(sessions: 1, open: 0, closed: 1))
+        #expect(SessionStore.sessions(in: root).map(\.pictures) == [1])
     }
 
     @Test("A CSV file gets its header once, then one line per call - also when reopened")
@@ -145,13 +145,12 @@ struct RecordingTests {
         try SessionWriter(root: root, session: "20270101-090000", condition: "").save(sample(image, label: .open))
         _ = try SessionWriter(root: root, session: "20270101-100000", condition: "")
 
-        let latest = try #require(SessionStore.latest(in: root))
-        #expect(latest.lastPathComponent == "20270101-100000")
+        let latest = root.appendingPathComponent("20270101-100000", isDirectory: true)
         try SessionStore.discard(latest, toTrash: false)
 
         #expect(!FileManager.default.fileExists(atPath: latest.path))
-        #expect(SessionStore.latest(in: root)?.lastPathComponent == "20270101-090000")
-        #expect(DatasetStats.scan(root) == DatasetStats(sessions: 1, open: 1, closed: 0))
+        let left = SessionStore.sessions(in: root)
+        #expect(left.map(\.name) == ["20270101-090000"] && left.map(\.open) == [1] && left.map(\.closed) == [0])
     }
 
     // MARK: Captures

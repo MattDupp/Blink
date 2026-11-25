@@ -212,22 +212,22 @@ struct RoutineControllerTests {
 
     // MARK: Editing the times
 
-    @Test("Times can be added, changed and removed, but not all of them")
+    @Test("Times can be added, changed and removed, but not all of them; the stored ones are sorted and merged")
     func editing() {
         let desk = Desk()
         let controller = switchedOn(desk)
         func times() -> [String] { controller.routines[0].times.map(\.text) }
 
-        controller.addTime(id)
+        controller.addTimeRow(id)                                                  // rows: 08 13 17 18
         #expect(times() == ["08:00", "13:00", "17:00", "18:00"])
-        controller.setTime(id, from: TimeOfDay(hour: 18), to: TimeOfDay(hour: 7, minute: 45))
+        controller.setTime(id, at: 3, to: TimeOfDay(hour: 7, minute: 45))
         #expect(times() == ["07:45", "08:00", "13:00", "17:00"])
-        controller.setTime(id, from: TimeOfDay(hour: 13), to: TimeOfDay(hour: 17))       // onto another one
+        controller.setTime(id, at: 1, to: TimeOfDay(hour: 17))                     // onto another one
         #expect(times() == ["07:45", "08:00", "17:00"])
-        for time in controller.routines[0].times { controller.removeTime(id, time) }
-        #expect(times() == ["17:00"])
+        for _ in 0..<5 { controller.removeTime(id, at: 0) }
+        #expect(times() == ["07:45"], "the last row stays")
         controller.setTimes(id, [TimeOfDay(hour: 23)])
-        controller.addTime(id)
+        controller.addTimeRow(id)
         #expect(times() == ["00:00", "23:00"])
     }
 
@@ -325,7 +325,7 @@ struct RoutineControllerTests {
     func hidingBuiltIn() throws {
         let desk = Desk()
         let controller = switchedOn(desk)
-        controller.setTime(id, from: TimeOfDay(hour: 13), to: TimeOfDay(hour: 14))
+        controller.setTimes(id, [TimeOfDay(hour: 8), TimeOfDay(hour: 14), TimeOfDay(hour: 17)])
         controller.hide(id)
         var routine = try #require(controller.routines.first { $0.id == id })
         #expect(routine.isHidden && !routine.isOn && controller.hiddenBuiltIn.map(\.id) == [id])

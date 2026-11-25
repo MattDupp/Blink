@@ -508,32 +508,12 @@ final class RoutineController: ObservableObject {
         }
     }
 
-    /// Replaces one time by another. Setting it to a time another reminder already has
-    /// leaves one reminder at that time.
-    func setTime(_ id: String, from old: TimeOfDay, to new: TimeOfDay) {
-        changeTimes(id) { $0.map { $0 == old ? new : $0 } }
-    }
-
     /// The rows being edited, and each kind's schedule as it was left (see `setKind`).
     @Published private(set) var drafts: [String: [TimeOfDay]] = [:]
     private var rememberedSchedules: [String: [RoutineSchedule.Kind: (schedule: RoutineSchedule, rows: [TimeOfDay]?)]] = [:]
 
     func setTimes(_ id: String, _ times: [TimeOfDay]) {
         changeTimes(id) { _ in times }
-    }
-
-    /// Adds a time: an hour after the last one, or the first free hour of the day.
-    func addTime(_ id: String) {
-        changeTimes(id) { times in
-            let hours = Set(times.map(\.hour))
-            let after = (times.last?.hour ?? 7) + 1
-            guard let hour = (Array(after..<24) + Array(0..<after)).first(where: { !hours.contains($0) }) else { return times }
-            return times + [TimeOfDay(hour: hour)]
-        }
-    }
-
-    func removeTime(_ id: String, _ time: TimeOfDay) {
-        changeTimes(id) { times in times.count > 1 ? times.filter { $0 != time } : times }
     }
 
     /// Shows the reminder now, as it will look. Its buttons do nothing.
