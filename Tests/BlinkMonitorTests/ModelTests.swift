@@ -24,6 +24,27 @@ struct ModelTests {
 
     // MARK: Pause
 
+    @Test("A new model that cannot be read is said, with Try Again, and is not taken for no model")
+    func unreadableNewModel() async throws {
+        let place = DataPlace.scratch()
+        defer { try? FileManager.default.removeItem(at: place.folder) }
+        let store = place.models
+        try PrivateFolder.create(at: store.folder)
+        let accepted = ModelInfo.Proof(found: 10, of: 10, extra: 0, on: Date(), accepted: true)
+        try ModelInfo(trainedOn: Date(), sessions: ["a"], openPictures: 100, closedPictures: 100, passes: 8, seconds: 3,
+                      lastLoss: 0.01, rightOnOwnPictures: 200, largestDifference: 0, proof: accepted)
+            .write(to: store.folder.appendingPathComponent(ModelStore.infoName))
+        try Data("not a network".utf8).write(to: store.folder.appendingPathComponent(ModelStore.weightsName))
+        let model = MonitorModel(preferences: .temporary(), place: place, initial: MonitorModel.InitialState())
+        #expect(model.lifecycle == .running)
+        await model.modelChanged()
+        #expect(model.failure == .model(trainedHere: true))
+        guard case .failed = model.lifecycle else {
+            Issue.record("it should have failed, not \(model.lifecycle)")
+            return
+        }
+    }
+
     @Test("A timed pause says when it ends, and is over at that moment whatever the timer does")
     func timedPause() {
         let model = running()

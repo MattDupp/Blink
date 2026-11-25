@@ -138,11 +138,20 @@ public struct ModelStore {
         // Read it first: a folder that does not hold a whole model must not replace one.
         _ = try EyeNetWeights(contentsOf: staging.appendingPathComponent(Self.weightsName))
         _ = try ModelInfo(contentsOf: staging.appendingPathComponent(Self.infoName))
+        var setAside = false
         if files.fileExists(atPath: folder.path) {
             try? files.removeItem(at: previous)
             try files.moveItem(at: folder, to: previous)
+            setAside = true
         }
-        try files.moveItem(at: staging, to: folder)
+        do {
+            try files.moveItem(at: staging, to: folder)
+        } catch {
+            // The new model could not be put in place: the one in use goes back where it was,
+            // instead of waiting in model.previous with no model in place.
+            if setAside { try? files.moveItem(at: previous, to: folder) }
+            throw error
+        }
     }
 
     /// Puts the previous model back; the one it replaces is deleted.

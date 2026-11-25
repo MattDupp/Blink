@@ -315,9 +315,8 @@ final class MonitorModel: ObservableObject {
             }
             judge = loaded
         } catch {
-            var trainedHere = false
-            if case .trainedHere = facts.modelSource { trainedHere = true }
-            fail(.model(trainedHere: trainedHere), detail: "The eye model could not be loaded.\n\(facts.modelSource.remedy)\n\(error)")
+            fail(.model(trainedHere: facts.modelSource.isTrainedHere),
+                 detail: "The eye model could not be loaded.\n\(facts.modelSource.remedy)\n\(error)")
             return
         }
         let pipeline = MonitorPipeline(classifier: judge, strategy: Options.eyeSearch, effort: preferences.effort)
@@ -432,11 +431,15 @@ final class MonitorModel: ObservableObject {
             await startCounting()
         case .running:
             facts.modelSource = source
-            guard let judge = try? source.judge(store: modelStore) else {
+            do {
+                guard let judge = try source.judge(store: modelStore) else { return stopCounting() }
+                pipeline?.setJudge(judge)
+            } catch {
+                // A model that cannot be read is said, as at the start (`startCounting`), with
+                // Try Again. It used to be taken for no model at all, without a word.
                 stopCounting()
-                return
+                fail(.model(trainedHere: source.isTrainedHere), detail: "The new eye model could not be loaded.\n\(source.remedy)\n\(error)")
             }
-            pipeline?.setJudge(judge)
         case .starting, .cameraRefused, .failed:
             facts.modelSource = source
         }

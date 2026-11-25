@@ -292,11 +292,15 @@ public struct BreakSchedule: Sendable {
         guard let previous = clock, time >= previous else {
             // The first observation, or a clock that was set back: nothing is known about
             // the time before. Start a new stretch; the count to the long break is kept.
+            // A "Later" goes too: its five minutes were counted on the old clock, and an
+            // hour set back would have held the next break for an hour and five minutes.
             clock = time
             running = nil
             lastFace = nil
             workStart = nil
             credited = nil
+            postponedUntil = nil
+            postponed = false
             faceInView = face ?? false
             if face == true {
                 lastFace = time

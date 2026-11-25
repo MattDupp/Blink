@@ -63,10 +63,7 @@ extension SettingsView {
         .onAppear { state.refresh(files) }
     }
 
-    private var isTrainedHere: Bool {
-        if case .trainedHere = model.modelSource { return true }
-        return false
-    }
+    private var isTrainedHere: Bool { model.modelSource.isTrainedHere }
 
     private var modelTitle: String {
         if model.isDemo { return "The demo has no model" }

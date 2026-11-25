@@ -288,10 +288,15 @@ final class SetupModel: ObservableObject {
         letSleep()
         job?.cancel()
         job = nil
+        // The once-a-second look at a training stops with it (it used to tick on, window closed).
+        trainingWatch?.cancel()
+        trainingWatch = nil
         parts.store.discardStaging()
         // A model trained again but not yet tested must not leave you with nothing: the
         // one you were using comes back. The new recordings are kept; training is 20 s.
-        if let installed = facts.info, !installed.isAccepted, parts.store.hasPrevious {
+        // Asked of the disk, not of `facts`: after an installation that failed half way,
+        // no model is in place and `facts.info` still describes the one set aside.
+        if parts.store.info().map({ !$0.isAccepted }) ?? true, parts.store.hasPrevious {
             try? parts.store.restorePrevious()
         }
         releaseCamera()

@@ -77,6 +77,21 @@ struct SetupTests {
 
     // MARK: Where it opens
 
+    @Test("Closing the window after an installation that failed half way puts the model in use back")
+    func restoredAfterHalfInstall() throws {
+        let bench = Bench()
+        try bench.stageModel()
+        try bench.parts.store.installStaged()
+        try bench.parts.store.setProof(ModelInfo.Proof(found: 10, of: 10, extra: 0, on: Date(), accepted: true))
+        try bench.stageModel()
+        try bench.parts.store.installStaged()                          // the first model is now the previous one
+        try FileManager.default.removeItem(at: bench.parts.store.folder)  // as if the second never got into place
+        bench.setup.open()
+        bench.setup.close()
+        #expect(bench.parts.store.info()?.isAccepted == true, "the model that was in use is back")
+        #expect(!bench.parts.store.hasPrevious)
+    }
+
     @Test("The step to open on is read from what is on disk")
     func resumeStep() {
         let untested = Bench().info()

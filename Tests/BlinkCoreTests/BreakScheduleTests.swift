@@ -322,6 +322,19 @@ struct BreakScheduleTests {
         #expect(day.events.last == .due(.short, canPostpone: true))   // the next break can be put off again
     }
 
+    @Test("A clock set back starts a new stretch, and forgets a Later counted on the old clock")
+    func clockSetBackForgetsLater() {
+        var day = Timeline(classic)
+        day.watch(1200)
+        let allowed = day.postpone()
+        #expect(allowed)
+        day.time -= 3600                                     // the Mac's clock goes back an hour
+        day.watch(1199)
+        #expect(day.events.count == 1, "a new stretch: twenty minutes to go again")
+        day.watch(2)
+        #expect(day.events.last == .due(.short, canPostpone: true))
+    }
+
     @Test("Leaving during the five minutes is the break")
     func postponedThenLeft() {
         var day = Timeline(classic)

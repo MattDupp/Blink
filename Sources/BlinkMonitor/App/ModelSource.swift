@@ -32,6 +32,12 @@ enum ModelSource: Equatable {
         return .none
     }
 
+    /// The one trained in this app (the panel and Settings word its failures for it).
+    var isTrainedHere: Bool {
+        if case .trainedHere = self { return true }
+        return false
+    }
+
     /// The model itself, ready to answer; nil when there is none.
     func judge(store: ModelStore) throws -> EyeJudging? {
         switch self {
