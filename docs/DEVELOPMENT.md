@@ -132,7 +132,7 @@ The app's own files are in `~/Library/Application Support/BlinkMonitor/`:
 | `breaks.csv` | one line each time a look-away break is taken, skipped or cut short, a blink break is finished, or a blink reminder is shown |
 | `eye-notes.csv` | with the evening question on: the answer, one line a day (a changed answer is a second line, and the later one counts) |
 | `routines.csv` | one line each time a routine's reminder is shown, done, put off or left, a done is taken back, or a timer is started |
-| `sessions/<session>/` | what the setup recorded, in the format of `data/raw`. Folders only their owner can read |
+| `sessions/<session>/` | what the setup recorded, in the format of `data/raw`. Folders only their owner can read. Also `pose-check.csv` (what the pose check said of each pose, and your answer; a pose's last line counts) and `left-out/` (the pictures of a pose left out or recorded again, with their manifest lines: no trainer reads them) |
 | `model/` | the model trained in the app: `eyenet.weights` (241 KB: eight bytes `EYENET01`, then 60,289 32-bit numbers) and `model.json` (when, from which sessions, how the check and the test went) |
 | `model.new/`, `model.previous/` | a training in progress, and the model before the last training |
 | `captures/` | Live View captures, when no `--capture-dir` was given |
@@ -299,6 +299,8 @@ window closed in the middle loses nothing that was finished.
   pipeline two drawn eye pictures 30 times a second, and from there the pictures are
   saved, trained on and tested by the real code. The demo offers it (*See the Setup*),
   and `--demo --play-setup` goes through it with no click, writing its steps to the log.
+  Add `--painted-mistake` and the painted eyes stay open through the last pose of the
+  second recording, once: the pose check flags it, and `--play-setup` records it again.
 
 ## Filming the app
 

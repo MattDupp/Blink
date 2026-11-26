@@ -3,7 +3,7 @@ import CoreGraphics
 
 /// The two answers the model learns to give. These words are the folder names on disk
 /// and, in the end, what the model's output means.
-public enum EyeLabel: String {
+public enum EyeLabel: String, Codable {
     case open
     case closed
 }
@@ -146,6 +146,59 @@ public enum SessionStore {
             total += (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         }
         return total
+    }
+
+    /// Where a session keeps the pictures it no longer learns from, laid out like a session
+    /// of its own: <session>/left-out/manifest.csv, <session>/left-out/closed/...
+    public static let asideFolder = "left-out"
+
+    /// Takes one pose's pictures out of a session WITHOUT DELETING THEM: they move to
+    /// `asideFolder` with their manifest lines (`PoseCheck`: a pose held the wrong way).
+    /// Both trainers read only the session's own manifest.csv, so neither sees them again.
+    /// Returns how many pictures were set aside.
+    ///
+    /// The pictures move first and the manifest is rewritten last, in one step: stopped in
+    /// between, the manifest names pictures that are gone, which every reader skips.
+    @discardableResult
+    public static func setAside(phase: Int, of session: URL) throws -> Int {
+        let files = FileManager.default
+        let manifest = session.appendingPathComponent("manifest.csv")
+        let lines = try String(contentsOf: manifest, encoding: .utf8).split(whereSeparator: \.isNewline).map(String.init)
+        guard let header = lines.first else { return 0 }
+        let columns = header.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+        guard let phaseColumn = columns.firstIndex(of: "phase"), let fileColumn = columns.firstIndex(of: "file") else { return 0 }
+
+        var kept = [header], moving: [[String]] = []
+        for line in lines.dropFirst() {
+            let fields = line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+            if fields.count > max(phaseColumn, fileColumn), Int(fields[phaseColumn]) == phase {
+                moving.append(fields)
+            } else {
+                kept.append(line)
+            }
+        }
+        guard !moving.isEmpty else { return 0 }
+
+        let aside = session.appendingPathComponent(asideFolder, isDirectory: true)
+        let asideManifest = try CSVAppender(url: aside.appendingPathComponent("manifest.csv"), header: header)
+        for var fields in moving {
+            let relative = fields[fileColumn]
+            if TrainingSet.isOwnPicture(relative), files.fileExists(atPath: session.appendingPathComponent(relative).path) {
+                // A pose recorded again and set aside twice can bring a name that is there
+                // already: the newcomer gets a number, nothing is overwritten.
+                var target = relative, copy = 1
+                while files.fileExists(atPath: aside.appendingPathComponent(target).path) {
+                    copy += 1
+                    target = (relative as NSString).deletingPathExtension + "-\(copy).png"
+                }
+                try PrivateFolder.create(at: aside.appendingPathComponent(target).deletingLastPathComponent())
+                try files.moveItem(at: session.appendingPathComponent(relative), to: aside.appendingPathComponent(target))
+                fields[fileColumn] = target
+            }
+            asideManifest.append(fields)
+        }
+        try (kept.joined(separator: "\n") + "\n").write(to: manifest, atomically: true, encoding: .utf8)
+        return moving.count
     }
 
     /// Removes a whole session. `toTrash` puts it in the Trash, where a mistake can still

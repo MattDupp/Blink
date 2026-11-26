@@ -14,6 +14,11 @@ public struct TrainingSet {
         public let session: String
         /// The label: true for a picture recorded while the eyes were held closed.
         public let closed: Bool
+        /// The pose it was recorded in (`SessionScript.phases`), and its short name. Nil
+        /// for a picture whose manifest has no pose: it is learned from, never judged
+        /// (`PoseCheck`).
+        public var phase: Int? = nil
+        public var variant = ""
     }
 
     public private(set) var entries: [Entry] = []
@@ -49,6 +54,7 @@ public struct TrainingSet {
             guard let header = lines.first?.split(separator: ",", omittingEmptySubsequences: false).map(String.init),
                   let label = header.firstIndex(of: "label"), let file = header.firstIndex(of: "file") else { continue }
             let side = header.firstIndex(of: "side"), yaw = header.firstIndex(of: "yaw")
+            let phase = header.firstIndex(of: "phase"), variant = header.firstIndex(of: "variant")
             for line in lines.dropFirst() {
                 let fields = line.split(separator: ",", omittingEmptySubsequences: false)
                 guard fields.count > max(label, file) else { continue }
@@ -57,7 +63,10 @@ public struct TrainingSet {
                 guard isOwnPicture(String(fields[file])) else { continue }
                 let url = session.folder.appendingPathComponent(String(fields[file]))
                 guard FileManager.default.fileExists(atPath: url.path) else { continue }
-                entries.append(Entry(file: url, session: session.name, closed: fields[label] == EyeLabel.closed.rawValue))
+                var entry = Entry(file: url, session: session.name, closed: fields[label] == EyeLabel.closed.rawValue)
+                if let phase, fields.count > phase { entry.phase = Int(fields[phase]) }
+                if let variant, fields.count > variant { entry.variant = String(fields[variant]) }
+                entries.append(entry)
             }
         }
         return entries

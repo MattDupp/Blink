@@ -14,6 +14,12 @@ public enum TrainingSilence {
 public enum TrainingProgress: Codable, Equatable {
     /// Reading the pictures from disk.
     case reading(done: Int, total: Int)
+    /// Checking each pose before learning from it (`PoseCheck`): passes made by the
+    /// models that judge them, of all they will make.
+    case checkingPoses(done: Int, of: Int)
+    /// Poses read the other way without doubt: nothing was learned, the person is asked
+    /// to record them again or to leave them out.
+    case flagged([PoseFlag])
     /// A pass over every picture has ended. `seconds`: since learning began.
     case learning(pass: Int, of: Int, loss: Float, seconds: Double)
     /// Learning is over: the model that will run is compared with the one that learned.
@@ -46,7 +52,10 @@ public enum TrainingProgress: Codable, Equatable {
 
 /// One whole training, from the sessions on disk to a model ready to install:
 ///
-///     read the pictures -> learn (30 passes) -> check -> write eyenet.weights + model.json
+///     read the pictures -> check the poses -> learn (30 passes) -> check -> write eyenet.weights + model.json
+///
+/// THE POSES are checked first (`PoseCheck`): a pose held the wrong way stops the training
+/// before anything is learned from it, and the person is asked what to do.
 ///
 /// THE CHECK is this route's version of what training/convert.py does for the Python
 /// route. The network exists twice: `EyeTrainer` learns on the graphics processor, and
@@ -65,7 +74,7 @@ public enum TrainingRun {
     static let fewestRightOnOwnPictures = 0.9
 
     /// Trains on the sessions under `root` and writes the model into `folder`.
-    /// Returns what was written, or nil after reporting `.failed`.
+    /// Returns what was written, or nil after reporting `.failed` or `.flagged`.
     @discardableResult
     public static func run(sessions root: URL, into folder: URL, seed: UInt64 = 20_261_121, passes: Int = TrainingRun.passes,
                            report: @escaping (TrainingProgress) -> Void) -> ModelInfo? {
@@ -86,6 +95,14 @@ public enum TrainingRun {
         guard open >= fewestPicturesOfAKind, closed >= fewestPicturesOfAKind else {
             return fail("There are too few pictures to learn from: \(open) with the eyes open and \(closed) with the eyes closed. "
                         + "Record your eyes first.")
+        }
+        guard EyeTrainer.isAvailable else {
+            return fail("This Mac has no graphics processor that training can use: it needs a Mac with an Apple chip.")
+        }
+        let flagged = PoseCheck.run(set: set, root: root, seed: seed, passes: passes, report: report)
+        guard flagged.isEmpty else {
+            report(.flagged(flagged))
+            return nil
         }
         guard let trainer = EyeTrainer(seed: seed) else {
             return fail("This Mac has no graphics processor that training can use: it needs a Mac with an Apple chip.")

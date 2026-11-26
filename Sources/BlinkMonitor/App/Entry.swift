@@ -20,6 +20,8 @@ import BlinkCore
 ///       --demo                             made-up eyes: no camera, no model (make demo)
 ///       --play-setup                       with --demo: the setup goes through itself on painted
 ///                                          eyes, with no click (its steps are in the log)
+///       --painted-mistake                  with --demo: the painted eyes stay open through the last
+///                                          pose of the second recording, once (`PoseCheck`)
 ///       --tour [--tour-pace=<seconds>]     with --demo: the app walks through its main screens
 ///                                          by itself, in a fixed order, to be filmed (`Tour`)
 ///     BlinkMonitor --snapshots=<folder>    render every screen to PNG with made-up data, then quit

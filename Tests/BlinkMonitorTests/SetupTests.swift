@@ -298,6 +298,43 @@ struct SetupTests {
         bench.setup.close()
     }
 
+    @Test("A pose read the other way stops the training: recording it again asks for that pose only; leaving it out writes the answer and trains again")
+    func poseFlagged() throws {
+        let bench = Bench()
+        try bench.record("20270101-090000", pictures: bench.parts.pace.fullSessionPictures)
+        try bench.record("20270101-100000", pictures: bench.parts.pace.fullSessionPictures)
+        bench.monitor.preferences.welcomed = true
+        bench.setup.open()
+        bench.setup.cameraLooksRight()
+        bench.setup.train()
+
+        let flag = PoseFlag(session: "20270101-100000", phase: 15, label: .closed, variant: "tilt", pictures: 60, score: 0.01)
+        bench.setup.trainerSaid(.checkingPoses(done: 8, of: 32))
+        #expect(bench.setup.training == .checkingPoses(done: 8, of: 32) && bench.setup.posesChecked)
+        #expect(bench.setup.trainingUnderWay)
+        bench.setup.trainerSaid(.flagged([flag]))
+        #expect(bench.setup.training == .flagged([flag]))
+        #expect(!bench.setup.trainingUnderWay && bench.setup.info == nil)
+        #expect(bench.setup.recordingNumber(of: flag) == 2)
+
+        // What the page says: where, what was seen, and what it would teach.
+        #expect(PoseFlagWords.title(1) == "One pose needs another try" && PoseFlagWords.title(2) == "Two poses need another try")
+        #expect(PoseFlagWords.place(flag, recording: 2) == "Recording 2, pose 16: “Close your eyes. Keep your head tilted.”")
+        #expect(PoseFlagWords.seen(flag).contains("the eyes look open"))
+        #expect(PoseFlagWords.seen(PoseFlag(session: "a", phase: 0, label: .open, variant: "screen", pictures: 60, score: 0)).contains("look closed"))
+        #expect(PoseFlagWords.recordAgain(2) == "Record Them Again" && PoseFlagWords.leaveOut(1) == "Leave It Out")
+
+        bench.setup.recordAgain()
+        #expect(bench.setup.step == .record && bench.setup.redo == [flag] && bench.setup.training == .waiting)
+
+        // Changed your mind: leave it out from the recording page.
+        bench.setup.leaveOut()
+        #expect(bench.setup.redo.isEmpty && bench.setup.step == .train)
+        let lines = RecordFile<PoseCheckLine>(in: bench.parts.sessionsRoot.appendingPathComponent(flag.session)).load()
+        #expect(lines.map(\.verdict) == [.leftOut] && lines.first?.phase == 15)
+        bench.setup.close()
+    }
+
     // MARK: The test
 
     @Test("A test that fails leaves the choice to you; using the model anyway is written down")
@@ -412,6 +449,47 @@ struct SetupTests {
         #expect(bench.parts.store.info()?.isAccepted == true)
         #expect(ModelSource.resolve(store: bench.parts.store, given: nil, builtIn: bench.base) != .none)
         await wait(2, for: "the app leaving setup") { bench.monitor.setupStage == nil }
+        setup.close()
+    }
+
+    @Test("On painted eyes, a closed pose held with open eyes is flagged, recorded again, and the setup ends with a model",
+          .enabled(if: EyeTrainer.isAvailable && ProcessInfo.processInfo.environment["CI"] == nil,
+                   "no graphics processor to train on, or a machine it was not tried on"))
+    func poseHeldOpen() async throws {
+        let bench = Bench()
+        let last = SessionScript.phases.count - 1
+        bench.painted.keepEyesOpen(session: 1, phase: last)
+        let setup = bench.setup
+        setup.open()
+        setup.begin()
+        await wait(5, for: "a steady face") { setup.canLeaveCameraCheck }
+        setup.cameraLooksRight()
+        for session in 1...2 {
+            await wait(5, for: "a face before session \(session)") { setup.canStartSession }
+            setup.startSession()
+            await wait(30, for: "the end of session \(session)") { !setup.sessionRunning }
+        }
+        #expect(setup.sessions.count == 2)
+
+        setup.train()
+        await wait(120, for: "the pose check") { setup.trainingOver }
+        guard case .flagged(let flags) = setup.training else {
+            Issue.record("expected the pose held open to be flagged, the training said \(setup.training)")
+            return
+        }
+        #expect(flags.map(\.phase) == [last] && flags.map(\.session) == [setup.sessions[1].name])
+        #expect(setup.info == nil)                                       // nothing was learned
+
+        setup.recordAgain()
+        await wait(5, for: "a face before recording again") { setup.canStartSession }
+        setup.startRedo()
+        await wait(120, for: "the training after recording again") { !setup.sessionRunning && setup.step == .train && setup.trainingOver }
+        #expect(setup.training == .done)
+        let folder = setup.sessions[1].folder
+        let verdicts = RecordFile<PoseCheckLine>(in: folder).load().filter { $0.phase == last }.map(\.verdict)
+        #expect(verdicts == [.flagged, .again, .kept])
+        // The pictures of the first try are kept aside, not deleted.
+        #expect(TrainingSet.list(root: folder).count == flags[0].pictures)
         setup.close()
     }
 }

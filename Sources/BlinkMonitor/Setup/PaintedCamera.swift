@@ -23,6 +23,10 @@ struct PaintedPerson {
     private var act = PaintedAct.look
     private var blink: (start: Double, end: Double)?
     private var random = SeededRandom(seed: 20_261_121)
+    /// A closed pose that will be held with the eyes open, once: (recording, pose), both
+    /// counted from 0. What `PoseCheck` is there to catch.
+    var mistake: (session: Int, phase: Int)?
+    private var eyesStayOpen = false
 
     /// A blink of about 130 ms, 250 ms after the tick: four closed frames, like a real one.
     mutating func follow(_ act: PaintedAct, at time: Double) {
@@ -31,6 +35,12 @@ struct PaintedPerson {
         } else {
             self.act = act
             blink = nil
+            eyesStayOpen = false
+            if case .hold(let phase, let session) = act, let mistake, mistake.session == session,
+               SessionScript.phases.firstIndex(of: phase) == mistake.phase {
+                eyesStayOpen = true
+                self.mistake = nil            // asked again, the pose is held as asked
+            }
         }
     }
 
@@ -54,6 +64,7 @@ struct PaintedPerson {
             case "tight": eye.scale = 0.95
             default: break
             }
+            if eyesStayOpen { eye.openness = 0.9 }
         }
         if let blink, time >= blink.start, time < blink.end { eye.openness = 0 }
         // Nobody holds perfectly still.
@@ -112,6 +123,12 @@ final class PaintedCamera: @unchecked Sendable {
     func follow(_ act: PaintedAct) {
         let time = ProcessInfo.processInfo.systemUptime
         person.withLock { $0.follow(act, at: time) }
+    }
+
+    /// The painted person will keep its eyes open through one closed pose, the first time
+    /// it is asked for (`--painted-mistake`, and the tests of `PoseCheck`).
+    func keepEyesOpen(session: Int, phase: Int) {
+        person.withLock { $0.mistake = (session, phase) }
     }
 
     /// One frame's eyes, found and cut out.

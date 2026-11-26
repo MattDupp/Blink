@@ -147,6 +147,8 @@ enum Snapshots {
             ("setup-train-failed", setup(.trainingFailed)),
             ("setup-train-failed-again", setup(.trainingFailedAgain)),
             ("setup-trained", setup(.trained)),
+            ("setup-train-pose-flagged", setup(.poseFlagged)),
+            ("setup-record-pose-again", setup(.recordPoseAgain)),
             ("setup-test", setup(.testReady)),
             ("setup-test-running", setup(.testRunning)),
             ("setup-test-passed", setup(.testPassed)),

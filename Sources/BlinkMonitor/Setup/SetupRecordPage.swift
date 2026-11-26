@@ -65,6 +65,16 @@ struct RecordPage: View {
             Button("Stop") { model.stopSession() }
                 .controlSize(.large)
                 .help("Ends this recording. It is kept if most of it was done.")
+        } else if !model.redo.isEmpty {
+            Button("Play the Voice") { model.playVoice() }
+                .controlSize(.large)
+            Button(PoseFlagWords.leaveOut(model.redo.count)) { model.leaveOut() }
+                .controlSize(.large)
+                .help(PoseFlagWords.leaveOutHelp)
+            Button(PoseFlagWords.recordAgain(model.redo.count)) { model.startRedo() }
+                .mainButton()
+                .controlSize(.large)
+                .disabled(!model.canStartSession)
         } else if model.enoughSessions {
             Button("Play the Voice") { model.playVoice() }
                 .controlSize(.large)
@@ -93,7 +103,7 @@ private struct SessionBanner: View {
     private var phase: Phase { SessionScript.phases[min(model.phaseIndex, SessionScript.phases.count - 1)] }
 
     private var tint: Color {
-        guard model.sessionRunning else { return model.sessionNote == nil ? .accentColor : .orange }
+        guard model.sessionRunning else { return model.sessionNote == nil && model.redo.isEmpty ? .accentColor : .orange }
         return phase.label == .open ? .green : .indigo
     }
 
@@ -110,7 +120,8 @@ private struct SessionBanner: View {
         VStack(alignment: .leading, spacing: 8) {
             if model.sessionRunning {
                 HStack {
-                    Text("Recording \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
+                    Text(model.redoRecording.map { "Recording \($0), pose \(model.phaseIndex + 1) again" }
+                         ?? "Recording \(model.nextSession), pose \(model.phaseIndex + 1) of \(SessionScript.phases.count)")
                         .textStyle(.headline)
                     Spacer()
                     if model.phaseState == .recording {
@@ -163,6 +174,13 @@ private struct SessionBanner: View {
     /// Between sessions: what a session is, what to change before the next, what comes after.
     private var guidance: (title: String, lines: [String]) {
         let recorded = model.sessions.count
+        if !model.redo.isEmpty {
+            // A pose held the wrong way (`PoseCheck`): only it is asked for.
+            let places = model.redo.map { PoseFlagWords.place($0, recording: model.recordingNumber(of: $0)) }
+            return (model.redo.count == 1 ? "Record one pose again" : "Record \(Format.word(model.redo.count)) poses again",
+                    places + ["The voice asks for it as before. The training starts again by itself afterwards. "
+                              + "The first pictures of that pose are kept aside, not deleted."])
+        }
         if model.sessionNote != nil {
             // The session that just ended was not kept: the note above says why.
             return ("Record again", [])

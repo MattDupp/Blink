@@ -511,7 +511,7 @@ takes and why.
 |---|---|---|
 | Camera | You see the camera with a square on each eye, and three checks: a face in view, eyes large enough, enough light. macOS asks for the camera here. | half a minute |
 | Record | A voice asks for 16 poses, eyes open and closed, three seconds each. Then once more in another light. Every picture is saved with the pose you were asked for: that is how the model gets the right answer. If the camera loses your face during a pose, the voice says so and asks for that pose once more. The display stays awake meanwhile. | two minutes, twice |
-| Train | The model is trained on this Mac. The window shows the passes, the time left as measured on your Mac, and your own pictures as the model is shown them. | seconds: 22 for four sessions on an M5 Pro, about half for two |
+| Train | First each pose is checked: a pose where your eyes did not do what the voice asked (open through "Close your eyes") is named, to record again or leave out. Then the model is trained on this Mac. The window shows the passes, the time left as measured on your Mac, and your own pictures as the model is shown them. | seconds: 22 for four sessions on an M5 Pro, about half for two, plus about 25 for the check of the first two |
 | Test | Ten ticks, and you blink at each. The ring fills with every blink the model counts, and the eye in the menu bar blinks with you. | fifteen seconds |
 
 <p align="center">
@@ -598,6 +598,7 @@ disagrees with. Many will be blinks you made during an "eyes open" pose. Delete 
 | "Setup" in the panel, and "!" in the menu bar | The app has no model of your eyes yet. *Set Up Blink* (or *Continue Setup*) in the panel opens the window where you left it. |
 | "No face found" in the setup | The camera in use has to face you. With more than one camera, the camera page of the setup and Settings > General let you choose. |
 | "The camera lost your face for about 42% of that recording" | Your face left the picture during some poses. The recording is not kept: record it again. |
+| "One pose needs another try" | In that pose your eyes looked open where the voice asked you to close them, or the other way round. A model that learned it would count blinks that did not happen, or miss real ones. *Record It Again* asks for that pose only; *Leave It Out* trains without it. Its first pictures are kept aside in the recording's folder, not deleted. |
 | "The training stopped" | Press *Try Again*. Your recordings are untouched and no half-made model is installed. If it stops a second time, the window shows what the trainer said. |
 | The test counts fewer than 8 of 10 | Test again first: a missed tick is the usual reason. If it fails twice, record one more where you sit now: the model then learns from eyes in that light. |
 | *"Blink" Not Opened* | macOS stops a downloaded app that Apple has not scanned. See [If macOS stops it](#if-macos-stops-it). |

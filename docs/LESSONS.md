@@ -1,4 +1,4 @@
-# Eleven things this project taught me
+# Twelve things this project taught me
 
 Each of these looked fine until something was measured or looked at. The numbers are from
 my own recordings: one person, one morning.
@@ -403,3 +403,37 @@ recording them, so a recording with no blink while nodding is what would settle 
 **What I keep from it:** a trace that keeps only the answers can say that something is
 wrong, not why. Keeping where each stage looked turned one symptom into two causes, and
 one measurement, the eyes' movement, told both apart from a blink.
+
+## 12. A pose held the wrong way
+
+The model I trained in the app counted far worse than the one trained in Python on the
+same eyes. The main cause was one pose. My second recording ends with "Close your eyes.
+Keep your head tilted.", and in all 60 of its pictures my eyes are wide open. The
+recording's timing was normal: I simply kept them open. Nothing checked a pose against
+its label, so the model learned open eyes as closed, and on six marked captures it counted
+14 to 25 blinks that did not happen. Trained again without that pose: 0 to 3.
+
+Lesson 1 found blinks inside "eyes open" poses: a few pictures. This was a whole pose. So
+the setup now shows each pose to a model that did not learn from it, before training
+(`PoseCheck`). Which model took two measurements, 256 trainings with the app's own
+trainer on my six recordings:
+
+- **A model trained on the other recording** caught the pose (60 of 60 pictures read
+  open) but was not usable: having seen my eyes in one light only, it misread good poses
+  in the other. In 14 of 21 pairs of recordings it flagged one, some on every picture.
+- **Four models, each trained on both recordings minus a group of poses**, have seen both
+  lights. Judged by "most pictures read the other way", they still flagged a good pose in
+  29 of 37 trials: they are often unsure, and unsure is not wrong. Judged by "read the
+  other way without doubt", with the keyboard pose left out, none in 37 trials, and 14 of
+  16 mistakes caught (my real one and 15 planted by swapping a pose's pictures for its
+  neighbour's).
+
+I looked at the pictures before trusting either number. The good pose flagged most often,
+"look down at the keyboard", shows open eyes with the lid low: the script chose that pose
+to look almost closed, and it does to the check too. My "eyes closed, head turned", read
+as half open, shows plainly closed eyes.
+
+**What I keep from it:** labelling by instruction trusts that the person did what the
+voice said, and nobody watches while they do it. A check that can be wrong too must say
+how sure it is: only "without doubt" separated the mistakes from the poses that are merely
+hard to read.

@@ -54,6 +54,11 @@ final class SetupModel: ObservableObject {
     enum Training: Equatable {
         case waiting
         case reading(done: Int, total: Int)
+        /// Each pose is checked before anything is learned from it (`PoseCheck`).
+        case checkingPoses(done: Int, of: Int)
+        /// Poses read the other way without doubt: you choose to record them again or to
+        /// leave them out. Nothing was learned.
+        case flagged([PoseFlag])
         /// `secondsLeft`: measured from the passes already made; nil during the first one.
         case learning(pass: Int, of: Int, secondsLeft: Double?)
         case checking
@@ -132,6 +137,12 @@ final class SetupModel: ObservableObject {
         /// The Mac's sound is muted or at zero: the voice would not be heard.
         var soundMuted = false
         var training = Training.waiting
+        /// This training began by checking poses: the progress bar gives them its first half.
+        var posesChecked = false
+        /// Poses to record again (`PoseCheck`): the recording page asks for these only.
+        var redo: [PoseFlag] = []
+        /// While a pose is recorded again: its recording, counted from 1.
+        var redoRecording: Int?
         /// A few of your pictures as the model is shown them during this pass: altered.
         var alteredSamples: [CGImage] = []
         /// The training has said nothing for ten seconds: "Still working…".
@@ -262,6 +273,9 @@ final class SetupModel: ObservableObject {
         rescan()
         facts.problem = nil
         facts.sessionNote = nil
+        // A pose still to record again is on disk (its last line says "flagged"): the next
+        // training names it again. Nothing of it is carried in memory.
+        facts.redo = []
         failedTrainings = 0
         switch purpose {
         case .resume, .atLaunch:
@@ -453,20 +467,21 @@ final class SetupModel: ObservableObject {
     /// A training is under way (for the question asked before quitting).
     var trainingUnderWay: Bool {
         guard isOpen, facts.step == .train else { return false }
+        return !trainingOver
+    }
+
+    /// The training has ended, one way or another: a model, a failure, or poses to answer for.
+    var trainingOver: Bool {
         switch facts.training {
-        case .done, .failed: return false
-        default: return true
+        case .done, .failed, .flagged: return true
+        default: return false
         }
     }
 
     /// Has the training said nothing for a while? Asked once a second.
     @discardableResult
     func checkTraining(now: Date = Date()) -> Bool {
-        let working: Bool
-        switch facts.training {
-        case .done, .failed: working = false
-        default: working = facts.step == .train
-        }
+        let working = !trainingOver && facts.step == .train
         let silent = working && TrainingSilence.isSilent(lastWord: lastTrainingWord, now: now)
         if silent != facts.trainingSilent { facts.trainingSilent = silent }
         return working
@@ -629,41 +644,7 @@ final class SetupModel: ObservableObject {
 
         facts.lostPoses = []
         for (index, phase) in SessionScript.phases.enumerated() {
-            // A POSE THAT LOST THE FACE IS ASKED FOR AGAIN, ONCE. Chin down, head turned,
-            // leaned back: the poses themselves are what hides a face from the camera, and
-            // the person has their eyes closed. Before this, nothing was said until the
-            // whole session was refused two minutes later.
-            for attempt in 0..<2 {
-                if Task.isCancelled { break }
-                facts.phaseIndex = index
-                facts.phaseState = .listening
-                parts.painted?.follow(.hold(phase, session: number))
-                if attempt > 0, pace.spoken { await speaker.say(SessionCheck.faceLostWords) }
-                if attempt == 0, pace.spoken, let words = SessionScript.progressWords(before: index) { await speaker.say(words) }
-                if pace.spoken { await speaker.say(phase.instruction) }
-                if Task.isCancelled { break }
-
-                facts.phaseState = .settling
-                // A steady change of brightness ends here, a second before pictures are
-                // taken again: the screen lights the face, and the camera needs a moment.
-                if facts.glow != 0, reduceMotion() { facts.glow = 0 }
-                await pause(pace.settleSeconds)
-                if Task.isCancelled { break }
-
-                facts.phaseState = .recording
-                let before = facts.sessionOpen + facts.sessionClosed
-                withAnimation(.linear(duration: pace.recordSeconds)) { facts.recordProgress = 1 }
-                pipeline.setRecording(SessionPipeline.Recording(writer: writer, phaseIndex: index, phase: phase))
-                await pause(pace.recordSeconds)
-                pipeline.setRecording(nil)
-                facts.recordProgress = 0
-                if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
-                if !Task.isCancelled { show(PoseSignal.atEnd(of: phase.label, pace: pace, reduceMotion: reduceMotion())) }
-
-                if Task.isCancelled { break }
-                if SessionCheck.poseIsWhole(pictures: facts.sessionOpen + facts.sessionClosed - before, pace: pace) { break }
-                if attempt == 1 { facts.lostPoses.append(phase) }
-            }
+            guard await recordPose(index, phase, into: writer, session: number) else { break }
         }
 
         pipeline.setRecording(nil)
@@ -678,6 +659,50 @@ final class SetupModel: ObservableObject {
         if reduceMotion(), facts.glow != 0 { facts.glow = 0 }
         await pause(0.1)                         // the last frames' counts are on their way
         sessionEnded(folder: writer.folder, stopped: stopped)
+    }
+
+    /// One pose: the voice, a moment to get into it, then its pictures. Returns false when
+    /// the recording was stopped. `session`: which recording it is, counted from 0.
+    ///
+    /// A POSE THAT LOST THE FACE IS ASKED FOR AGAIN, ONCE. Chin down, head turned, leaned
+    /// back: the poses themselves are what hides a face from the camera, and the person has
+    /// their eyes closed. Before this, nothing was said until the whole session was refused
+    /// two minutes later.
+    private func recordPose(_ index: Int, _ phase: Phase, into writer: SessionWriter, session number: Int,
+                            progressWords: Bool = true) async -> Bool {
+        let pace = parts.pace
+        for attempt in 0..<2 {
+            if Task.isCancelled { return false }
+            facts.phaseIndex = index
+            facts.phaseState = .listening
+            parts.painted?.follow(.hold(phase, session: number))
+            if attempt > 0, pace.spoken { await speaker.say(SessionCheck.faceLostWords) }
+            if attempt == 0, progressWords, pace.spoken, let words = SessionScript.progressWords(before: index) { await speaker.say(words) }
+            if pace.spoken { await speaker.say(phase.instruction) }
+            if Task.isCancelled { return false }
+
+            facts.phaseState = .settling
+            // A steady change of brightness ends here, a second before pictures are
+            // taken again: the screen lights the face, and the camera needs a moment.
+            if facts.glow != 0, reduceMotion() { facts.glow = 0 }
+            await pause(pace.settleSeconds)
+            if Task.isCancelled { return false }
+
+            facts.phaseState = .recording
+            let before = facts.sessionOpen + facts.sessionClosed
+            withAnimation(.linear(duration: pace.recordSeconds)) { facts.recordProgress = 1 }
+            pipeline.setRecording(SessionPipeline.Recording(writer: writer, phaseIndex: index, phase: phase))
+            await pause(pace.recordSeconds)
+            pipeline.setRecording(nil)
+            facts.recordProgress = 0
+            if pace.spoken { NSSound(named: "Tink")?.play() }   // audible with eyes closed: "this pose is done"
+            if !Task.isCancelled { show(PoseSignal.atEnd(of: phase.label, pace: pace, reduceMotion: reduceMotion())) }
+
+            if Task.isCancelled { return false }
+            if SessionCheck.poseIsWhole(pictures: facts.sessionOpen + facts.sessionClosed - before, pace: pace) { return true }
+            if attempt == 1 { facts.lostPoses.append(phase) }
+        }
+        return true
     }
 
     /// A session is over: keep it if it is whole, say why not otherwise.
@@ -716,6 +741,7 @@ final class SetupModel: ObservableObject {
     private func startTraining() {
         job?.cancel()
         facts.training = .waiting
+        facts.posesChecked = false
         lastTrainingWord = Date()
         facts.trainingSilent = false
         // The camera's own timer is off during a training: this one asks once a second,
@@ -749,6 +775,14 @@ final class SetupModel: ObservableObject {
         switch progress {
         case .reading(let done, let total):
             facts.training = .reading(done: done, total: total)
+        case .checkingPoses(let done, let of):
+            facts.posesChecked = true
+            facts.training = .checkingPoses(done: done, of: of)
+        case .flagged(let flags):
+            job = nil
+            parts.store.discardStaging()
+            facts.training = .flagged(flags)
+            Log.app.notice("Setup: \(flags.count, privacy: .public) poses read the other way")
         case .learning(let pass, let of, _, let seconds):
             // The time left is measured, not guessed: the passes made so far say how long
             // one takes on THIS Mac. The first includes warming up, so it is not trusted alone.
@@ -799,6 +833,94 @@ final class SetupModel: ObservableObject {
             PictureAlteration.apply(source, into: &altered, random: &random)
             return TrainingSet.image(fromGray: altered)
         }
+    }
+
+    // MARK: - A pose held the wrong way
+
+    /// The recording a flagged pose belongs to, counted from 1 (nil: not among those kept).
+    func recordingNumber(of flag: PoseFlag) -> Int? {
+        facts.sessions.firstIndex { $0.name == flag.session }.map { $0 + 1 }
+    }
+
+    /// "Record It Again", on the training page: back to the camera, for the flagged poses only.
+    func recordAgain() {
+        guard facts.step == .train, case .flagged(let flags) = facts.training else { return }
+        facts.redo = flags
+        facts.training = .waiting
+        facts.sessionNote = nil
+        enter(.record)
+    }
+
+    /// "Leave It Out": the flagged poses' pictures are set aside in their recordings (not
+    /// deleted), and the training starts again without them.
+    func leaveOut() {
+        var flags = facts.redo
+        if facts.step == .train, case .flagged(let flagged) = facts.training { flags = flagged }
+        guard !flags.isEmpty, !facts.sessionRunning else { return }
+        do {
+            for flag in flags { try PoseCheck.answer(flag, recordAgain: false, root: parts.sessionsRoot) }
+        } catch {
+            Log.app.error("Setup: a pose could not be set aside: \(error.localizedDescription, privacy: .private)")   // a path
+            facts.training = .failed(reason: "The pictures of that pose could not be set aside: \(error.localizedDescription)", attempts: 1)
+            enter(.train)
+            return
+        }
+        facts.redo = []
+        rescan()
+        train()
+    }
+
+    /// "Record It Again", on the recording page: the voice asks for each flagged pose once more.
+    func startRedo() {
+        guard canStartSession, !facts.redo.isEmpty else { return }
+        facts.sessionRunning = true
+        stayAwake("Recording a pose of the setup again")
+        sessionTask = Task {
+            let finished = await runRedo()
+            facts.sessionRunning = false
+            letSleep()
+            if finished { train() }
+        }
+    }
+
+    /// Each flagged pose: its pictures set aside, then the pose recorded again into its own
+    /// recording, in the same light as far as the room allows. Returns false when stopped.
+    private func runRedo() async -> Bool {
+        let flags = facts.redo
+        (facts.sessionOpen, facts.sessionClosed) = (0, 0)
+        facts.problem = nil
+        facts.sessionNote = nil
+        facts.lostPoses = []
+        facts.phaseState = .listening
+        if parts.pace.spoken { await speaker.say("Once more. Follow my voice.") }
+        var stopped = Task.isCancelled
+        for flag in flags where !stopped && SessionScript.phases.indices.contains(flag.phase) {
+            let number = (recordingNumber(of: flag) ?? 1) - 1
+            do {
+                try PoseCheck.answer(flag, recordAgain: true, root: parts.sessionsRoot)
+                let writer = try SessionWriter(root: parts.sessionsRoot, session: flag.session, condition: "")
+                facts.redoRecording = number + 1
+                stopped = await !recordPose(flag.phase, SessionScript.phases[flag.phase], into: writer, session: number, progressWords: false)
+            } catch {
+                facts.problem = "The recording could not be saved: \(error.localizedDescription)"
+                stopped = true
+            }
+        }
+
+        pipeline.setRecording(nil)
+        parts.painted?.follow(.look)
+        facts.phaseState = .idle
+        facts.recordProgress = 0
+        facts.redoRecording = nil
+        if stopped { facts.glow = 0 }
+        if !stopped && parts.pace.spoken { await speaker.say("Finished. You can open your eyes.") }
+        if reduceMotion(), facts.glow != 0 { facts.glow = 0 }
+        await pause(0.1)                         // the last frames' counts are on their way
+        // Stopped: the page is back to "enough to train". What was recorded of the pose is
+        // in its recording, and the next training checks it.
+        facts.redo = []
+        rescan()
+        return !stopped
     }
 
     // MARK: - The test
@@ -898,7 +1020,17 @@ final class SetupModel: ObservableObject {
             if facts.sessionNote != nil { return }
         }
         train()
-        guard await wait(for: "the training", { self.facts.training == .done || self.failedTrainings > 0 }) else { return }
+        guard await wait(for: "the training", { self.trainingOver }) else { return }
+        if case .flagged(let flags) = facts.training {
+            // A pose held the wrong way (`--painted-mistake`): it is recorded again, once.
+            Log.app.notice("Setup by itself: \(flags.count, privacy: .public) poses read the other way, recorded again")
+            recordAgain()
+            guard await wait(for: "a face before recording again", { self.canStartSession }) else { return }
+            startRedo()
+            guard await wait(for: "the training after recording again", {
+                !self.facts.sessionRunning && self.facts.step == .train && self.trainingOver
+            }) else { return }
+        }
         guard facts.training == .done, let trained = facts.info else {
             Log.app.error("Setup by itself: the training failed")
             return

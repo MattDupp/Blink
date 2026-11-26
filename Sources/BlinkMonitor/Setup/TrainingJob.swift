@@ -47,7 +47,7 @@ final class TrainingJob {
     /// One of the helper's outputs is still being read (the tests ask).
     var isReading: Bool { readers.contains(where: \.isReading) }
 
-    /// `report` is called on the main thread; its last call is `.finished` or `.failed`.
+    /// `report` is called on the main thread; its last call is `.finished`, `.failed` or `.flagged`.
     init(way: Way = .usual, sessions: URL, staging: URL, passes: Int = TrainingRun.passes,
          report: @escaping (TrainingProgress) -> Void) {
         self.way = way
@@ -117,10 +117,10 @@ final class TrainingJob {
     private func received(_ progress: TrainingProgress) {
         guard !over else { return }
         switch progress {
-        case .finished, .failed:
+        case .finished, .failed, .flagged:
             over = true
             silence?.invalidate()
-        case .reading, .learning, .checking:
+        case .reading, .checkingPoses, .learning, .checking:
             listenForSilence()
         }
         report(progress)

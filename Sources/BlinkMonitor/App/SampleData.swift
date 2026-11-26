@@ -218,11 +218,25 @@ enum SampleData {
                                                      accepted: $0 >= ProofTest.passMark) })
     }
 
+    /// The last pose of a recording, held with open eyes and flagged (`PoseCheck`): the
+    /// numbers of the case that made the check (2026-11-25).
+    static func flaggedPose(in session: SessionSummary) -> PoseFlag {
+        let last = SessionScript.phases.count - 1
+        return PoseFlag(session: session.name, phase: last, label: .closed, variant: SessionScript.phases[last].variant,
+                        pictures: 60, score: 0.01)
+    }
+
     /// Where the demo's setup writes: the demo's own scratch folder (`DataPlace`). Painted
     /// sessions and the model trained on them must never reach the user's own files.
     static func demoSetupParts(monitor: MonitorModel) -> SetupModel.Parts {
-        SetupModel.Parts(monitor: monitor, store: monitor.place.models, sessionsRoot: monitor.place.sessions,
-                         pace: .painted, painted: PaintedCamera())
+        let painted = PaintedCamera()
+        // `--painted-mistake`: the last pose of the second recording is held with the eyes
+        // open, so that the pose check flags it and it is recorded again.
+        if LaunchArguments.has("painted-mistake") {
+            painted.keepEyesOpen(session: 1, phase: SessionScript.phases.count - 1)
+        }
+        return SetupModel.Parts(monitor: monitor, store: monitor.place.models, sessionsRoot: monitor.place.sessions,
+                                pace: .painted, painted: painted)
     }
 
     /// The moments of the setup that the screenshots show.
@@ -231,6 +245,7 @@ enum SampleData {
         case camera, cameraNoFace, cameraDark, cameraRefused
         case recordFirst, recordMuted, recording, poseEnded, recordShort, recordNext, recordEnough
         case training, trainingFailed, trainingFailedAgain, trained
+        case poseFlagged, recordPoseAgain
         case testReady, testRunning, testPassed, testFailed
         case done
     }
@@ -321,6 +336,15 @@ enum SampleData {
             state.info = modelInfo(now: now, found: nil)
             state.training = .done
             state.alteredSamples = alteredSamples(pass: 0)
+        case .poseFlagged:
+            // The mistake the pose check was made for: the last pose, held with open eyes.
+            state.step = .train
+            state.sessions = [first, second]
+            state.training = .flagged([flaggedPose(in: second)])
+        case .recordPoseAgain:
+            state.step = .record
+            state.sessions = [first, second]
+            state.redo = [flaggedPose(in: second)]
         case .testReady:
             state.step = .proof
             state.info = modelInfo(now: now, found: nil)

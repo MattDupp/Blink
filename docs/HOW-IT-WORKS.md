@@ -46,6 +46,33 @@ than it, so nothing here shows where a model starts to fail.
 view, so a session that holds under 70% of what it can was partly recorded on an empty
 chair. It is not kept, and the window says to record it again.
 
+**Before training, each pose is checked** (`Sources/BlinkCore/Training/PoseCheck.swift`).
+The labels come from the instructions, so a pose done the wrong way, eyes open through
+"Close your eyes", is learned as labelled. It happened to the author: one such pose, 60 pictures,
+made the model count 14 to 25 false blinks on six marked captures where a training without
+it counted 0 to 3 ([lesson 12](LESSONS.md)). So each pose is shown to a model that did
+not learn from it. With two recordings, four models each learn from twelve poses of both
+and judge the four they did not see; a recording added later is judged by one model
+trained on three or more checked ones. A pose read the other way **without doubt** is
+named on the training page, to be recorded again or left out. Its pictures move to the
+recording's `left-out` folder: nothing is deleted.
+
+Measured on the author's six recordings with the app's own trainer, with the real mistake and 15
+planted ones (a pose's pictures swapped for its neighbour's, under the wrong label):
+
+| Which model judges | Good poses flagged | Mistakes caught |
+|---|---|---|
+| One trained on the other recording | in 14 of 21 pairs | |
+| Four, each without a group of poses, "most pictures read the other way" | in 29 of 37 trials | 15 of 16 |
+| The same four, "without doubt", keyboard pose not judged (the rule) | none in 37 trials | 14 of 16 |
+
+The keyboard pose ("Look down at the keyboard, without closing your eyes") is not judged:
+it was chosen to look almost closed, and the check read it as closed in two of the six
+recordings, where the pictures show open eyes looking down. Both mistakes missed involve
+it. The margin is thin (the highest mistake caught scored 0.023, the lowest good pose
+0.053, the limit is 0.03) and was chosen on these same numbers: it is a starting value.
+The check adds about 25 seconds to the first training on an M5 Pro.
+
 **The end of a pose is a sound, and a change of light.** The eyes are closed for half of a
 recording, so the end of a pose is a sound. For someone who cannot hear it, the window also
 changes its brightness once when a closed-eye pose ends: light passes closed eyelids
