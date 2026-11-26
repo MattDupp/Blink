@@ -37,9 +37,13 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 DRAGGED := "/Applications/Blink.app" "$(HOME)/Applications/Blink.app" \
            "/Applications/Blink Monitor.app" "$(HOME)/Applications/Blink Monitor.app"
 
-# Recipes run in bash, and a failing command fails its recipe even when its output is filtered.
-SHELL := /bin/bash
-.SHELLFLAGS := -o pipefail -c
+# Recipes run in bash, and a failing command fails its recipe even when its output is
+# filtered: with pipefail, a pipe like `swift test $(QUIET)` fails when any part of it does,
+# not only its last one, grep.
+# The option is written in SHELL itself. The make that comes with macOS is GNU Make 3.81,
+# which ignores .SHELLFLAGS (3.82 added it): written there, the option did nothing, and CI
+# passed with a failing Swift test, on 24 and 26 November 2026.
+SHELL := /bin/bash -o pipefail
 
 .DEFAULT_GOAL := help
 .PHONY: help doctor demo demo-tour build test lint format recorder train improve evaluate compare replay monitor monitor-app one-copy uninstall dmg snapshots icon clean
